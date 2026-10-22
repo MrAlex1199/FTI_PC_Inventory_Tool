@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FTI PC Inventory Tool</title>
+  <style>
+    :root {
+      --bg-base: #060a14;
+      --bg-surface: rgba(15, 23, 42, 0.75);
+      --bg-surface-elevated: rgba(30, 41, 59, 0.7);
+      --bg-input: rgba(15, 23, 42, 0.6);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(6, 182, 212, 0.5);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-cyan: #06b6d4;
+      --accent-cyan-glow: rgba(6, 182, 212, 0.25);
+      --accent-emerald: #10b981;
+      --accent-emerald-glow: rgba(16, 185, 129, 0.25);
+      --accent-amber: #f59e0b;
+      --accent-amber-glow: rgba(245, 158, 11, 0.25);
+      --accent-rose: #f43f5e;
+      --accent-rose-glow: rgba(244, 63, 94, 0.25);
+      --accent-blue: #3b82f6;
+      --glass-blur: blur(20px);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-full: 9999px;
+      --font-stack: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    }
+
+    html.light {
+      --bg-base: #f1f5f9;
+      --bg-surface: rgba(255, 255, 255, 0.85);
+      --bg-surface-elevated: rgba(241, 245, 249, 0.9);
+      --bg-input: rgba(255, 255, 255, 0.9);
+      --border-subtle: rgba(0, 0, 0, 0.08);
+      --border-focus: rgba(37, 99, 235, 0.5);
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --accent-cyan: #0284c7;
+      --accent-cyan-glow: rgba(2, 132, 199, 0.2);
+      --accent-emerald: #059669;
+      --accent-emerald-glow: rgba(5, 150, 105, 0.2);
+      --accent-amber: #d97706;
+      --accent-amber-glow: rgba(217, 119, 6, 0.2);
+      --accent-rose: #e11d48;
+      --accent-rose-glow: rgba(225, 29, 72, 0.2);
+      --accent-blue: #2563eb;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-stack);
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(circle at 10% 15%, rgba(6, 182, 212, 0.12) 0%, transparent 35%),
+        radial-gradient(circle at 90% 85%, rgba(99, 102, 241, 0.12) 0%, transparent 40%);
+      background-attachment: fixed;
+      transition: background-color 0.3s ease, color 0.3s ease;
+      user-select: none;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.5); }
+
+    /* Top Navigation / Hero */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      background: var(--bg-surface);
+      backdrop-filter: var(--glass-blur);
+      border-bottom: 1px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, #0284c7, #06b6d4);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px var(--accent-cyan-glow);
+    }
+
+    .brand-icon svg { width: 24px; height: 24px; stroke: #fff; fill: none; }
+
+    .brand-text h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-text p {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: var(--radius-full);
+      font-size: 0.75rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+    .badge-pill.admin {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+    .badge-pill.warning {
+      background: rgba(244, 63, 94, 0.15);
+      color: #f43f5e;
+      border-color: rgba(244, 63, 94, 0.3);
+    }
+
+    .btn-icon-theme {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-icon-theme:hover {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 12px var(--accent-cyan-glow);
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 20px;
+      padding: 20px 28px 100px;
+      max-width: 1680px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* Glass Cards */
+    .glass-card {
+      background: var(--bg-surface);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px 18px;
+      position: relative;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .glass-card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .card-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .card-title svg { width: 17px; height: 17px; stroke: var(--accent-cyan); }
+
+    /* Left Sidebar: Settings */
+    .sidebar-col {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      max-height: calc(100vh - 165px);
+      padding-right: 4px;
+    }
+
+    .form-group {
+      margin-bottom: 8px;
+    }
+    .form-group:last-child { margin-bottom: 0; }
+
+    .form-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    /* Radio Options */
+    .radio-card-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .radio-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .radio-card.active {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 14px var(--accent-cyan-glow);
+      background: rgba(6, 182, 212, 0.08);
+    }
+    .radio-card input { margin-top: 3px; accent-color: var(--accent-cyan); }
+    .radio-text .title { font-size: 0.85rem; font-weight: 600; color: var(--text-main); }
+    .radio-text .desc { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* Inputs */
+    .input-box {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-box:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan-glow);
+    }
+
+    .input-with-btn {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-secondary {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 8px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover {
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    /* Switch Toggles */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-info .name { font-size: 0.84rem; font-weight: 600; color: var(--text-main); }
+    .toggle-info .sub { font-size: 0.72rem; color: var(--text-muted); }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 22px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(148, 163, 184, 0.3);
+      transition: .3s;
+      border-radius: 34px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: var(--accent-cyan);
+      box-shadow: 0 0 10px var(--accent-cyan-glow);
+    }
+    input:checked + .slider:before {
+      transform: translateX(16px);
+    }
+
+    /* Right Main: Command Center */
+    .command-center {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* StatCards Row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .stat-card {
+      background: var(--bg-surface);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 4px; height: 100%;
+    }
+    .stat-card.total::before { background: var(--accent-cyan); box-shadow: 0 0 12px var(--accent-cyan-glow); }
+    .stat-card.ok::before { background: var(--accent-emerald); box-shadow: 0 0 12px var(--accent-emerald-glow); }
+    .stat-card.offline::before { background: var(--accent-amber); box-shadow: 0 0 12px var(--accent-amber-glow); }
+    .stat-card.error::before { background: var(--accent-rose); box-shadow: 0 0 12px var(--accent-rose-glow); }
+
+    .stat-meta .label { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+    .stat-meta .num { font-size: 1.85rem; font-weight: 800; color: var(--text-main); margin-top: 2px; }
+    .stat-card.total .num { color: var(--accent-cyan); }
+    .stat-card.ok .num { color: var(--accent-emerald); }
+    .stat-card.offline .num { color: var(--accent-amber); }
+    .stat-card.error .num { color: var(--accent-rose); }
+
+    .stat-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-surface-elevated);
+    }
+    .stat-icon svg { width: 22px; height: 22px; fill: none; }
+    .stat-card.total .stat-icon svg { stroke: var(--accent-cyan); }
+    .stat-card.ok .stat-icon svg { stroke: var(--accent-emerald); }
+    .stat-card.offline .stat-icon svg { stroke: var(--accent-amber); }
+    .stat-card.error .stat-icon svg { stroke: var(--accent-rose); }
+
+    /* Center Middle: Progress Ring + Live Table */
+    .mid-grid {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 20px;
+    }
+
+    .progress-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .ring-wrapper {
+      position: relative;
+      width: 150px;
+      height: 150px;
+    }
+    .ring-wrapper svg {
+      transform: rotate(-90deg);
+      width: 150px;
+      height: 150px;
+    }
+    .ring-bg {
+      fill: none;
+      stroke: var(--border-subtle);
+      stroke-width: 10;
+    }
+    .ring-progress {
+      fill: none;
+      stroke: url(#cyanEmerald);
+      stroke-width: 10;
+      stroke-linecap: round;
+      stroke-dasharray: 408;
+      stroke-dashoffset: 408;
+      transition: stroke-dashoffset 0.4s ease;
+    }
+
+    .ring-content {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .ring-percent { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; }
+    .ring-status { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
+    .scan-status-msg {
+      margin-top: 16px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-main);
+      max-width: 220px;
+      word-break: break-all;
+    }
+    .scan-elapsed-pill {
+      margin-top: 8px;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      background: var(--bg-surface-elevated);
+      color: var(--text-muted);
+    }
+
+    /* Live Results Table */
+    .table-container {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .table-header-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      gap: 12px;
+    }
+    .search-wrap {
+      flex: 1;
+      max-width: 280px;
+      position: relative;
+    }
+    .search-wrap input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px 6px 32px;
+      font-size: 0.8rem;
+      color: var(--text-main);
+      outline: none;
+    }
+    .search-wrap svg {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 14px;
+      height: 14px;
+      stroke: var(--text-muted);
+      fill: none;
+    }
+
+    .filter-pills {
+      display: flex;
+      gap: 6px;
+    }
+    .filter-btn {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      padding: 5px 10px;
+      font-size: 0.72rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-btn.active {
+      background: var(--accent-cyan);
+      color: #fff;
+      border-color: var(--accent-cyan);
+    }
+
+    .table-scroll {
+      flex: 1;
+      max-height: 250px;
+      overflow-y: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    th {
+      background: var(--bg-surface-elevated);
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-muted);
+      position: sticky;
+      top: 0;
+      border-bottom: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+    td {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      white-space: nowrap;
+    }
+    tr:hover td { background: rgba(255, 255, 255, 0.03); }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: var(--radius-full);
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+    .status-badge.ok { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+    .status-badge.offline { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .status-badge.error { background: rgba(244, 63, 94, 0.15); color: #f43f5e; }
+
+    /* Terminal Console Drawer */
+    .terminal-card {
+      display: flex;
+      flex-direction: column;
+      padding: 14px 18px;
+    }
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+    .terminal-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+    .terminal-title svg { width: 16px; height: 16px; stroke: var(--accent-cyan); fill: none; }
+    .terminal-actions { display: flex; gap: 8px; align-items: center; }
+
+    .terminal-body {
+      margin-top: 10px;
+      height: 140px;
+      background: #050811;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      font-family: 'Consolas', monospace;
+      font-size: 0.78rem;
+      overflow-y: auto;
+      line-height: 1.5;
+      color: #e2e8f0;
+      transition: height 0.3s ease;
+    }
+    .terminal-body.collapsed { display: none; }
+    .terminal-line { margin-bottom: 2px; }
+    .terminal-time { color: #64748b; margin-right: 6px; }
+    .terminal-info { color: #38bdf8; }
+    .terminal-success { color: #10b981; }
+    .terminal-warn { color: #fbbf24; }
+    .terminal-error { color: #f87171; }
+
+    /* Sticky Bottom Glass Dock */
+    .bottom-dock {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--bg-surface);
+      backdrop-filter: var(--glass-blur);
+      border-top: 1px solid var(--border-subtle);
+      padding: 12px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 40;
+    }
+
+    .dock-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .dock-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #06b6d4);
+      color: #fff;
+      border: none;
+      padding: 10px 24px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px var(--accent-cyan-glow);
+      transition: all 0.2s;
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
+    }
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-danger {
+      background: rgba(244, 63, 94, 0.15);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+      color: #f43f5e;
+      padding: 10px 18px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-danger:hover:not(:disabled) {
+      background: rgba(244, 63, 94, 0.25);
+    }
+    .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Modal / Alert Toast */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .toast {
+      background: var(--bg-surface);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.85rem;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  </style>
+</head>
+<body>
+
+  <!-- SVG Gradient Definitions -->
+  <svg style="position: absolute; width: 0; height: 0;" aria-hidden="true">
+    <defs>
+      <linearGradient id="cyanEmerald" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#06b6d4" />
+        <stop offset="100%" stop-color="#10b981" />
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <!-- Header -->
+  <header>
+    <div class="brand-wrap">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>FTI PC Inventory Tool <span style="font-size: 0.65rem; background: rgba(6, 182, 212, 0.2); color: var(--accent-cyan); padding: 2px 6px; border-radius: 4px;">v2.0 Web Engine</span></h1>
+        <p>สแกนข้อมูล Hardware และ Installed Software ของเครื่องในโดเมน ออกรายงาน CSV / HTML</p>
+      </div>
+    </div>
+
+    <div class="top-actions">
+      <div id="adminBadge" class="badge-pill admin">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>Administrator</span>
+      </div>
+
+      <button id="themeToggle" class="btn-icon-theme" title="สลับ Dark / Light Mode">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <main>
+    <!-- Left Sidebar: Settings -->
+    <div class="sidebar-col">
+      <!-- Card 1: Target Computers -->
+      <div class="glass-card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          1. แหล่งรายชื่อเครื่องเป้าหมาย
+        </div>
+
+        <div class="radio-card-group">
+          <label class="radio-card active" id="lblSourceAD">
+            <input type="radio" name="source" value="ad" checked id="rbAD">
+            <div class="radio-text">
+              <div class="title">Active Directory (AD)</div>
+              <div class="desc">ดึงอัตโนมัติจากโดเมนเฉพาะเครื่องที่เข้าใช้งานล่าสุด</div>
+            </div>
+          </label>
+
+          <div id="boxAdDays" style="padding-left: 28px; margin-top: 4px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 0.78rem; color: var(--text-muted);">เข้าใช้งานภายใน:</span>
+              <input type="number" id="numDays" value="30" min="1" max="365" class="input-box" style="width: 70px; padding: 4px 8px;">
+              <span style="font-size: 0.78rem; color: var(--text-muted);">วันล่าสุด</span>
+            </div>
+          </div>
+
+          <label class="radio-card" id="lblSourceFile" style="margin-top: 8px;">
+            <input type="radio" name="source" value="file" id="rbFile">
+            <div class="radio-text">
+              <div class="title">ระบุไฟล์รายชื่อ (.txt)</div>
+              <div class="desc">ใส่รายชื่อคอมพิวเตอร์เครื่องละบรรทัด (เช่น pcs.txt)</div>
+            </div>
+          </label>
+
+          <div id="boxListFile" style="padding-left: 28px; margin-top: 4px; display: none;">
+            <div class="input-with-btn">
+              <input type="text" id="txtListFile" placeholder="เลือกไฟล์ pcs.txt..." class="input-box" readonly>
+              <button class="btn-secondary" id="btnBrowseFile">เลือกไฟล์...</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Scan Scope -->
+      <div class="glass-card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          2. สิ่งที่จะสแกน (Scope)
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="name">สแกนข้อมูล Hardware</div>
+            <div class="sub">CPU, RAM, Disks, GPU, Serial, OS, IP</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="chkHw" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="name">สแกนรายการ Software ที่ติดตั้ง</div>
+            <div class="sub">WinRM ความเร็วสูง + DCOM Fallback</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="chkSw" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Sub Software Settings -->
+        <div id="swSubBox" style="margin-top: 12px; padding: 12px; background: var(--bg-surface-elevated); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <div class="form-group">
+            <label class="form-label">กรองชื่อโปรแกรม (ใส่ * ได้ เช่น *Office* หรือ *):</label>
+            <input type="text" id="txtNameFilter" value="*" class="input-box">
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.78rem; cursor: pointer;">
+              <input type="checkbox" id="chkUser" style="accent-color: var(--accent-cyan);">
+              <span>รวมโปรแกรมที่ลงเฉพาะ User (สแกนโปรไฟล์ที่ Login)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.78rem; cursor: pointer;">
+              <input type="checkbox" id="chkHidden" style="accent-color: var(--accent-cyan);">
+              <span>รวม System components & Windows Updates</span>
+            </label>
+          </div>
+
+          <div style="margin-top: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 0.78rem; color: var(--text-muted);">Throttle (สแกน WinRM พร้อมกัน):</span>
+            <input type="number" id="numThrottle" value="20" min="1" max="100" class="input-box" style="width: 60px; padding: 4px 6px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Output -->
+      <div class="glass-card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          3. โฟลเดอร์ผลลัพธ์ (Output)
+        </div>
+
+        <div class="input-with-btn">
+          <input type="text" id="txtOutDir" value="C:\Inventory" class="input-box">
+          <button class="btn-secondary" id="btnBrowseFolder">เลือกโฟลเดอร์...</button>
+        </div>
+
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 0.78rem; cursor: pointer; margin-top: 12px;">
+          <input type="checkbox" id="chkAutoHtml" checked style="accent-color: var(--accent-cyan);">
+          <span>เปิดรายงาน HTML (Software_ByPC) อัตโนมัติเมื่อเสร็จ</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Right Column: Command Center -->
+    <div class="command-center">
+      <!-- 4 StatCards -->
+      <div class="stats-row">
+        <div class="stat-card total">
+          <div class="stat-meta">
+            <div class="label">เครื่องทั้งหมด (Total)</div>
+            <div class="num" id="statTotal">0</div>
+          </div>
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+        </div>
+
+        <div class="stat-card ok">
+          <div class="stat-meta">
+            <div class="label">สแกนสำเร็จ (OK)</div>
+            <div class="num" id="statOk">0</div>
+          </div>
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+        </div>
+
+        <div class="stat-card offline">
+          <div class="stat-meta">
+            <div class="label">ออฟไลน์ (Offline)</div>
+            <div class="num" id="statOffline">0</div>
+          </div>
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          </div>
+        </div>
+
+        <div class="stat-card error">
+          <div class="stat-meta">
+            <div class="label">ข้อผิดพลาด (Error)</div>
+            <div class="num" id="statError">0</div>
+          </div>
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mid Grid: Ring Progress + Live Results Table -->
+      <div class="mid-grid">
+        <!-- Circular Progress Ring -->
+        <div class="glass-card progress-panel">
+          <div class="ring-wrapper">
+            <svg>
+              <circle class="ring-bg" cx="75" cy="75" r="65" />
+              <circle id="ringCircle" class="ring-progress" cx="75" cy="75" r="65" />
+            </svg>
+            <div class="ring-content">
+              <div class="ring-percent" id="ringPercent">0%</div>
+              <div class="ring-status" id="ringStatus">พร้อมทำงาน</div>
+            </div>
+          </div>
+
+          <div class="scan-status-msg" id="scanCurrentMsg">กดปุ่มเริ่มสแกนเพื่อดำเนินการ</div>
+          <div class="scan-elapsed-pill" id="scanElapsed">เวลาที่ใช้: 00:00</div>
+        </div>
+
+        <!-- Live Results Table -->
+        <div class="glass-card table-container">
+          <div class="table-header-tools">
+            <div style="font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+              ตารางผลการสแกนสด (Live Grid)
+            </div>
+
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <div class="search-wrap">
+                <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="txtSearchTable" placeholder="ค้นหาเครื่อง, สเปก, IP...">
+              </div>
+
+              <div class="filter-pills">
+                <button class="filter-btn active" data-filter="all">ทั้งหมด</button>
+                <button class="filter-btn" data-filter="OK">OK</button>
+                <button class="filter-btn" data-filter="Offline">Offline</button>
+                <button class="filter-btn" data-filter="Error">Error</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-scroll">
+            <table id="resultsTable">
+              <thead>
+                <tr>
+                  <th>ชื่อเครื่อง (PC Name)</th>
+                  <th>สถานะ</th>
+                  <th>CPU / Cores</th>
+                  <th>RAM</th>
+                  <th>ระบบปฏิบัติการ (OS)</th>
+                  <th>IP Address</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                    ยังไม่มีข้อมูลผลการสแกน (กด "เริ่มสแกน" ด้านล่าง)
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Collapsible Live Terminal Log -->
+      <div class="glass-card terminal-card">
+        <div class="terminal-bar" id="terminalBar">
+          <div class="terminal-title">
+            <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            บันทึกการทำงานสด (Live Terminal Log)
+            <span id="logCountBadge" style="font-size: 0.7rem; color: var(--text-muted); background: var(--bg-surface-elevated); padding: 2px 6px; border-radius: 4px;">0 บันทึก</span>
+          </div>
+
+          <div class="terminal-actions">
+            <button class="btn-secondary" id="btnClearTerminal" style="padding: 4px 10px; font-size: 0.72rem;">ล้างบันทึก</button>
+            <button class="btn-secondary" id="btnToggleTerminal" style="padding: 4px 8px; font-size: 0.72rem;">
+              <svg id="chevronIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="terminal-body" id="terminalBody">
+          <div class="terminal-line"><span class="terminal-time">[00:00:00]</span> พร้อมสำหรับการสแกนเครือข่าย FTI PC Inventory Tool</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Sticky Bottom Dock -->
+  <div class="bottom-dock">
+    <div class="dock-left">
+      <span id="dockStatusDot" style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan-glow);"></span>
+      <span id="dockStatusText">ระบบพร้อมสแกน</span>
+    </div>
+
+    <div class="dock-actions">
+      <button class="btn-secondary" id="btnOpenFolder">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: -2px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        เปิดโฟลเดอร์ผลลัพธ์
+      </button>
+
+      <button class="btn-secondary" id="btnOpenHtmlReport" disabled>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: -2px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        ดูรายงาน HTML
+      </button>
+
+      <button class="btn-danger" id="btnCancelScan" disabled>
+        ⏹ ยกเลิก
+      </button>
+
+      <button class="btn-primary" id="btnStartScan">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        เริ่มสแกน
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    // State
+    let isScanning = false;
+    let pollTimer = null;
+    let allScannedPCs = [];
+    let currentFilter = 'all';
+    let searchQuery = '';
+
+    // Elements
+    const rbAD = document.getElementById('rbAD');
+    const rbFile = document.getElementById('rbFile');
+    const boxAdDays = document.getElementById('boxAdDays');
+    const boxListFile = document.getElementById('boxListFile');
+    const lblSourceAD = document.getElementById('lblSourceAD');
+    const lblSourceFile = document.getElementById('lblSourceFile');
+    const chkSw = document.getElementById('chkSw');
+    const swSubBox = document.getElementById('swSubBox');
+    const btnStartScan = document.getElementById('btnStartScan');
+    const btnCancelScan = document.getElementById('btnCancelScan');
+    const btnOpenFolder = document.getElementById('btnOpenFolder');
+    const btnOpenHtmlReport = document.getElementById('btnOpenHtmlReport');
+    const btnBrowseFile = document.getElementById('btnBrowseFile');
+    const btnBrowseFolder = document.getElementById('btnBrowseFolder');
+    const txtListFile = document.getElementById('txtListFile');
+    const txtOutDir = document.getElementById('txtOutDir');
+    const terminalBody = document.getElementById('terminalBody');
+    const btnClearTerminal = document.getElementById('btnClearTerminal');
+    const btnToggleTerminal = document.getElementById('btnToggleTerminal');
+    const chevronIcon = document.getElementById('chevronIcon');
+    const ringCircle = document.getElementById('ringCircle');
+    const ringPercent = document.getElementById('ringPercent');
+    const ringStatus = document.getElementById('ringStatus');
+    const scanCurrentMsg = document.getElementById('scanCurrentMsg');
+    const scanElapsed = document.getElementById('scanElapsed');
+    const statTotal = document.getElementById('statTotal');
+    const statOk = document.getElementById('statOk');
+    const statOffline = document.getElementById('statOffline');
+    const statError = document.getElementById('statError');
+    const tableBody = document.getElementById('tableBody');
+    const txtSearchTable = document.getElementById('txtSearchTable');
+    const dockStatusText = document.getElementById('dockStatusText');
+    const dockStatusDot = document.getElementById('dockStatusDot');
+    const themeToggle = document.getElementById('themeToggle');
+
+    // Theme Switch
+    themeToggle.addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+      document.documentElement.classList.toggle('light');
+    });
+
+    // Source Card Selection
+    function updateSourceUI() {
+      if (rbAD.checked) {
+        lblSourceAD.classList.add('active');
+        lblSourceFile.classList.remove('active');
+        boxAdDays.style.display = 'block';
+        boxListFile.style.display = 'none';
+      } else {
+        lblSourceFile.classList.add('active');
+        lblSourceAD.classList.remove('active');
+        boxAdDays.style.display = 'none';
+        boxListFile.style.display = 'block';
+      }
+    }
+    rbAD.addEventListener('change', updateSourceUI);
+    rbFile.addEventListener('change', updateSourceUI);
+
+    // Software subbox toggle
+    chkSw.addEventListener('change', () => {
+      swSubBox.style.opacity = chkSw.checked ? '1' : '0.4';
+      swSubBox.style.pointerEvents = chkSw.checked ? 'auto' : 'none';
+    });
+
+    // Terminal Drawer Collapse
+    btnToggleTerminal.addEventListener('click', () => {
+      terminalBody.classList.toggle('collapsed');
+      chevronIcon.style.transform = terminalBody.classList.contains('collapsed') ? 'rotate(180deg)' : 'none';
+    });
+    btnClearTerminal.addEventListener('click', () => {
+      terminalBody.innerHTML = '';
+      document.getElementById('logCountBadge').innerText = '0 บันทึก';
+    });
+
+    // Toast helper
+    function showToast(msg, type = 'info') {
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.innerHTML = `<span>${msg}</span>`;
+      document.getElementById('toastContainer').appendChild(t);
+      setTimeout(() => { t.remove(); }, 3500);
+    }
+
+    // Append Log Line
+    function appendTerminalLog(msg, colorClass = '') {
+      const now = new Date();
+      const ts = now.toTimeString().split(' ')[0];
+      const div = document.createElement('div');
+      div.className = 'terminal-line';
+      div.innerHTML = `<span class="terminal-time">[${ts}]</span> <span class="${colorClass}">${msg}</span>`;
+      terminalBody.appendChild(div);
+      terminalBody.scrollTop = terminalBody.scrollHeight;
+
+      const lines = terminalBody.querySelectorAll('.terminal-line').length;
+      document.getElementById('logCountBadge').innerText = `${lines} บันทึก`;
+    }
+
+    // Set Progress Ring (Circumference = 2 * PI * 65 = ~408)
+    function setProgress(pct) {
+      const circ = 408;
+      const offset = circ - (pct / 100) * circ;
+      ringCircle.style.strokeDashoffset = offset;
+      ringPercent.innerText = `${Math.round(pct)}%`;
+    }
+
+    // Filter and Render Table
+    function renderTable() {
+      const filtered = allScannedPCs.filter(pc => {
+        const matchesFilter = (currentFilter === 'all') || (pc.Status === currentFilter);
+        const q = searchQuery.toLowerCase();
+        const matchesSearch = !q || 
+          (pc.PCName && pc.PCName.toLowerCase().includes(q)) ||
+          (pc.CPU && pc.CPU.toLowerCase().includes(q)) ||
+          (pc.OS && pc.OS.toLowerCase().includes(q)) ||
+          (pc.IP && pc.IP.toLowerCase().includes(q));
+        return matchesFilter && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">${allScannedPCs.length === 0 ? 'ยังไม่มีข้อมูลผลการสแกน' : 'ไม่พบข้อมูลที่ตรงกับการค้นหา'}</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = filtered.map(pc => {
+        let badgeClass = 'ok';
+        if (pc.Status === 'Offline') badgeClass = 'offline';
+        else if (pc.Status === 'Error') badgeClass = 'error';
+
+        return `
+          <tr>
+            <td style="font-weight: 600;">${pc.PCName || '-'}</td>
+            <td><span class="status-badge ${badgeClass}">${pc.Status || 'OK'}</span></td>
+            <td>${pc.CPU || '-'}</td>
+            <td>${pc.RAM_GB ? pc.RAM_GB + ' GB' : '-'}</td>
+            <td>${pc.OS || '-'}</td>
+            <td>${pc.IP || '-'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Search and Filter Listeners
+    txtSearchTable.addEventListener('input', (e) => {
+      searchQuery = e.target.value;
+      renderTable();
+    });
+
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.getAttribute('data-filter');
+        renderTable();
+      });
+    });
+
+    // Native Dialog Triggers via API
+    btnBrowseFile.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/browse-file', { method: 'POST' });
+        const data = await res.json();
+        if (data.file) {
+          txtListFile.value = data.file;
+        }
+      } catch (err) { }
+    });
+
+    btnBrowseFolder.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/api/browse-folder', { method: 'POST' });
+        const data = await res.json();
+        if (data.folder) {
+          txtOutDir.value = data.folder;
+        }
+      } catch (err) { }
+    });
+
+    btnOpenFolder.addEventListener('click', async () => {
+      try {
+        await fetch('/api/open-folder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folder: txtOutDir.value })
+        });
+      } catch (err) { }
+    });
+
+    btnOpenHtmlReport.addEventListener('click', async () => {
+      try {
+        await fetch('/api/open-report', { method: 'POST' });
+      } catch (err) { }
+    });
+
+    // Start Scan Action
+    btnStartScan.addEventListener('click', async () => {
+      if (!document.getElementById('chkHw').checked && !chkSw.checked) {
+        showToast('กรุณาเลือกอย่างน้อย 1 รายการ: Hardware หรือ Software', 'warning');
+        return;
+      }
+      if (rbFile.checked && !txtListFile.value.trim()) {
+        showToast('กรุณาระบุไฟล์รายชื่อเครื่อง (.txt)', 'warning');
+        return;
+      }
+
+      const payload = {
+        source: rbAD.checked ? 'ad' : 'file',
+        daysActive: parseInt(document.getElementById('numDays').value) || 30,
+        listFile: txtListFile.value.trim(),
+        scanHw: document.getElementById('chkHw').checked,
+        scanSw: chkSw.checked,
+        nameFilter: document.getElementById('txtNameFilter').value.trim() || '*',
+        includeUser: document.getElementById('chkUser').checked,
+        includeHidden: document.getElementById('chkHidden').checked,
+        throttle: parseInt(document.getElementById('numThrottle').value) || 20,
+        outDir: txtOutDir.value.trim() || 'C:\\Inventory',
+        autoHtml: document.getElementById('chkAutoHtml').checked
+      };
+
+      try {
+        btnStartScan.disabled = true;
+        btnCancelScan.disabled = false;
+        dockStatusText.innerText = 'กำลังเริ่มการสแกน...';
+        ringStatus.innerText = 'กำลังสแกน...';
+        scanCurrentMsg.innerText = 'กำลังเชื่อมต่อเครื่องในเครือข่าย...';
+        allScannedPCs = [];
+        renderTable();
+
+        const res = await fetch('/api/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const resp = await res.json();
+        if (resp.error) {
+          showToast(resp.error, 'error');
+          resetScanUI();
+          return;
+        }
+
+        isScanning = true;
+        startPolling();
+      } catch (err) {
+        showToast('ไม่สามารถเริ่มสแกนได้: ' + err.message, 'error');
+        resetScanUI();
+      }
+    });
+
+    // Cancel Scan Action
+    btnCancelScan.addEventListener('click', async () => {
+      if (confirm('คุณต้องการยกเลิกการสแกนใช่หรือไม่?')) {
+        try {
+          await fetch('/api/cancel', { method: 'POST' });
+          appendTerminalLog('[Cancelling...] กำลังหยุดการสแกนตามคำสั่ง', 'terminal-warn');
+        } catch (err) { }
+      }
+    });
+
+    function resetScanUI() {
+      isScanning = false;
+      btnStartScan.disabled = false;
+      btnCancelScan.disabled = true;
+      dockStatusText.innerText = 'ระบบพร้อมสแกน';
+      ringStatus.innerText = 'เสร็จสิ้น';
+    }
+
+    // Polling Loop
+    function startPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(async () => {
+        try {
+          const res = await fetch('/api/status');
+          const data = await res.json();
+
+          // Stats
+          statTotal.innerText = data.total || 0;
+          statOk.innerText = data.ok || 0;
+          statOffline.innerText = data.offline || 0;
+          statError.innerText = data.error || 0;
+
+          // Progress & Ring
+          setProgress(data.percent || 0);
+          if (data.elapsed) {
+            scanElapsed.innerText = `เวลาที่ใช้: ${data.elapsed}`;
+          }
+          if (data.currentActivity) {
+            scanCurrentMsg.innerText = data.currentActivity;
+          }
+
+          // New Logs
+          if (data.newLogs && data.newLogs.length > 0) {
+            data.newLogs.forEach(l => {
+              let cls = '';
+              if (l.includes('---') || l.includes('Method')) cls = 'terminal-info';
+              else if (l.includes('OK') || l.includes('done') || l.includes('Success')) cls = 'terminal-success';
+              else if (l.includes('WARNING') || l.includes('Offline')) cls = 'terminal-warn';
+              else if (l.includes('ERROR') || l.includes('Exception')) cls = 'terminal-error';
+              appendTerminalLog(l, cls);
+            });
+          }
+
+          // Scanned PCs updates
+          if (data.scannedPCs && data.scannedPCs.length > 0) {
+            allScannedPCs = data.scannedPCs;
+            renderTable();
+          }
+
+          // Enable HTML Report button if report is available
+          if (data.htmlReportReady) {
+            btnOpenHtmlReport.disabled = false;
+          }
+
+          // Check if finished
+          if (data.isCompleted && isScanning) {
+            resetScanUI();
+            dockStatusText.innerText = 'การสแกนเสร็จสมบูรณ์';
+            scanCurrentMsg.innerText = 'สแกนเสร็จสิ้นเรียบร้อยแล้ว';
+            showToast('การสแกนเสร็จสมบูรณ์เรียบร้อยแล้ว!', 'success');
+          }
+        } catch (err) {
+          // server might be restarting or busy
+        }
+      }, 800);
+    }
+
+    // Send exit signal on window close
+    window.addEventListener('beforeunload', () => {
+      try { navigator.sendBeacon('/api/exit'); } catch (e) {}
+    });
+
+    // Start background status polling immediately on page load
+    startPolling();
+  </script>
+</body>
+</html>

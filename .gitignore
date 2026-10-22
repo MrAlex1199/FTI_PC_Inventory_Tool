@@ -1,0 +1,21 @@
+# Build artifacts and binaries
+dist/*.exe
+dist/FTI_PC_Inventory*.exe
+build/*.exe
+build/merged.ps1
+*.ico.tmp
+
+# Logs and temporary files
+*.log
+*.tmp
+~*
+.vscode/
+.idea/
+
+# Edge Web profile cache
+fti_inventory_web_profile/
+
+# Operating System files
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
