@@ -53,6 +53,7 @@ for ($p = 52100; $p -le 52500; $p++) {
 if (-not $listener) {
     throw "Unable to bind HttpListener to any local port between 52100-52500."
 }
+Write-Host "APP_PORT=$port"
 
 # --- 4. Global State Tracking ---
 $script:psInstance      = $null
