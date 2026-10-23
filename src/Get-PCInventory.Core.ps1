@@ -11,10 +11,11 @@ param(
     [switch]$IncludeUserInstalls,
     [switch]$IncludeHidden,          # include system components + Windows updates in software list
     [string]$ComputerListFile,
-    [int]$DaysActive = 30,           # only PCs that logged on to the domain within N days (AD mode)
+    [int]$DaysActive = 30,           # only PCs that logged on to the domain within N days (AD mode, 0 = all)
     [int]$Throttle = 20,
     [string]$OutDir = 'C:\Inventory',
-    [switch]$FallbackToAD            # If ComputerListFile is empty, fallback to AD if set
+    [switch]$FallbackToAD,           # If ComputerListFile is empty, fallback to AD if set
+    [switch]$ScanLocalhost           # Scan current machine directly
 )
 
 $Software = -not $NoSoftware
@@ -26,9 +27,39 @@ $fHw = $null
 $fByPC = $null
 $fSoft = $null
 
+# --- Helper: Smart Connectivity Check (ICMP Ping + TCP 5985/135 Fallback) ---
+function Test-PCConnection([string]$computer) {
+    if ($computer -eq 'localhost' -or $computer -eq '127.0.0.1' -or $computer -eq $env:COMPUTERNAME) {
+        return $true
+    }
+    # 1. Quick ICMP ping
+    if (Test-Connection -ComputerName $computer -Count 1 -Quiet -ErrorAction SilentlyContinue) {
+        return $true
+    }
+    # 2. Smart Port Check: WinRM 5985 or RPC 135 (prevents false Offline if ICMP blocked)
+    foreach ($port in 5985, 135) {
+        try {
+            $tcp = New-Object System.Net.Sockets.TcpClient
+            $ar = $tcp.BeginConnect($computer, $port, $null, $null)
+            $wait = $ar.AsyncWaitHandle.WaitOne(800)
+            if ($wait -and $tcp.Connected) {
+                $tcp.EndConnect($ar)
+                $tcp.Close()
+                return $true
+            }
+            $tcp.Close()
+        } catch { }
+    }
+    return $false
+}
+
 # ================= 1) Computer list (works without RSAT) =================
-$useAD = -not $ComputerListFile
-if ($ComputerListFile) {
+$pcs = @()
+
+if ($ScanLocalhost) {
+    $pcs = @($env:COMPUTERNAME)
+}
+elseif ($ComputerListFile) {
     if (-not (Test-Path $ComputerListFile)) {
         Write-Warning "List file not found: $ComputerListFile"
         return [pscustomobject]@{ Status = 'Error'; Message = "List file not found: $ComputerListFile" }
@@ -37,27 +68,40 @@ if ($ComputerListFile) {
     if ($pcs.Count -eq 0) {
         Write-Warning "List file is empty: $ComputerListFile"
         if ($FallbackToAD) {
-            $useAD = $true
+            # continue to AD below
         } else {
             Write-Host 'Cancelled.'
             return [pscustomobject]@{ Status = 'Cancelled'; Message = 'List file is empty and FallbackToAD was not requested.' }
         }
     }
 }
-if ($useAD) {
-    $ft = (Get-Date).AddDays(-$DaysActive).ToFileTime()
-    $ds = [adsisearcher]"(&(objectCategory=computer)(operatingSystem=*Windows*)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(lastLogonTimestamp>=$ft))"
-    $ds.PageSize = 1000
-    [void]$ds.PropertiesToLoad.Add('name')
-    $pcs = $ds.FindAll() | ForEach-Object { $_.Properties['name'][0] } | Sort-Object
+
+if (-not $ScanLocalhost -and ($pcs.Count -eq 0)) {
+    # Active Directory mode
+    try {
+        $filterParts = @("objectCategory=computer", "operatingSystem=*Windows*", "!(userAccountControl:1.2.840.113556.1.4.803:=2)")
+        if ($DaysActive -gt 0) {
+            $ft = (Get-Date).AddDays(-$DaysActive).ToFileTime()
+            $filterParts += "lastLogonTimestamp>=$ft"
+        }
+        $ldapFilter = "(&(" + ($filterParts -join ")(") + "))"
+        $ds = [adsisearcher]$ldapFilter
+        $ds.PageSize = 1000
+        [void]$ds.PropertiesToLoad.Add('name')
+        $pcs = $ds.FindAll() | ForEach-Object { $_.Properties['name'][0] } | Sort-Object
+    } catch {
+        Write-Warning "Active Directory query error: $($_.Exception.Message)"
+        return [pscustomobject]@{ Status = 'Error'; Message = "Active Directory query error: $($_.Exception.Message)" }
+    }
 }
+
 Write-Host "Computers to scan: $($pcs.Count)"
 if ($pcs.Count -eq 0) {
     Write-Warning 'No computers found. Nothing to scan.'
     return [pscustomobject]@{ Status = 'Empty'; Message = 'No computers found.' }
 }
 
-# ================= 2) Hardware (original method: CIM over DCOM) =================
+# ================= 2) Hardware (CIM / DCOM) =================
 if (-not $SkipHardware) {
     Write-Host '--- Hardware scan ---'
     $i = 0
@@ -65,21 +109,34 @@ if (-not $SkipHardware) {
         $i++
         Write-Progress -Activity 'Hardware scan' -Status "$pc ($i/$($pcs.Count))" -PercentComplete (100 * $i / $pcs.Count)
 
-        if (-not (Test-Connection $pc -Count 1 -Quiet)) {
+        if (-not (Test-PCConnection $pc)) {
             [pscustomobject]@{ PCName = $pc; Status = 'Offline' }
             continue
         }
         try {
-            $opt = New-CimSessionOption -Protocol Dcom
-            $s = New-CimSession -ComputerName $pc -SessionOption $opt -ErrorAction Stop
-            $cs = Get-CimInstance Win32_ComputerSystem -CimSession $s
-            $bios = Get-CimInstance Win32_BIOS -CimSession $s
-            $os = Get-CimInstance Win32_OperatingSystem -CimSession $s
-            $cpu = Get-CimInstance Win32_Processor -CimSession $s | Select-Object -First 1
-            $disk = Get-CimInstance Win32_DiskDrive -CimSession $s
-            $gpu = Get-CimInstance Win32_VideoController -CimSession $s
-            $ram = Get-CimInstance Win32_PhysicalMemory -CimSession $s
-            $net = Get-CimInstance Win32_NetworkAdapterConfiguration -CimSession $s | Where-Object IPEnabled
+            $isLocal = ($pc -eq $env:COMPUTERNAME -or $pc -eq 'localhost' -or $pc -eq '127.0.0.1')
+            if ($isLocal) {
+                $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+                $bios = Get-CimInstance Win32_BIOS -ErrorAction Stop
+                $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+                $cpu = Get-CimInstance Win32_Processor -ErrorAction Stop | Select-Object -First 1
+                $disk = Get-CimInstance Win32_DiskDrive -ErrorAction Stop
+                $gpu = Get-CimInstance Win32_VideoController -ErrorAction Stop
+                $ram = Get-CimInstance Win32_PhysicalMemory -ErrorAction Stop
+                $net = Get-CimInstance Win32_NetworkAdapterConfiguration -ErrorAction Stop | Where-Object IPEnabled
+            } else {
+                $opt = New-CimSessionOption -Protocol Dcom
+                $s = New-CimSession -ComputerName $pc -SessionOption $opt -ErrorAction Stop
+                $cs = Get-CimInstance Win32_ComputerSystem -CimSession $s
+                $bios = Get-CimInstance Win32_BIOS -CimSession $s
+                $os = Get-CimInstance Win32_OperatingSystem -CimSession $s
+                $cpu = Get-CimInstance Win32_Processor -CimSession $s | Select-Object -First 1
+                $disk = Get-CimInstance Win32_DiskDrive -CimSession $s
+                $gpu = Get-CimInstance Win32_VideoController -CimSession $s
+                $ram = Get-CimInstance Win32_PhysicalMemory -CimSession $s
+                $net = Get-CimInstance Win32_NetworkAdapterConfiguration -CimSession $s | Where-Object IPEnabled
+                Remove-CimSession $s
+            }
 
             [pscustomobject]@{
                 PCName   = $cs.Name
@@ -99,7 +156,6 @@ if (-not $SkipHardware) {
                 MAC      = ($net.MACAddress) -join ', '
                 Scanned  = Get-Date -Format 'yyyy-MM-dd HH:mm'
             }
-            Remove-CimSession $s
         }
         catch {
             [pscustomobject]@{ PCName = $pc; Status = "Error: $($_.Exception.Message)" }
@@ -159,11 +215,20 @@ if ($Software) {
         }
     }
 
-    Write-Host 'Method A: WinRM ...'
-    $winrmErr = @()
-    $rows = @(Invoke-Command -ComputerName $pcs -ScriptBlock $remoteBlock `
-            -ArgumentList $IncludeUserInstalls.IsPresent, $IncludeHidden.IsPresent `
-            -ThrottleLimit $Throttle -ErrorAction SilentlyContinue -ErrorVariable winrmErr)
+    $rows = @()
+    if ($ScanLocalhost) {
+        Write-Host 'Local scan: reading software from registry directly ...'
+        $localResult = & $remoteBlock -IncludeUser $IncludeUserInstalls.IsPresent -IncludeHidden $IncludeHidden.IsPresent
+        $rows = @($localResult | ForEach-Object {
+            $_ | Add-Member -MemberType NoteProperty -Name 'PSComputerName' -Value $env:COMPUTERNAME -PassThru
+        })
+    } else {
+        Write-Host 'Method A: WinRM ...'
+        $winrmErr = @()
+        $rows = @(Invoke-Command -ComputerName $pcs -ScriptBlock $remoteBlock `
+                -ArgumentList $IncludeUserInstalls.IsPresent, $IncludeHidden.IsPresent `
+                -ThrottleLimit $Throttle -ErrorAction SilentlyContinue -ErrorVariable winrmErr)
+    }
 
     $all = New-Object System.Collections.Generic.List[object]
     $status = New-Object System.Collections.Generic.List[object]
@@ -240,7 +305,21 @@ if ($Software) {
         foreach ($pc in $failed) {
             $i++
             Write-Progress -Activity 'Software: DCOM fallback' -Status "$pc ($i/$($failed.Count))" -PercentComplete (100 * $i / $failed.Count)
-            if (-not (Test-Connection $pc -Count 1 -Quiet)) {
+            if ($pc -eq $env:COMPUTERNAME -or $pc -eq 'localhost' -or $pc -eq '127.0.0.1') {
+                try {
+                    $localRows = & $remoteBlock -IncludeUser $IncludeUserInstalls.IsPresent -IncludeHidden $IncludeHidden.IsPresent
+                    foreach ($r in $localRows) {
+                        $all.Add([pscustomobject]@{
+                            PCName = $pc; Name = $r.Name; Version = $r.Version; Publisher = $r.Publisher
+                            InstallDate = $r.InstallDate; InstallLocation = $r.InstallLocation; SizeMB = $r.SizeMB
+                            Arch = $r.Arch; Scope = $r.Scope; RegistryKey = $r.RegistryKey
+                        })
+                    }
+                    $status.Add([pscustomobject]@{ PCName = $pc; Status = 'OK-Local'; Count = $localRows.Count })
+                    continue
+                } catch { }
+            }
+            if (-not (Test-PCConnection $pc)) {
                 $status.Add([pscustomobject]@{ PCName = $pc; Status = 'Offline'; Count = 0 })
                 continue
             }

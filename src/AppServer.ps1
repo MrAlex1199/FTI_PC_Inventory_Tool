@@ -78,37 +78,48 @@ $script:sentLogIndex    = 0
 
 # --- Helper: Thread-Safe Native Dialogs ---
 function Show-NativeFileDialog() {
-    $fileResult = ''
-    $t = New-Object System.Threading.Thread([System.Threading.ThreadStart]{
+    $selected = ''
+    $dummy = $null
+    $dlg = $null
+    try {
+        $dummy = New-Object System.Windows.Forms.Form
+        $dummy.TopMost = $true
         $dlg = New-Object System.Windows.Forms.OpenFileDialog
         $dlg.Filter = 'Text files (*.txt)|*.txt|All files (*.*)|*.*'
         $dlg.Title = 'Select PC List File'
-        if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            $script:selectedFile = $dlg.FileName
+        if ($dlg.ShowDialog($dummy) -eq [System.Windows.Forms.DialogResult]::OK) {
+            $selected = $dlg.FileName
         }
-    })
-    $t.SetApartmentState([System.Threading.ApartmentState]::STA)
-    $t.Start()
-    $t.Join()
-    return $script:selectedFile
+    } catch { }
+    finally {
+        if ($dlg) { $dlg.Dispose() }
+        if ($dummy) { $dummy.Dispose() }
+    }
+    return $selected
 }
 
 function Show-NativeFolderDialog([string]$initialPath) {
-    $script:selectedFolder = ''
-    $t = New-Object System.Threading.Thread([System.Threading.ThreadStart]{
+    $selected = ''
+    $dummy = $null
+    $dlg = $null
+    try {
+        $dummy = New-Object System.Windows.Forms.Form
+        $dummy.TopMost = $true
         $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
         $dlg.Description = 'Select Output Directory'
+        $dlg.ShowNewFolderButton = $true
         if ($initialPath -and (Test-Path $initialPath)) {
             $dlg.SelectedPath = $initialPath
         }
-        if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-            $script:selectedFolder = $dlg.SelectedPath
+        if ($dlg.ShowDialog($dummy) -eq [System.Windows.Forms.DialogResult]::OK) {
+            $selected = $dlg.SelectedPath
         }
-    })
-    $t.SetApartmentState([System.Threading.ApartmentState]::STA)
-    $t.Start()
-    $t.Join()
-    return $script:selectedFolder
+    } catch { }
+    finally {
+        if ($dlg) { $dlg.Dispose() }
+        if ($dummy) { $dummy.Dispose() }
+    }
+    return $selected
 }
 
 # --- 5. Background Stream Pump Function ---
@@ -195,6 +206,10 @@ function Update-ScanProgress() {
                 $lastObj = $res[$res.Count - 1]
                 if ($lastObj -and $lastObj.SoftwareHtml) {
                     $script:lastHtmlReport = $lastObj.SoftwareHtml
+                }
+                if ($lastObj -and $lastObj.Status -eq 'Error') {
+                    $script:lastLogs.Add("[ERROR] $($lastObj.Message)")
+                    $script:errCount++
                 }
             }
         } catch {
@@ -372,7 +387,10 @@ while ($running) {
                 [void]$script:psInstance.AddParameter('Throttle', [int]$params.throttle)
                 [void]$script:psInstance.AddParameter('OutDir', [string]$params.outDir)
 
-                if ($params.source -eq 'file' -and $params.listFile) {
+                if ($params.source -eq 'localhost') {
+                    [void]$script:psInstance.AddParameter('ScanLocalhost', $true)
+                }
+                elseif ($params.source -eq 'file' -and $params.listFile) {
                     [void]$script:psInstance.AddParameter('ComputerListFile', [string]$params.listFile)
                 }
 

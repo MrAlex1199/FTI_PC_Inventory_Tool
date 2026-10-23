@@ -757,22 +757,33 @@
         </div>
 
         <div class="radio-card-group">
-          <label class="radio-card active" id="lblSourceAD">
-            <input type="radio" name="source" value="ad" checked id="rbAD">
+          <!-- Option 1: Localhost -->
+          <label class="radio-card active" id="lblSourceLocal">
+            <input type="radio" name="source" value="localhost" checked id="rbLocal">
             <div class="radio-text">
-              <div class="title">Active Directory (AD)</div>
-              <div class="desc">ดึงอัตโนมัติจากโดเมนเฉพาะเครื่องที่เข้าใช้งานล่าสุด</div>
+              <div class="title">เครื่องนี้เท่านั้น (Localhost / ทดสอบ)</div>
+              <div class="desc">สแกนเครื่องที่ใช้งานอยู่นี้ทันที เหมาะสำหรับการทดสอบ</div>
             </div>
           </label>
 
-          <div id="boxAdDays" style="padding-left: 28px; margin-top: 4px;">
+          <!-- Option 2: Active Directory -->
+          <label class="radio-card" id="lblSourceAD" style="margin-top: 8px;">
+            <input type="radio" name="source" value="ad" id="rbAD">
+            <div class="radio-text">
+              <div class="title">Active Directory (Domain)</div>
+              <div class="desc">ดึงอัตโนมัติจากโดเมนทั้งองค์กร (~200 เครื่อง)</div>
+            </div>
+          </label>
+
+          <div id="boxAdDays" style="padding-left: 28px; margin-top: 4px; display: none;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 0.78rem; color: var(--text-muted);">เข้าใช้งานภายใน:</span>
-              <input type="number" id="numDays" value="30" min="1" max="365" class="input-box" style="width: 70px; padding: 4px 8px;">
-              <span style="font-size: 0.78rem; color: var(--text-muted);">วันล่าสุด</span>
+              <input type="number" id="numDays" value="30" min="0" max="365" class="input-box" style="width: 70px; padding: 4px 8px;">
+              <span style="font-size: 0.78rem; color: var(--text-muted);">วันล่าสุด (ใส่ 0 = ทุกเครื่อง)</span>
             </div>
           </div>
 
+          <!-- Option 3: Text file -->
           <label class="radio-card" id="lblSourceFile" style="margin-top: 8px;">
             <input type="radio" name="source" value="file" id="rbFile">
             <div class="radio-text">
@@ -783,7 +794,7 @@
 
           <div id="boxListFile" style="padding-left: 28px; margin-top: 4px; display: none;">
             <div class="input-with-btn">
-              <input type="text" id="txtListFile" placeholder="เลือกไฟล์ pcs.txt..." class="input-box" readonly>
+              <input type="text" id="txtListFile" placeholder="เลือกไฟล์ pcs.txt หรือพิมพ์พาธ..." class="input-box">
               <button class="btn-secondary" id="btnBrowseFile">เลือกไฟล์...</button>
             </div>
           </div>
@@ -854,6 +865,13 @@
         <div class="input-with-btn">
           <input type="text" id="txtOutDir" value="C:\Inventory" class="input-box">
           <button class="btn-secondary" id="btnBrowseFolder">เลือกโฟลเดอร์...</button>
+        </div>
+
+        <div style="display: flex; gap: 6px; margin-top: 8px; align-items: center; flex-wrap: wrap;">
+          <span style="font-size: 0.72rem; color: var(--text-muted);">ทางลัดด่วน:</span>
+          <button type="button" class="btn-preset" id="presetInv" style="font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); color: var(--text-main); cursor: pointer;">C:\Inventory</button>
+          <button type="button" class="btn-preset" id="presetDInv" style="font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); color: var(--text-main); cursor: pointer;">D:\Inventory</button>
+          <button type="button" class="btn-preset" id="presetTemp" style="font-size: 0.72rem; padding: 3px 8px; border-radius: 4px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); color: var(--text-main); cursor: pointer;">C:\Temp</button>
         </div>
 
         <label style="display: flex; align-items: center; gap: 8px; font-size: 0.78rem; cursor: pointer; margin-top: 12px;">
@@ -1039,10 +1057,12 @@
     let searchQuery = '';
 
     // Elements
+    const rbLocal = document.getElementById('rbLocal');
     const rbAD = document.getElementById('rbAD');
     const rbFile = document.getElementById('rbFile');
     const boxAdDays = document.getElementById('boxAdDays');
     const boxListFile = document.getElementById('boxListFile');
+    const lblSourceLocal = document.getElementById('lblSourceLocal');
     const lblSourceAD = document.getElementById('lblSourceAD');
     const lblSourceFile = document.getElementById('lblSourceFile');
     const chkSw = document.getElementById('chkSw');
@@ -1082,20 +1102,30 @@
 
     // Source Card Selection
     function updateSourceUI() {
-      if (rbAD.checked) {
-        lblSourceAD.classList.add('active');
-        lblSourceFile.classList.remove('active');
-        boxAdDays.style.display = 'block';
-        boxListFile.style.display = 'none';
-      } else {
-        lblSourceFile.classList.add('active');
-        lblSourceAD.classList.remove('active');
-        boxAdDays.style.display = 'none';
-        boxListFile.style.display = 'block';
-      }
+      lblSourceLocal.classList.toggle('active', rbLocal.checked);
+      lblSourceAD.classList.toggle('active', rbAD.checked);
+      lblSourceFile.classList.toggle('active', rbFile.checked);
+
+      boxAdDays.style.display = rbAD.checked ? 'block' : 'none';
+      boxListFile.style.display = rbFile.checked ? 'block' : 'none';
     }
+    rbLocal.addEventListener('change', updateSourceUI);
     rbAD.addEventListener('change', updateSourceUI);
     rbFile.addEventListener('change', updateSourceUI);
+
+    // Preset Output Folders
+    document.getElementById('presetInv').addEventListener('click', () => {
+      txtOutDir.value = 'C:\\Inventory';
+      showToast('เลือกโฟลเดอร์: C:\\Inventory', 'info');
+    });
+    document.getElementById('presetDInv').addEventListener('click', () => {
+      txtOutDir.value = 'D:\\Inventory';
+      showToast('เลือกโฟลเดอร์: D:\\Inventory', 'info');
+    });
+    document.getElementById('presetTemp').addEventListener('click', () => {
+      txtOutDir.value = 'C:\\Temp';
+      showToast('เลือกโฟลเดอร์: C:\\Temp', 'info');
+    });
 
     // Software subbox toggle
     chkSw.addEventListener('change', () => {
@@ -1244,8 +1274,8 @@
       }
 
       const payload = {
-        source: rbAD.checked ? 'ad' : 'file',
-        daysActive: parseInt(document.getElementById('numDays').value) || 30,
+        source: rbLocal.checked ? 'localhost' : (rbAD.checked ? 'ad' : 'file'),
+        daysActive: parseInt(document.getElementById('numDays').value) || 0,
         listFile: txtListFile.value.trim(),
         scanHw: document.getElementById('chkHw').checked,
         scanSw: chkSw.checked,
