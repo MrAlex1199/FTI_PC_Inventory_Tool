@@ -707,6 +707,245 @@
       animation: slideIn 0.3s ease;
     }
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* In-App File/Folder Browser Modal */
+    .fs-modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(6, 10, 20, 0.78);
+      backdrop-filter: blur(16px);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      animation: fsFadeIn 0.2s ease-out;
+    }
+    .fs-modal-backdrop.active {
+      display: flex;
+    }
+    @keyframes fsFadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .fs-modal {
+      width: 100%;
+      max-width: 760px;
+      max-height: 85vh;
+      background: var(--bg-surface);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 1px 1px rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .fs-modal-header {
+      padding: 16px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .fs-modal-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-main);
+    }
+    .fs-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 6px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .fs-close-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .fs-nav-bar {
+      padding: 12px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(0, 0, 0, 0.15);
+    }
+    .fs-drives-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .fs-drive-badge {
+      padding: 5px 12px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.18s ease;
+    }
+    .fs-drive-badge:hover, .fs-drive-badge.active {
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      background: rgba(6, 182, 212, 0.1);
+    }
+    .fs-path-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .fs-path-input {
+      flex: 1;
+      padding: 8px 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      font-family: monospace, sans-serif;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .fs-path-input:focus {
+      border-color: var(--border-focus);
+    }
+    .fs-icon-btn {
+      padding: 8px 12px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.18s;
+      white-space: nowrap;
+    }
+    .fs-icon-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--accent-cyan);
+    }
+    .fs-list-container {
+      flex: 1;
+      min-height: 280px;
+      max-height: 380px;
+      overflow-y: auto;
+      padding: 12px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .fs-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.15s ease;
+    }
+    .fs-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.06);
+    }
+    .fs-item.selected {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+    .fs-item-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .fs-item-icon {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+    }
+    .fs-item-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    .fs-item-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      margin-left: 14px;
+      font-family: monospace;
+    }
+    .fs-empty-msg {
+      text-align: center;
+      padding: 40px 10px;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+    .fs-modal-footer {
+      padding: 16px 22px;
+      border-top: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.02);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .fs-selected-display {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+    .fs-selected-display b {
+      color: var(--text-main);
+    }
+    .fs-footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .fs-mkdir-row {
+      display: none;
+      padding: 8px 12px;
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid var(--accent-cyan);
+      border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+      align-items: center;
+      gap: 8px;
+    }
+    .fs-mkdir-row.active {
+      display: flex;
+    }
   </style>
 </head>
 <body>
@@ -1045,6 +1284,68 @@
     </div>
   </div>
 
+  <!-- In-App File & Folder Browser Modal -->
+  <div class="fs-modal-backdrop" id="fsModalBackdrop">
+    <div class="fs-modal">
+      <div class="fs-modal-header">
+        <div class="fs-modal-title" id="fsModalTitle">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span id="fsModalTitleText">เลือกโฟลเดอร์</span>
+        </div>
+        <button class="fs-close-btn" id="fsBtnClose" title="ปิด">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="fs-nav-bar">
+        <!-- Drive Badges -->
+        <div class="fs-drives-row" id="fsDrivesContainer"></div>
+
+        <!-- Path Bar & Quick Actions -->
+        <div class="fs-path-row">
+          <button class="fs-icon-btn" id="fsBtnUpLevel" title="ขึ้นไปหนึ่งระดับ (Parent folder)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            ขึ้นบน
+          </button>
+          <input type="text" class="fs-path-input" id="fsCurrentPathInput" spellcheck="false" placeholder="C:\...">
+          <button class="fs-icon-btn" id="fsBtnGoPath" title="ไปยังเส้นทางนี้">
+            ไป
+          </button>
+          <button class="fs-icon-btn" id="fsBtnNewFolder" title="สร้างโฟลเดอร์ใหม่">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            + โฟลเดอร์ใหม่
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Directory Content -->
+      <div class="fs-list-container" id="fsListContainer">
+        <!-- New Folder Inline Prompt Row -->
+        <div class="fs-mkdir-row" id="fsMkdirRow">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <input type="text" class="fs-path-input" id="fsNewFolderNameInput" placeholder="ระบุชื่อโฟลเดอร์ใหม่..." style="flex:1;">
+          <button class="btn-primary" id="fsBtnConfirmMkdir" style="padding: 6px 12px; font-size: 0.78rem;">สร้าง</button>
+          <button class="btn-secondary" id="fsBtnCancelMkdir" style="padding: 6px 10px; font-size: 0.78rem;">ยกเลิก</button>
+        </div>
+
+        <div id="fsItemsList"></div>
+      </div>
+
+      <div class="fs-modal-footer">
+        <div class="fs-selected-display" id="fsSelectedDisplay">
+          เลือก: <b id="fsSelectedPathText">-</b>
+        </div>
+        <div class="fs-footer-actions">
+          <button class="btn-secondary" id="fsBtnCancel">ยกเลิก</button>
+          <button class="btn-primary" id="fsBtnSelect">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            เลือก
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toastContainer"></div>
 
@@ -1225,25 +1526,221 @@
       });
     });
 
-    // Native Dialog Triggers via API
-    btnBrowseFile.addEventListener('click', async () => {
+    // ==========================================
+    // In-App File & Folder Browser Implementation
+    // ==========================================
+    let fsMode = 'folder'; // 'folder' | 'file'
+    let fsCurrentPath = '';
+    let fsParentPath = null;
+    let fsSelectedPath = '';
+    let fsTargetInputElement = null;
+
+    const fsModalBackdrop = document.getElementById('fsModalBackdrop');
+    const fsModalTitleText = document.getElementById('fsModalTitleText');
+    const fsDrivesContainer = document.getElementById('fsDrivesContainer');
+    const fsCurrentPathInput = document.getElementById('fsCurrentPathInput');
+    const fsItemsList = document.getElementById('fsItemsList');
+    const fsSelectedPathText = document.getElementById('fsSelectedPathText');
+    const fsBtnUpLevel = document.getElementById('fsBtnUpLevel');
+    const fsBtnGoPath = document.getElementById('fsBtnGoPath');
+    const fsBtnNewFolder = document.getElementById('fsBtnNewFolder');
+    const fsMkdirRow = document.getElementById('fsMkdirRow');
+    const fsNewFolderNameInput = document.getElementById('fsNewFolderNameInput');
+    const fsBtnConfirmMkdir = document.getElementById('fsBtnConfirmMkdir');
+    const fsBtnCancelMkdir = document.getElementById('fsBtnCancelMkdir');
+    const fsBtnClose = document.getElementById('fsBtnClose');
+    const fsBtnCancel = document.getElementById('fsBtnCancel');
+    const fsBtnSelect = document.getElementById('fsBtnSelect');
+
+    function openFsBrowser(mode, initialPath, targetInput) {
+      fsMode = mode;
+      fsTargetInputElement = targetInput;
+      fsModalTitleText.innerText = (mode === 'folder') ? 'เลือกโฟลเดอร์ผลลัพธ์ (Output Folder)' : 'เลือกไฟล์รายชื่อเครื่อง (.txt)';
+      fsBtnNewFolder.style.display = (mode === 'folder') ? 'flex' : 'none';
+      fsMkdirRow.classList.remove('active');
+
+      const start = initialPath && initialPath.trim() ? initialPath.trim() : 'C:\\';
+      fsModalBackdrop.classList.add('active');
+      loadFsPath(start);
+    }
+
+    function closeFsBrowser() {
+      fsModalBackdrop.classList.remove('active');
+    }
+
+    async function loadFsPath(path) {
+      fsItemsList.innerHTML = '<div class="fs-empty-msg"><span class="spin">⏳</span> กำลังโหลดโฟลเดอร์...</div>';
       try {
-        const res = await fetch('/api/browse-file', { method: 'POST' });
+        const res = await fetch(`/api/fs/list?path=${encodeURIComponent(path || '')}&mode=${fsMode}`);
         const data = await res.json();
-        if (data.file) {
-          txtListFile.value = data.file;
+        if (data.error && (!data.items || data.items.length === 0)) {
+          fsItemsList.innerHTML = `<div class="fs-empty-msg" style="color: var(--accent-rose);">❌ ${data.error}</div>`;
+          return;
         }
-      } catch (err) { }
+
+        fsCurrentPath = data.current;
+        fsParentPath = data.parent;
+        fsCurrentPathInput.value = fsCurrentPath;
+        fsSelectedPath = (fsMode === 'folder') ? fsCurrentPath : '';
+        fsSelectedPathText.innerText = fsSelectedPath || '(คลิกเลือกไฟล์เพื่อยืนยัน)';
+
+        // Render Drives
+        if (data.drives && data.drives.length > 0) {
+          fsDrivesContainer.innerHTML = data.drives.map(d => {
+            const isCurrent = fsCurrentPath.toUpperCase().startsWith(d.name.toUpperCase());
+            const usedGB = Math.round((d.totalBytes - d.freeBytes) / (1024 * 1024 * 1024));
+            const totalGB = Math.round(d.totalBytes / (1024 * 1024 * 1024));
+            return `<div class="fs-drive-badge ${isCurrent ? 'active' : ''}" data-root="${d.root}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+              ${d.name} (${usedGB}/${totalGB} GB)
+            </div>`;
+          }).join('');
+
+          fsDrivesContainer.querySelectorAll('.fs-drive-badge').forEach(b => {
+            b.addEventListener('click', () => loadFsPath(b.getAttribute('data-root')));
+          });
+        }
+
+        // Render Folder and File Items
+        if (!data.items || data.items.length === 0) {
+          fsItemsList.innerHTML = `<div class="fs-empty-msg">📂 ไม่พบรายการหรือโฟลเดอร์ว่างเปล่า</div>`;
+          return;
+        }
+
+        let html = '';
+        data.items.forEach((item) => {
+          const isFolder = (item.type === 'folder');
+          const icon = isFolder
+            ? `<svg class="fs-item-icon" viewBox="0 0 24 24" fill="none" stroke="var(--accent-amber)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`
+            : `<svg class="fs-item-icon" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`;
+          
+          const meta = isFolder ? item.lastModified : `${(item.size / 1024).toFixed(1)} KB | ${item.lastModified}`;
+
+          html += `<div class="fs-item" data-path="${item.fullPath}" data-type="${item.type}">
+            <div class="fs-item-left">
+              ${icon}
+              <span class="fs-item-name" title="${item.name}">${item.name}</span>
+            </div>
+            <div class="fs-item-meta">${meta}</div>
+          </div>`;
+        });
+        fsItemsList.innerHTML = html;
+
+        // Interactive selection and navigation
+        fsItemsList.querySelectorAll('.fs-item').forEach(el => {
+          el.addEventListener('click', () => {
+            fsItemsList.querySelectorAll('.fs-item').forEach(i => i.classList.remove('selected'));
+            el.classList.add('selected');
+            fsSelectedPath = el.getAttribute('data-path');
+            fsSelectedPathText.innerText = fsSelectedPath;
+          });
+
+          el.addEventListener('dblclick', () => {
+            const itemPath = el.getAttribute('data-path');
+            const itemType = el.getAttribute('data-type');
+            if (itemType === 'folder') {
+              loadFsPath(itemPath);
+            } else if (fsMode === 'file') {
+              confirmSelection();
+            }
+          });
+        });
+
+      } catch (err) {
+        fsItemsList.innerHTML = `<div class="fs-empty-msg" style="color: var(--accent-rose);">❌ เกิดข้อผิดพลาดในการโหลด: ${err.message}</div>`;
+      }
+    }
+
+    function confirmSelection() {
+      const selected = fsSelectedPath || fsCurrentPath;
+      if (!selected) {
+        showToast('กรุณาเลือกรายการก่อนกดยืนยัน', 'warning');
+        return;
+      }
+      if (fsTargetInputElement) {
+        fsTargetInputElement.value = selected;
+      }
+      closeFsBrowser();
+    }
+
+    fsBtnUpLevel.addEventListener('click', () => {
+      if (fsParentPath) {
+        loadFsPath(fsParentPath);
+      } else {
+        showToast('อยู่ที่ระดับบนสุดแล้ว', 'info');
+      }
     });
 
-    btnBrowseFolder.addEventListener('click', async () => {
+    fsBtnGoPath.addEventListener('click', () => {
+      const p = fsCurrentPathInput.value.trim();
+      if (p) loadFsPath(p);
+    });
+
+    fsCurrentPathInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const p = fsCurrentPathInput.value.trim();
+        if (p) loadFsPath(p);
+      }
+    });
+
+    fsBtnNewFolder.addEventListener('click', () => {
+      fsMkdirRow.classList.toggle('active');
+      if (fsMkdirRow.classList.contains('active')) {
+        fsNewFolderNameInput.value = '';
+        fsNewFolderNameInput.focus();
+      }
+    });
+
+    fsBtnCancelMkdir.addEventListener('click', () => {
+      fsMkdirRow.classList.remove('active');
+    });
+
+    fsBtnConfirmMkdir.addEventListener('click', async () => {
+      const name = fsNewFolderNameInput.value.trim();
+      if (!name) {
+        showToast('กรุณาระบุชื่อโฟลเดอร์', 'warning');
+        return;
+      }
       try {
-        const res = await fetch('/api/browse-folder', { method: 'POST' });
+        const res = await fetch('/api/fs/mkdir', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ parent: fsCurrentPath, name: name })
+        });
         const data = await res.json();
-        if (data.folder) {
-          txtOutDir.value = data.folder;
+        if (data.success) {
+          showToast(`สร้างโฟลเดอร์ "${name}" สำเร็จ`, 'success');
+          fsMkdirRow.classList.remove('active');
+          await loadFsPath(fsCurrentPath);
+          fsSelectedPath = data.path;
+          fsSelectedPathText.innerText = data.path;
+        } else {
+          showToast('ไม่สามารถสร้างโฟลเดอร์ได้: ' + (data.error || 'Unknown error'), 'error');
         }
-      } catch (err) { }
+      } catch (err) {
+        showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+      }
+    });
+
+    fsNewFolderNameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') fsBtnConfirmMkdir.click();
+    });
+
+    fsBtnClose.addEventListener('click', closeFsBrowser);
+    fsBtnCancel.addEventListener('click', closeFsBrowser);
+    fsBtnSelect.addEventListener('click', confirmSelection);
+
+    fsModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === fsModalBackdrop) closeFsBrowser();
+    });
+
+    // Wire Browse Buttons to In-App Browser
+    btnBrowseFile.addEventListener('click', () => {
+      openFsBrowser('file', txtListFile.value, txtListFile);
+    });
+
+    btnBrowseFolder.addEventListener('click', () => {
+      openFsBrowser('folder', txtOutDir.value, txtOutDir);
     });
 
     btnOpenFolder.addEventListener('click', async () => {
@@ -1334,13 +1831,16 @@
       ringStatus.innerText = 'เสร็จสิ้น';
     }
 
-    // Polling Loop
+    // Polling Loop with Reconnection Awareness
+    let consecutivePollErrors = 0;
+
     function startPolling() {
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(async () => {
         try {
           const res = await fetch('/api/status');
           const data = await res.json();
+          consecutivePollErrors = 0;
 
           // Stats
           statTotal.innerText = data.total || 0;
@@ -1388,7 +1888,10 @@
             showToast('การสแกนเสร็จสมบูรณ์เรียบร้อยแล้ว!', 'success');
           }
         } catch (err) {
-          // server might be restarting or busy
+          consecutivePollErrors++;
+          if (consecutivePollErrors >= 5) {
+            dockStatusText.innerText = '⚠️ กำลังพยายามเชื่อมต่อระบบใหม่...';
+          }
         }
       }, 800);
     }

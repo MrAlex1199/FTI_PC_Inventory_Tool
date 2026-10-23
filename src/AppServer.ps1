@@ -64,7 +64,7 @@ $script:total           = 0
 $script:ok              = 0
 $script:offline         = 0
 $script:errCount        = 0
-$script:currentActivity = 'พร้อมทำงาน'
+$script:currentActivity = 'Ready'
 $script:lastHtmlReport  = $null
 $script:autoOpenHtml    = $true
 $script:lastLogs        = [System.Collections.Generic.List[string]]::new()
@@ -75,52 +75,6 @@ $script:lastWarnIndex   = 0
 $script:lastErrIndex    = 0
 $script:lastProgIndex   = 0
 $script:sentLogIndex    = 0
-
-# --- Helper: Thread-Safe Native Dialogs ---
-function Show-NativeFileDialog() {
-    $selected = ''
-    $dummy = $null
-    $dlg = $null
-    try {
-        $dummy = New-Object System.Windows.Forms.Form
-        $dummy.TopMost = $true
-        $dlg = New-Object System.Windows.Forms.OpenFileDialog
-        $dlg.Filter = 'Text files (*.txt)|*.txt|All files (*.*)|*.*'
-        $dlg.Title = 'Select PC List File'
-        if ($dlg.ShowDialog($dummy) -eq [System.Windows.Forms.DialogResult]::OK) {
-            $selected = $dlg.FileName
-        }
-    } catch { }
-    finally {
-        if ($dlg) { $dlg.Dispose() }
-        if ($dummy) { $dummy.Dispose() }
-    }
-    return $selected
-}
-
-function Show-NativeFolderDialog([string]$initialPath) {
-    $selected = ''
-    $dummy = $null
-    $dlg = $null
-    try {
-        $dummy = New-Object System.Windows.Forms.Form
-        $dummy.TopMost = $true
-        $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
-        $dlg.Description = 'Select Output Directory'
-        $dlg.ShowNewFolderButton = $true
-        if ($initialPath -and (Test-Path $initialPath)) {
-            $dlg.SelectedPath = $initialPath
-        }
-        if ($dlg.ShowDialog($dummy) -eq [System.Windows.Forms.DialogResult]::OK) {
-            $selected = $dlg.SelectedPath
-        }
-    } catch { }
-    finally {
-        if ($dlg) { $dlg.Dispose() }
-        if ($dummy) { $dummy.Dispose() }
-    }
-    return $selected
-}
 
 # --- 5. Background Stream Pump Function ---
 function Update-ScanProgress() {
@@ -198,7 +152,7 @@ function Update-ScanProgress() {
     if ($script:asyncResult -and $script:asyncResult.IsCompleted) {
         $script:isCompleted = $true
         $script:percent = 100
-        $script:currentActivity = 'การสแกนเสร็จสิ้น'
+        $script:currentActivity = 'Scan Completed'
 
         try {
             $res = $script:psInstance.EndInvoke($script:asyncResult)
@@ -252,9 +206,10 @@ if ($edgeExe) {
     Start-Process $appUrl | Out-Null
 }
 
-# --- 7. Main HTTP Request Loop with Heartbeat Lifecycle ---
+# --- 7. Main HTTP Request Loop with Hardened Heartbeat Lifecycle ---
 $script:lastHeartbeat = [System.DateTime]::Now
 $script:hasConnected = $false
+$script:exitRequestedAt = $null
 $running = $true
 $pendingAsync = $null
 
@@ -262,15 +217,25 @@ while ($running) {
     # Pump scan streams
     Update-ScanProgress
 
-    # Exit if browser was closed (after initial connection established, timeout after 15 seconds of no requests)
+    $scanRunning = ($null -ne $script:psInstance)
+
+    # 1. Graceful exit scheduled by browser window close beacon (after 3s grace if no reload/request)
+    if ($script:exitRequestedAt -and -not $scanRunning) {
+        if (([System.DateTime]::Now - $script:exitRequestedAt).TotalSeconds -gt 3) {
+            $running = $false
+            break
+        }
+    }
+
+    # 2. Heartbeat timeout (never exit while a scan is actively running!)
     if ($script:hasConnected) {
-        if (([System.DateTime]::Now - $script:lastHeartbeat).TotalSeconds -gt 15) {
+        if (-not $scanRunning -and (([System.DateTime]::Now - $script:lastHeartbeat).TotalSeconds -gt 60)) {
             $running = $false
             break
         }
     } else {
-        # Allow 45 seconds for user/browser to launch
-        if (([System.DateTime]::Now - $script:lastHeartbeat).TotalSeconds -gt 45) {
+        # Allow 60 seconds for initial launch
+        if (([System.DateTime]::Now - $script:lastHeartbeat).TotalSeconds -gt 60) {
             $running = $false
             break
         }
@@ -298,8 +263,10 @@ while ($running) {
         $req = $context.Request
         $res = $context.Response
 
+        # Receiving any request keeps the server alive and cancels any pending exit (e.g. page F5/reload)
         $script:lastHeartbeat = [System.DateTime]::Now
         $script:hasConnected = $true
+        $script:exitRequestedAt = $null
 
         $path = $req.Url.AbsolutePath
         $method = $req.HttpMethod
@@ -353,6 +320,40 @@ while ($running) {
                 $body = $reader.ReadToEnd()
                 $params = $body | ConvertFrom-Json
 
+                # Pre-validation: outDir and listFile
+                $outDir = [string]$params.outDir
+                if ([string]::IsNullOrWhiteSpace($outDir)) { $outDir = 'C:\Inventory' }
+
+                if ($params.source -eq 'file') {
+                    $listFile = [string]$params.listFile
+                    if ([string]::IsNullOrWhiteSpace($listFile) -or -not (Test-Path -LiteralPath $listFile)) {
+                        $res.StatusCode = 400
+                        $json = @{ error = "File not found: $listFile" } | ConvertTo-Json
+                        $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
+                        $res.ContentType = 'application/json; charset=utf-8'
+                        $res.ContentLength64 = $buf.Length
+                        $res.OutputStream.Write($buf, 0, $buf.Length)
+                        continue
+                    }
+                }
+
+                try {
+                    if (-not (Test-Path -LiteralPath $outDir)) {
+                        [void](New-Item -ItemType Directory -Path $outDir -Force)
+                    }
+                    $testFile = Join-Path $outDir (".fti_test_write_" + [System.Guid]::NewGuid().ToString('N') + ".tmp")
+                    [System.IO.File]::WriteAllText($testFile, "test")
+                    [System.IO.File]::Delete($testFile)
+                } catch {
+                    $res.StatusCode = 400
+                    $json = @{ error = "Cannot write to output folder ($outDir): $($_.Exception.Message)" } | ConvertTo-Json
+                    $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
+                    $res.ContentType = 'application/json; charset=utf-8'
+                    $res.ContentLength64 = $buf.Length
+                    $res.OutputStream.Write($buf, 0, $buf.Length)
+                    continue
+                }
+
                 # Reset state
                 $script:isCompleted     = $false
                 $script:percent         = 0
@@ -360,7 +361,7 @@ while ($running) {
                 $script:ok              = 0
                 $script:offline         = 0
                 $script:errCount        = 0
-                $script:currentActivity = 'กำลังเตรียมการสแกน...'
+                $script:currentActivity = 'Preparing scan...'
                 $script:lastHtmlReport  = $null
                 $script:autoOpenHtml    = [bool]$params.autoHtml
                 $script:lastLogs.Clear()
@@ -385,7 +386,7 @@ while ($running) {
                 [void]$script:psInstance.AddParameter('IncludeHidden', [bool]$params.includeHidden)
                 [void]$script:psInstance.AddParameter('DaysActive', [int]$params.daysActive)
                 [void]$script:psInstance.AddParameter('Throttle', [int]$params.throttle)
-                [void]$script:psInstance.AddParameter('OutDir', [string]$params.outDir)
+                [void]$script:psInstance.AddParameter('OutDir', $outDir)
 
                 if ($params.source -eq 'localhost') {
                     [void]$script:psInstance.AddParameter('ScanLocalhost', $true)
@@ -413,17 +414,118 @@ while ($running) {
                 $res.ContentLength64 = $buf.Length
                 $res.OutputStream.Write($buf, 0, $buf.Length)
             }
-            elseif ($path -eq '/api/browse-file' -and $method -eq 'POST') {
-                $chosenFile = Show-NativeFileDialog
-                $json = @{ file = $chosenFile } | ConvertTo-Json
+            elseif ($path -eq '/api/fs/list' -and $method -eq 'GET') {
+                $targetPath = $req.QueryString['path']
+                $mode = $req.QueryString['mode'] # 'folder' or 'file'
+
+                $drives = @()
+                try {
+                    $drives = [System.IO.DriveInfo]::GetDrives() | Where-Object { $_.IsReady } | ForEach-Object {
+                        @{
+                            name       = $_.Name.TrimEnd('\')
+                            root       = $_.RootDirectory.FullName
+                            label      = if ($_.VolumeLabel) { "$($_.VolumeLabel) ($($_.Name.TrimEnd('\')))" } else { "Local Disk ($($_.Name.TrimEnd('\')))" }
+                            totalBytes = $_.TotalSize
+                            freeBytes  = $_.TotalFreeSpace
+                        }
+                    }
+                } catch {}
+
+                if ([string]::IsNullOrWhiteSpace($targetPath)) {
+                    $targetPath = if (Test-Path 'C:\') { 'C:\' } elseif ($drives.Count -gt 0) { $drives[0].root } else { [System.Environment]::GetFolderPath('Desktop') }
+                }
+
+                $normPath = try { [System.IO.Path]::GetFullPath($targetPath) } catch { $targetPath }
+                $parent = try {
+                    $p = [System.IO.Directory]::GetParent($normPath)
+                    if ($p) { $p.FullName } else { $null }
+                } catch { $null }
+
+                $items = @()
+                $err = $null
+
+                if (Test-Path -LiteralPath $normPath) {
+                    try {
+                        $dirInfo = New-Object System.IO.DirectoryInfo($normPath)
+                        foreach ($sub in $dirInfo.GetDirectories()) {
+                            if (($sub.Attributes -band [System.IO.FileAttributes]::Hidden) -or ($sub.Attributes -band [System.IO.FileAttributes]::System)) {
+                                continue
+                            }
+                            $items += @{
+                                name         = $sub.Name
+                                fullPath     = $sub.FullName
+                                type         = 'folder'
+                                lastModified = $sub.LastWriteTime.ToString("yyyy-MM-dd HH:mm")
+                            }
+                        }
+
+                        if ($mode -eq 'file') {
+                            foreach ($f in $dirInfo.GetFiles()) {
+                                if (($f.Attributes -band [System.IO.FileAttributes]::Hidden) -or ($f.Attributes -band [System.IO.FileAttributes]::System)) {
+                                    continue
+                                }
+                                $items += @{
+                                    name         = $f.Name
+                                    fullPath     = $f.FullName
+                                    type         = 'file'
+                                    size         = $f.Length
+                                    lastModified = $f.LastWriteTime.ToString("yyyy-MM-dd HH:mm")
+                                }
+                            }
+                        }
+                    } catch {
+                        $err = $_.Exception.Message
+                    }
+                } else {
+                    $err = "Path not found: $normPath"
+                }
+
+                $result = @{
+                    current = $normPath
+                    parent  = $parent
+                    drives  = $drives
+                    items   = $items
+                    error   = $err
+                }
+                $json = $result | ConvertTo-Json -Depth 3
                 $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
                 $res.ContentType = 'application/json; charset=utf-8'
                 $res.ContentLength64 = $buf.Length
                 $res.OutputStream.Write($buf, 0, $buf.Length)
             }
-            elseif ($path -eq '/api/browse-folder' -and $method -eq 'POST') {
-                $chosenFolder = Show-NativeFolderDialog 'C:\Inventory'
-                $json = @{ folder = $chosenFolder } | ConvertTo-Json
+            elseif ($path -eq '/api/fs/mkdir' -and $method -eq 'POST') {
+                $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
+                $body = $reader.ReadToEnd()
+                $params = $body | ConvertFrom-Json
+                $parentPath = [string]$params.parent
+                $folderName = [string]$params.name
+
+                $success = $false
+                $newPath = $null
+                $err = $null
+
+                try {
+                    if ([string]::IsNullOrWhiteSpace($parentPath) -or -not (Test-Path -LiteralPath $parentPath)) {
+                        $err = "Parent directory not found"
+                    } elseif ([string]::IsNullOrWhiteSpace($folderName)) {
+                        $err = "Folder name cannot be empty"
+                    } else {
+                        $cleanName = $folderName -replace '[\\/:*?"<>|]', ''
+                        if ([string]::IsNullOrWhiteSpace($cleanName)) {
+                            $err = "Invalid folder name"
+                        } else {
+                            $newPath = Join-Path $parentPath $cleanName
+                            if (-not (Test-Path -LiteralPath $newPath)) {
+                                [void](New-Item -ItemType Directory -Path $newPath -Force)
+                            }
+                            $success = $true
+                        }
+                    }
+                } catch {
+                    $err = $_.Exception.Message
+                }
+
+                $json = @{ success = $success; path = $newPath; error = $err } | ConvertTo-Json
                 $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
                 $res.ContentType = 'application/json; charset=utf-8'
                 $res.ContentLength64 = $buf.Length
@@ -457,8 +559,8 @@ while ($running) {
                 $res.OutputStream.Write($buf, 0, $buf.Length)
             }
             elseif ($path -eq '/api/exit') {
-                $running = $false
-                $json = @{ status = 'exiting' } | ConvertTo-Json
+                $script:exitRequestedAt = [System.DateTime]::Now
+                $json = @{ status = 'exit_scheduled' } | ConvertTo-Json
                 $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
                 $res.ContentType = 'application/json; charset=utf-8'
                 $res.ContentLength64 = $buf.Length

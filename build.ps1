@@ -156,7 +156,8 @@ $serverCode
 "@
 
 $tempMerged = Join-Path $env:TEMP 'fti_inventory_merged.ps1'
-[System.IO.File]::WriteAllText($tempMerged, $mergedContent, [System.Text.Encoding]::UTF8)
+$utf8WithBom = New-Object System.Text.UTF8Encoding($true)
+[System.IO.File]::WriteAllText($tempMerged, $mergedContent, $utf8WithBom)
 Write-Host "      Merged script prepared at $tempMerged" -ForegroundColor Green
 
 # 5. Compile via PS2EXE
