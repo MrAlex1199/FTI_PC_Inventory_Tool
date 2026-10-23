@@ -567,6 +567,7 @@
     .status-badge.ok { background: rgba(16, 185, 129, 0.15); color: #10b981; }
     .status-badge.offline { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
     .status-badge.error { background: rgba(244, 63, 94, 0.15); color: #f43f5e; }
+    .status-badge.scanning { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.3); }
 
     /* Terminal Console Drawer */
     .terminal-card {
@@ -1496,7 +1497,8 @@
       tableBody.innerHTML = filtered.map(pc => {
         let badgeClass = 'ok';
         if (pc.Status === 'Offline') badgeClass = 'offline';
-        else if (pc.Status === 'Error') badgeClass = 'error';
+        else if (pc.Status === 'Scanning') badgeClass = 'scanning';
+        else if (pc.Status && pc.Status.startsWith('Error')) badgeClass = 'error';
 
         return `
           <tr>
@@ -1827,8 +1829,9 @@
       isScanning = false;
       btnStartScan.disabled = false;
       btnCancelScan.disabled = true;
-      dockStatusText.innerText = 'ระบบพร้อมสแกน';
+      dockStatusText.innerText = 'การสแกนเสร็จสมบูรณ์';
       ringStatus.innerText = 'เสร็จสิ้น';
+      scanCurrentMsg.innerText = 'การสแกนเสร็จสิ้นเรียบร้อยแล้ว';
     }
 
     // Polling Loop with Reconnection Awareness
@@ -1872,6 +1875,11 @@
           // Scanned PCs updates
           if (data.scannedPCs && data.scannedPCs.length > 0) {
             allScannedPCs = data.scannedPCs;
+            if (data.isCompleted) {
+              allScannedPCs.forEach(pc => {
+                if (pc.Status === 'Scanning') pc.Status = 'OK';
+              });
+            }
             renderTable();
           }
 
@@ -1881,11 +1889,18 @@
           }
 
           // Check if finished
-          if (data.isCompleted && isScanning) {
-            resetScanUI();
+          if (data.isCompleted) {
+            if (isScanning) {
+              resetScanUI();
+              showToast('การสแกนเสร็จสมบูรณ์เรียบร้อยแล้ว!', 'success');
+            }
             dockStatusText.innerText = 'การสแกนเสร็จสมบูรณ์';
-            scanCurrentMsg.innerText = 'สแกนเสร็จสิ้นเรียบร้อยแล้ว';
-            showToast('การสแกนเสร็จสมบูรณ์เรียบร้อยแล้ว!', 'success');
+            ringStatus.innerText = 'เสร็จสิ้น';
+            scanCurrentMsg.innerText = 'การสแกนเสร็จสิ้นเรียบร้อยแล้ว';
+            allScannedPCs.forEach(pc => {
+              if (pc.Status === 'Scanning') pc.Status = 'OK';
+            });
+            renderTable();
           }
         } catch (err) {
           consecutivePollErrors++;

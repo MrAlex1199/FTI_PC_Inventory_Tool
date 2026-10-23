@@ -59,6 +59,7 @@ Write-Host "APP_PORT=$port"
 $script:psInstance      = $null
 $script:asyncResult     = $null
 $script:scanStartTime   = $null
+$script:scanEndTime     = $null
 $script:isCompleted     = $false
 $script:percent         = 0
 $script:total           = 0
@@ -154,6 +155,9 @@ function Update-ScanProgress() {
         $script:isCompleted = $true
         $script:percent = 100
         $script:currentActivity = 'Scan Completed'
+        if (-not $script:scanEndTime) {
+            $script:scanEndTime = [System.DateTime]::Now
+        }
 
         try {
             $res = $script:psInstance.EndInvoke($script:asyncResult)
@@ -161,6 +165,24 @@ function Update-ScanProgress() {
                 $lastObj = $res[$res.Count - 1]
                 if ($lastObj -and $lastObj.SoftwareHtml) {
                     $script:lastHtmlReport = $lastObj.SoftwareHtml
+                }
+                if ($lastObj -and $lastObj.HardwareCsv -and (Test-Path -LiteralPath $lastObj.HardwareCsv)) {
+                    try {
+                        $csvHw = Import-Csv -LiteralPath $lastObj.HardwareCsv -Encoding UTF8
+                        if ($csvHw -and $csvHw.Count -gt 0) {
+                            $script:scannedPCs.Clear()
+                            foreach ($row in $csvHw) {
+                                $script:scannedPCs.Add(@{
+                                    PCName  = $row.PCName
+                                    Status  = if ($row.Status) { $row.Status } else { 'OK' }
+                                    CPU     = if ($row.CPU) { $row.CPU } else { '-' }
+                                    RAM_GB  = if ($row.RAM_GB) { $row.RAM_GB } else { '-' }
+                                    OS      = if ($row.OS) { $row.OS } else { '-' }
+                                    IP      = if ($row.IP) { $row.IP } else { '-' }
+                                })
+                            }
+                        }
+                    } catch {}
                 }
                 if ($lastObj -and $lastObj.Status -eq 'Error') {
                     $script:lastLogs.Add("[ERROR] $($lastObj.Message)")
@@ -174,6 +196,17 @@ function Update-ScanProgress() {
             $script:psInstance = $null
             $script:asyncResult = $null
         }
+
+        # Ensure no machine stays with 'Scanning' status after scan completes
+        foreach ($pc in $script:scannedPCs) {
+            if ($pc.Status -eq 'Scanning') {
+                $pc.Status = 'OK'
+            }
+        }
+        $script:ok = @($script:scannedPCs | Where-Object { $_.Status -eq 'OK' }).Count
+        $script:offline = @($script:scannedPCs | Where-Object { $_.Status -eq 'Offline' }).Count
+        $script:errCount = @($script:scannedPCs | Where-Object { $_.Status -notmatch '^(OK|Offline)$' }).Count
+        $script:total = $script:scannedPCs.Count
 
         # Auto open HTML report if enabled
         if ($script:autoOpenHtml -and $script:lastHtmlReport -and (Test-Path $script:lastHtmlReport)) {
@@ -284,7 +317,8 @@ while ($running) {
 
                 $elapsedStr = '00:00'
                 if ($script:scanStartTime) {
-                    $ts = [System.DateTime]::Now - $script:scanStartTime
+                    $endTime = if ($script:scanEndTime) { $script:scanEndTime } else { [System.DateTime]::Now }
+                    $ts = $endTime - $script:scanStartTime
                     $elapsedStr = $ts.ToString('mm\:ss')
                 }
 
@@ -373,6 +407,7 @@ while ($running) {
                 $script:lastProgIndex   = 0
                 $script:sentLogIndex    = 0
                 $script:scanStartTime   = [System.DateTime]::Now
+                $script:scanEndTime     = $null
 
                 # Create Background Runspace
                 $script:psInstance = [powershell]::Create()
