@@ -19,7 +19,8 @@ param(
     [switch]$MasterMode = $true,     # Sync with Master Database (Hardware_Master.csv)
     [switch]$RetryOfflineOnly,       # Filter target to PCs that are Offline/Error in Master file
     [string]$MasterFile,             # Custom path to Hardware Master CSV (defaults to OutDir\Hardware_Master.csv)
-    [string]$SoftwareMasterFile      # Custom path to Software Master CSV (defaults to OutDir\Software_Master.csv)
+    [string]$SoftwareMasterFile,     # Custom path to Software Master CSV (defaults to OutDir\Software_Master.csv)
+    [switch]$SkipServers = $true     # Skip Servers, DCs, RDS, and Remote servers (PC / Notebooks only)
 )
 
 $Software = -not $NoSoftware
@@ -174,6 +175,10 @@ if (-not $RetryOfflineOnly -and -not $ScanLocalhost -and ($pcs.Count -eq 0)) {
     # Active Directory mode
     try {
         $filterParts = @("objectCategory=computer", "operatingSystem=*Windows*", "!(userAccountControl:1.2.840.113556.1.4.803:=2)")
+        if ($SkipServers) {
+            $filterParts += "!(operatingSystem=*Server*)"
+            $filterParts += "!(operatingSystem=*Domain Controller*)"
+        }
         if ($DaysActive -gt 0) {
             $ft = (Get-Date).AddDays(-$DaysActive).ToFileTime()
             $filterParts += "lastLogonTimestamp>=$ft"
@@ -186,9 +191,22 @@ if (-not $RetryOfflineOnly -and -not $ScanLocalhost -and ($pcs.Count -eq 0)) {
         [void]$ds.PropertiesToLoad.Add('distinguishedname')
         
         $adResults = $ds.FindAll()
+        $filteredPCs = [System.Collections.Generic.List[string]]::new()
         foreach ($res in $adResults) {
             $cName = [string]$res.Properties['name'][0]
             if ($cName) {
+                $dnRaw = if ($res.Properties.Contains('distinguishedname')) { [string]$res.Properties['distinguishedname'][0] } else { '' }
+                
+                # Check Server & Remote Server name/OU patterns
+                if ($SkipServers) {
+                    $isServerName = ($cName -match '(?i)(^|[-_])(SRV|SERVER|DC|RDS|RDP|REMOTE|HYPERV|VHOST|ESX)([-_]|\d|$)')
+                    $isServerOU   = ($dnRaw -match '(?i)OU=(Domain Controllers|Servers|Server|Infrastructure)')
+                    if ($isServerName -or $isServerOU) {
+                        Write-Host "  [SKIP SERVER] $cName (OU: $dnRaw)" -ForegroundColor Gray
+                        continue
+                    }
+                }
+
                 $lastLogonStr = '-'
                 if ($res.Properties.Contains('lastlogontimestamp')) {
                     try {
@@ -201,8 +219,7 @@ if (-not $RetryOfflineOnly -and -not $ScanLocalhost -and ($pcs.Count -eq 0)) {
                 $ouStr = '-'
                 if ($res.Properties.Contains('distinguishedname')) {
                     try {
-                        $dn = [string]$res.Properties['distinguishedname'][0]
-                        $ous = [regex]::Matches($dn, 'OU=([^,]+)') | ForEach-Object { $_.Groups[1].Value }
+                        $ous = [regex]::Matches($dnRaw, 'OU=([^,]+)') | ForEach-Object { $_.Groups[1].Value }
                         if ($ous.Count -gt 0) {
                             $ouArr = @($ous)
                             [array]::Reverse($ouArr)
@@ -214,12 +231,23 @@ if (-not $RetryOfflineOnly -and -not $ScanLocalhost -and ($pcs.Count -eq 0)) {
                     AD_LastLogon = $lastLogonStr
                     AD_OU        = $ouStr
                 }
+                $filteredPCs.Add($cName)
             }
         }
-        $pcs = $adResults | ForEach-Object { [string]$_.Properties['name'][0] } | Sort-Object
+        $pcs = @($filteredPCs | Sort-Object)
     } catch {
         Write-Warning "Active Directory query error: $($_.Exception.Message)"
         return [pscustomobject]@{ Status = 'Error'; Message = "Active Directory query error: $($_.Exception.Message)" }
+    }
+}
+
+# Apply server name filter for file list or offline retry if SkipServers is ON
+if ($SkipServers -and $pcs.Count -gt 0 -and -not $ScanLocalhost) {
+    $beforeCount = $pcs.Count
+    $pcs = @($pcs | Where-Object { $_ -notmatch '(?i)(^|[-_])(SRV|SERVER|DC|RDS|RDP|REMOTE|HYPERV|VHOST|ESX)([-_]|\d|$)' })
+    $diff = $beforeCount - $pcs.Count
+    if ($diff -gt 0) {
+        Write-Host "Filtered out $diff Server/Remote machines by name pattern. Remaining: $($pcs.Count) PCs" -ForegroundColor Yellow
     }
 }
 
@@ -293,7 +321,11 @@ if (-not $SkipHardware) {
                 Remove-CimSession $s
             }
 
-            # Extended metrics: LastBoot / Uptime
+            # Skip server if detected by OS ProductType (1=Workstation, 2=Domain Controller, 3=Server)
+            if ($SkipServers -and -not $isLocal -and $os -and $os.ProductType -and $os.ProductType -ne 1) {
+                Write-Host "  [SKIP SERVER] Skipping $pc (Detected Server OS: $($os.Caption))" -ForegroundColor Yellow
+                continue
+            }
             $lastBootStr = '-'
             $uptimeStr = '-'
             if ($os.LastBootUpTime) {

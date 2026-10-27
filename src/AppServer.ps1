@@ -328,8 +328,10 @@ function Start-ExecutionScan([hashtable]$params) {
 
     $isMaster = if ($params.ContainsKey('masterMode')) { [bool]$params.masterMode } else { $true }
     $isRetryOffline = if ($params.ContainsKey('retryOfflineOnly')) { [bool]$params.retryOfflineOnly } else { $false }
+    $isSkipServers = if ($params.ContainsKey('skipServers')) { [bool]$params.skipServers } else { $true }
     [void]$script:psInstance.AddParameter('MasterMode', $isMaster)
     [void]$script:psInstance.AddParameter('RetryOfflineOnly', $isRetryOffline)
+    [void]$script:psInstance.AddParameter('SkipServers', $isSkipServers)
 
     if ($params.source -eq 'localhost') {
         [void]$script:psInstance.AddParameter('ScanLocalhost', $true)

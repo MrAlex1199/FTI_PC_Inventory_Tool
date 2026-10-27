@@ -1158,6 +1158,16 @@
             <input type="number" id="numThrottle" value="20" min="1" max="100" class="input-box" style="width: 60px; padding: 4px 6px;">
           </div>
         </div>
+
+        <div style="margin-top: 12px; padding: 10px 12px; background: rgba(59, 130, 246, 0.08); border-radius: var(--radius-md); border: 1px solid rgba(59, 130, 246, 0.25);">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 0.78rem; font-weight: 600; cursor: pointer; color: var(--text-main);">
+            <input type="checkbox" id="chkSkipServers" checked style="accent-color: var(--accent-cyan); width: 16px; height: 16px;">
+            <span>🛡️ ข้ามเครื่อง Server & Server Remote</span>
+          </label>
+          <div style="font-size: 0.70rem; color: var(--text-muted); margin-left: 24px; margin-top: 3px;">
+            นับเป้าหมายเฉพาะเครื่อง PC / Notebook ผู้ใช้งาน (กรอง Windows Server, DC, RDS และชื่อ SRV อัตโนมัติ)
+          </div>
+        </div>
       </div>
 
       <!-- Card 3: Output -->
@@ -2135,6 +2145,7 @@
         scanSw: chkSw.checked,
         masterMode: chkMasterDb ? chkMasterDb.checked : true,
         retryOfflineOnly: isRetryOffline,
+        skipServers: document.getElementById('chkSkipServers') ? document.getElementById('chkSkipServers').checked : true,
         nameFilter: document.getElementById('txtNameFilter').value.trim() || '*',
         includeUser: document.getElementById('chkUser').checked,
         includeHidden: document.getElementById('chkHidden').checked,
