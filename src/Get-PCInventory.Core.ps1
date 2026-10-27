@@ -18,7 +18,8 @@ param(
     [switch]$ScanLocalhost,          # Scan current machine directly
     [switch]$MasterMode = $true,     # Sync with Master Database (Hardware_Master.csv)
     [switch]$RetryOfflineOnly,       # Filter target to PCs that are Offline/Error in Master file
-    [string]$MasterFile              # Custom path to Master CSV (defaults to OutDir\Hardware_Master.csv)
+    [string]$MasterFile,             # Custom path to Hardware Master CSV (defaults to OutDir\Hardware_Master.csv)
+    [string]$SoftwareMasterFile      # Custom path to Software Master CSV (defaults to OutDir\Software_Master.csv)
 )
 
 $Software = -not $NoSoftware
@@ -29,10 +30,15 @@ $stamp = Get-Date -Format 'yyyyMMdd_HHmm'
 if (-not $MasterFile) {
     $MasterFile = Join-Path $OutDir 'Hardware_Master.csv'
 }
+if (-not $SoftwareMasterFile) {
+    $SoftwareMasterFile = Join-Path $OutDir 'Software_Master.csv'
+}
 
 $fHw = $null
 $fByPC = $null
 $fSoft = $null
+$fSoftMaster = $null
+$fSumMaster = $null
 
 # --- Helper: Smart Connectivity Check (ICMP Ping + TCP 5985/135 Fallback) ---
 function Test-PCConnection([string]$computer) {
@@ -670,9 +676,78 @@ function t(o){document.querySelectorAll('details').forEach(function(d){d.open=o;
 
     $status | Sort-Object PCName | Export-Csv $fStat -NoTypeInformation -Encoding UTF8
 
+    # --- Software Master Database Synchronization ---
+    $fSoftMaster = $SoftwareMasterFile
+    $fSumMaster  = Join-Path $OutDir 'Software_Summary_Master.csv'
+    if ($MasterMode) {
+        $masterSwDict = [ordered]@{} # Key: PCName.ToUpper() -> List of software records
+        
+        # 1. Load existing Software Master if present
+        if (Test-Path -LiteralPath $fSoftMaster) {
+            try {
+                $oldSwRows = Import-Csv -LiteralPath $fSoftMaster -Encoding UTF8
+                foreach ($row in $oldSwRows) {
+                    if ($row.PCName) {
+                        $key = $row.PCName.ToUpper()
+                        if (-not $masterSwDict.Contains($key)) {
+                            $masterSwDict[$key] = [System.Collections.Generic.List[object]]::new()
+                        }
+                        $masterSwDict[$key].Add($row)
+                    }
+                }
+            } catch {
+                Write-Warning "Could not parse existing Software Master file: $($_.Exception.Message)"
+            }
+        }
+
+        # 2. For each successfully scanned PC in this run (OK*), update its software list in Master
+        $scannedOkPCs = @($status | Where-Object { $_.Status -like 'OK*' } | Select-Object -ExpandProperty PCName -Unique)
+        $newSwGroups = $final | Group-Object PCName
+
+        foreach ($okPC in $scannedOkPCs) {
+            $key = $okPC.ToUpper()
+            $matchingGroup = $newSwGroups | Where-Object { $_.Name -eq $okPC } | Select-Object -First 1
+            $swList = [System.Collections.Generic.List[object]]::new()
+            if ($matchingGroup) {
+                foreach ($item in $matchingGroup.Group) {
+                    $swList.Add($item)
+                }
+            }
+            $masterSwDict[$key] = $swList
+        }
+
+        # 3. Export combined Software_Master.csv
+        $allMasterSw = [System.Collections.Generic.List[object]]::new()
+        foreach ($key in ($masterSwDict.Keys | Sort-Object)) {
+            foreach ($swItem in $masterSwDict[$key]) {
+                $allMasterSw.Add($swItem)
+            }
+        }
+
+        $allMasterSw | Export-Csv -LiteralPath $fSoftMaster -NoTypeInformation -Encoding UTF8
+        Write-Host "Software Master updated: $($allMasterSw.Count) total records across $($masterSwDict.Count) PCs -> $fSoftMaster" -ForegroundColor Cyan
+
+        # 4. Export cumulative Software_Summary_Master.csv across entire organization
+        if ($allMasterSw.Count -gt 0) {
+            $allMasterSw | Group-Object Name, Version | ForEach-Object {
+                $f = $_.Group[0]
+                [pscustomobject]@{
+                    Name      = $f.Name
+                    Version   = $f.Version
+                    Publisher = $f.Publisher
+                    PCCount   = ($_.Group | Select-Object -ExpandProperty PCName -Unique).Count
+                }
+            } | Sort-Object Name, Version | Export-Csv -LiteralPath $fSumMaster -NoTypeInformation -Encoding UTF8
+        }
+    }
+
     $swOk = @($status | Where-Object { $_.Status -like 'OK*' }).Count
     Write-Host "Software done. OK: $swOk / $($pcs.Count)"
     Write-Host "  Detail  : $fSoft"
+    if ($MasterMode) {
+        Write-Host "  Master  : $fSoftMaster"
+        Write-Host "  SumMstr : $fSumMaster"
+    }
     Write-Host "  Summary : $fSum"
     Write-Host "  By PC   : $fByPC  (one file, grouped by computer)"
     Write-Host "  Per PC  : $fSumPC  (one row per computer)"
@@ -683,12 +758,13 @@ Write-Host ''
 Write-Host "All done -> $OutDir"
 
 return [pscustomobject]@{
-    Status       = 'Success'
-    OutDir       = $OutDir
-    HardwareCsv  = if (-not $SkipHardware) { $fHw } else { $null }
-    MasterCsv    = if ($MasterMode -and -not $SkipHardware) { $MasterFile } else { $null }
-    SoftwareHtml = if ($Software) { $fByPC } else { $null }
-    SoftwareCsv  = if ($Software) { $fSoft } else { $null }
-    Timestamp    = $stamp
+    Status            = 'Success'
+    OutDir            = $OutDir
+    HardwareCsv       = if (-not $SkipHardware) { $fHw } else { $null }
+    MasterCsv         = if ($MasterMode -and -not $SkipHardware) { $MasterFile } else { $null }
+    SoftwareHtml      = if ($Software) { $fByPC } else { $null }
+    SoftwareCsv       = if ($Software) { $fSoft } else { $null }
+    SoftwareMasterCsv = if ($MasterMode -and $Software) { $fSoftMaster } else { $null }
+    Timestamp         = $stamp
 }
 
