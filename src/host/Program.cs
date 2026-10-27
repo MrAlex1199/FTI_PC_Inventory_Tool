@@ -19,9 +19,6 @@ namespace FTI.PCInventory
 {
     internal static class Program
     {
-        // Embedded script payload will be injected into this placeholder by build.ps1
-        public static string ScriptPayload = "###SCRIPT_PAYLOAD_PLACEHOLDER###";
-
         [STAThread]
         private static int Main(string[] args)
         {
@@ -36,30 +33,35 @@ namespace FTI.PCInventory
 
                 string scriptPath = Path.Combine(appDir, "app_engine.ps1");
 
-                // Decode payload and write script
-                if (!string.IsNullOrEmpty(ScriptPayload) && ScriptPayload != "###SCRIPT_PAYLOAD_PLACEHOLDER###")
+                // Extract embedded PowerShell engine
+                using (Stream resStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("FTI.Engine"))
                 {
-                    byte[] scriptBytes = Convert.FromBase64String(ScriptPayload);
-                    File.WriteAllBytes(scriptPath, scriptBytes);
-                }
-                else
-                {
-                    // Fallback for development if run directly from source folder
-                    string currentDir = AppDomain.CurrentDomain.BaseDirectory;
-                    string devScript = Path.Combine(currentDir, "src", "AppServer.ps1");
-                    if (!File.Exists(devScript))
+                    if (resStream != null)
                     {
-                        devScript = Path.Combine(currentDir, "AppServer.ps1");
+                        using (FileStream fs = new FileStream(scriptPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                        {
+                            resStream.CopyTo(fs);
+                        }
                     }
-                    if (File.Exists(devScript))
+                    else if (!File.Exists(scriptPath))
                     {
-                        scriptPath = devScript;
+                        // Fallback for development if run directly from source folder
+                        string currentDir = AppDomain.CurrentDomain.BaseDirectory;
+                        string devScript = Path.Combine(currentDir, "src", "AppServer.ps1");
+                        if (!File.Exists(devScript))
+                        {
+                            devScript = Path.Combine(currentDir, "AppServer.ps1");
+                        }
+                        if (File.Exists(devScript))
+                        {
+                            scriptPath = devScript;
+                        }
                     }
                 }
 
                 // Prepare PowerShell launcher arguments
                 StringBuilder argBuilder = new StringBuilder();
-                argBuilder.Append("-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ");
+                argBuilder.Append("-NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Hidden -File ");
                 argBuilder.Append("\"").Append(scriptPath).Append("\"");
 
                 // Forward command line arguments
@@ -92,7 +94,6 @@ namespace FTI.PCInventory
                 {
                     if (proc != null)
                     {
-                        // Check if running in silent/scheduled mode
                         bool isSilent = false;
                         if (args != null)
                         {
@@ -114,7 +115,7 @@ namespace FTI.PCInventory
                         }
                         else
                         {
-                            // In interactive mode, wait briefly to ensure server launched properly
+                            // In interactive mode, wait for server process so launcher stays clean
                             proc.WaitForExit();
                             return proc.ExitCode;
                         }
@@ -125,7 +126,6 @@ namespace FTI.PCInventory
             }
             catch (Exception ex)
             {
-                // Write exception log in app directory
                 try
                 {
                     string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);

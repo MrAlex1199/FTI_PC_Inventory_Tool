@@ -136,7 +136,17 @@ $htmlBytes   = [System.IO.File]::ReadAllBytes($srcHtml)
 $htmlB64     = [System.Convert]::ToBase64String($htmlBytes)
 $serverCode  = [System.IO.File]::ReadAllText($srcServer, [System.Text.Encoding]::UTF8)
 
+# Extract param block from $serverCode to ensure it is the very first statement
+$paramBlock = "param([switch]`$Silent, [switch]`$ScheduledRun, [string]`$OutDir = 'C:\Inventory')"
+$restOfServer = $serverCode
+if ($serverCode -match '(?ms)^\s*param\s*\((.*?)\)\s*(.*)$') {
+    $paramBlock = "param($($matches[1]))"
+    $restOfServer = $matches[2]
+}
+
 $mergedContent = @"
+$paramBlock
+
 # ==============================================================================
 # FTI PC Inventory Tool (Enterprise Standalone Web App Engine)
 # ==============================================================================
@@ -146,23 +156,17 @@ $mergedContent = @"
 `$HtmlContentBase64 = '$htmlB64'
 `$HtmlContent = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(`$HtmlContentBase64))
 
-$serverCode
+$restOfServer
 "@
 
 $mergedBytes = [System.Text.Encoding]::UTF8.GetBytes($mergedContent)
-$mergedB64   = [System.Convert]::ToBase64String($mergedBytes)
 
 $tempMerged = Join-Path $tempDir 'engine_merged.ps1'
 [System.IO.File]::WriteAllBytes($tempMerged, $mergedBytes)
 Write-Host "      Engine script merged ($($mergedBytes.Length) bytes)" -ForegroundColor Green
 
-# 5. Inject Payload into C# Source & Compile
-Write-Host '[4/6] Compiling Native C# WinExe Launcher with Application Manifest...' -ForegroundColor Yellow
-$csTemplate = [System.IO.File]::ReadAllText($srcCs, [System.Text.Encoding]::UTF8)
-$csSource = $csTemplate.Replace('###SCRIPT_PAYLOAD_PLACEHOLDER###', $mergedB64)
-
-$tempCs = Join-Path $tempDir 'FTI_Launcher_Source.cs'
-[System.IO.File]::WriteAllText($tempCs, $csSource, [System.Text.Encoding]::UTF8)
+# 5. Compile Native C# WinExe Launcher with Embedded Resource
+Write-Host '[4/6] Compiling Native C# WinExe Launcher with Embedded Engine & Manifest...' -ForegroundColor Yellow
 
 $targetExeInTemp = Join-Path $tempDir $ExeName
 if (Test-Path $targetExeInTemp) {
@@ -182,8 +186,9 @@ $compileArgs = @(
     "/platform:anycpu",
     "/win32icon:$tempIcon",
     "/win32manifest:$srcManifest",
+    "/resource:$tempMerged,FTI.Engine",
     "/out:$targetExeInTemp",
-    $tempCs
+    $srcCs
 )
 
 & $cscPath $compileArgs

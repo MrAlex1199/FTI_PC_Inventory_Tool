@@ -342,25 +342,41 @@ function Start-ExecutionScan([hashtable]$params) {
     return $true
 }
 
-# --- 6. Launch Standalone Edge App Window ---
-$edgePaths = @(
-    "$env:ProgramFiles (x86)\Microsoft\Edge\Application\msedge.exe",
-    "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
-    (Join-Path $env:LOCALAPPDATA 'Microsoft\Edge\Application\msedge.exe')
+# --- 6. Launch Standalone Edge / Chrome App Window ---
+$pf86 = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::ProgramFilesX86)
+$pf = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::ProgramFiles)
+$localApp = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::LocalApplicationData)
+
+$browserPaths = @(
+    (Join-Path $pf86 'Microsoft\Edge\Application\msedge.exe'),
+    (Join-Path $pf 'Microsoft\Edge\Application\msedge.exe'),
+    (Join-Path $localApp 'Microsoft\Edge\Application\msedge.exe'),
+    (Join-Path $pf 'Google\Chrome\Application\chrome.exe'),
+    (Join-Path $pf86 'Google\Chrome\Application\chrome.exe'),
+    (Join-Path $localApp 'Google\Chrome\Application\chrome.exe')
 )
-$edgeExe = $edgePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+$browserExe = $browserPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
 
 $tempProfile = Join-Path $env:TEMP 'fti_inventory_web_profile'
 if (-not (Test-Path $tempProfile)) {
     New-Item -ItemType Directory -Path $tempProfile -Force | Out-Null
+} else {
+    try {
+        $lockFile = Join-Path $tempProfile 'SingletonLock'
+        if (Test-Path $lockFile) { Remove-Item $lockFile -Force -ErrorAction SilentlyContinue }
+    } catch {}
 }
 
 $appUrl = "http://127.0.0.1:$port/"
 $appArgs = "--app=`"$appUrl`" --user-data-dir=`"$tempProfile`" --window-size=1260,860"
 
-if ($edgeExe) {
-    Start-Process -FilePath $edgeExe -ArgumentList $appArgs | Out-Null
-} else {
+try {
+    if ($browserExe) {
+        Start-Process -FilePath $browserExe -ArgumentList $appArgs | Out-Null
+    } else {
+        Start-Process $appUrl | Out-Null
+    }
+} catch {
     Start-Process $appUrl | Out-Null
 }
 
