@@ -684,6 +684,71 @@
     }
     .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
 
+    .btn-warning {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.3));
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      color: #fbbf24;
+      padding: 10px 18px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.2);
+      transition: all 0.2s;
+    }
+    .btn-warning:hover:not(:disabled) {
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.35), rgba(217, 119, 6, 0.45));
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(245, 158, 11, 0.35);
+    }
+    .btn-warning:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* Scheduler Modal */
+    .sched-modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(6, 10, 20, 0.78);
+      backdrop-filter: blur(16px);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      animation: fsFadeIn 0.2s ease-out;
+    }
+    .sched-modal-backdrop.active { display: flex; }
+    .sched-modal {
+      width: 100%;
+      max-width: 620px;
+      background: var(--bg-surface);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .sched-card {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .sched-card-title {
+      font-weight: 700;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-main);
+    }
+
     /* Modal / Alert Toast */
     .toast-container {
       position: fixed;
@@ -1118,6 +1183,29 @@
           <input type="checkbox" id="chkAutoHtml" checked style="accent-color: var(--accent-cyan);">
           <span>เปิดรายงาน HTML (Software_ByPC) อัตโนมัติเมื่อเสร็จ</span>
         </label>
+
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 0.78rem; cursor: pointer; margin-top: 8px;">
+          <input type="checkbox" id="chkMasterDb" checked style="accent-color: var(--accent-cyan);">
+          <span>บันทึกสะสมและอัปเดต Master Database (Hardware_Master.csv)</span>
+        </label>
+      </div>
+
+      <!-- Card 4: Scheduler Card -->
+      <div class="glass-card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          4. ตั้งเวลาสแกนอัตโนมัติ (Scheduler)
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">
+          ตั้งเวลาสแกนรอบอัตโนมัติ (In-App Countdown) หรือผูกกับ Windows Task Scheduler
+        </div>
+        <button type="button" class="btn-secondary" id="btnOpenScheduler" style="width: 100%; justify-content: center;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          จัดการตั้งเวลาสแกน...
+        </button>
+        <div id="sidebarSchedInfo" style="margin-top: 8px; font-size: 0.72rem; color: var(--accent-cyan); display: none;">
+          ⏰ รอบถัดไป: <span id="sidebarSchedTime">-</span>
+        </div>
       </div>
     </div>
 
@@ -1196,7 +1284,7 @@
             <div style="display: flex; gap: 8px; align-items: center;">
               <div class="search-wrap">
                 <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" id="txtSearchTable" placeholder="ค้นหาเครื่อง, สเปก, IP...">
+                <input type="text" id="txtSearchTable" placeholder="ค้นหาเครื่อง, สเปก, IP, OU...">
               </div>
 
               <div class="filter-pills">
@@ -1214,15 +1302,21 @@
                 <tr>
                   <th>ชื่อเครื่อง (PC Name)</th>
                   <th>สถานะ</th>
+                  <th>ผู้ใช้</th>
                   <th>CPU / Cores</th>
                   <th>RAM</th>
+                  <th>ดิสก์ C:</th>
+                  <th>เปิดเครื่องล่าสุด (Uptime)</th>
+                  <th>เข้า AD ล่าสุด</th>
+                  <th>OU / แผนก</th>
                   <th>ระบบปฏิบัติการ (OS)</th>
                   <th>IP Address</th>
+                  <th>สแกน</th>
                 </tr>
               </thead>
               <tbody id="tableBody">
                 <tr>
-                  <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                  <td colspan="12" style="text-align: center; color: var(--text-muted); padding: 30px;">
                     ยังไม่มีข้อมูลผลการสแกน (กด "เริ่มสแกน" ด้านล่าง)
                   </td>
                 </tr>
@@ -1274,14 +1368,111 @@
         ดูรายงาน HTML
       </button>
 
+      <button class="btn-secondary" id="btnOpenSchedulerDock">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: -2px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        ตั้งเวลาสแกน
+      </button>
+
       <button class="btn-danger" id="btnCancelScan" disabled>
         ⏹ ยกเลิก
+      </button>
+
+      <!-- Retry Offline Only Button (Dynamically Shown when Offline machines exist) -->
+      <button class="btn-warning" id="btnRetryOffline" style="display: none;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        สแกนซ้ำเฉพาะเครื่อง Offline <span id="badgeOfflineCount" style="background: rgba(0,0,0,0.35); padding: 1px 7px; border-radius: 10px; margin-left: 4px; font-size: 0.75rem;">0</span>
       </button>
 
       <button class="btn-primary" id="btnStartScan">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         เริ่มสแกน
       </button>
+    </div>
+  </div>
+
+  <!-- Scheduler Configuration Modal -->
+  <div class="sched-modal-backdrop" id="schedModalBackdrop">
+    <div class="sched-modal">
+      <div class="fs-modal-header">
+        <div class="fs-modal-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span style="font-weight: 700;">ตั้งเวลาสแกนอัตโนมัติ (Automated Scheduler)</span>
+        </div>
+        <button class="fs-close-btn" id="schedBtnClose" title="ปิด">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div style="padding: 20px; overflow-y: auto; max-height: 70vh;">
+        <!-- Option 1: In-App Timer -->
+        <div class="sched-card">
+          <div class="sched-card-title">
+            <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--accent-cyan);"></span>
+            1. สแกนอัตโนมัติวนรอบในโปรแกรม (In-App Timer)
+          </div>
+          <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">
+            ระบบจะนับถอยหลังและเริ่มสแกนให้อัตโนมัติเมื่อครบกำหนด (เหมาะสำหรับเปิดโปรแกรมทิ้งไว้ที่จอ Monitor)
+          </div>
+
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer;">
+            <input type="checkbox" id="chkInAppSched" style="accent-color: var(--accent-cyan); width: 16px; height: 16px;">
+            <span style="font-weight: 600;">เปิดใช้งานการสแกนอัตโนมัติตามรอบเวลา</span>
+          </label>
+
+          <div id="inAppSchedOptions" style="margin-top: 12px; display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 0.8rem; color: var(--text-muted);">ความถี่ในการสแกน:</span>
+            <select id="selInAppInterval" class="input-box" style="padding: 6px 12px; width: 180px;">
+              <option value="1">ทุกๆ 1 ชั่วโมง</option>
+              <option value="2">ทุกๆ 2 ชั่วโมง</option>
+              <option value="4" selected>ทุกๆ 4 ชั่วโมง (แนะนำ)</option>
+              <option value="8">ทุกๆ 8 ชั่วโมง</option>
+              <option value="12">ทุกๆ 12 ชั่วโมง</option>
+              <option value="24">ทุกๆ 24 ชั่วโมง (วันละครั้ง)</option>
+            </select>
+          </div>
+
+          <div id="schedCountdownBanner" style="margin-top: 12px; padding: 10px 14px; background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3); border-radius: var(--radius-sm); font-size: 0.82rem; display: none;">
+            ⏳ รอบการสแกนถัดไป: <b id="lblNextRunTime">-</b> (<span id="lblCountdownStr">อีก -</span>)
+          </div>
+        </div>
+
+        <!-- Option 2: Windows Task Scheduler -->
+        <div class="sched-card">
+          <div class="sched-card-title">
+            <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--accent-emerald);"></span>
+            2. Windows Task Scheduler (รันอัตโนมัติเบื้องหลังระดับระบบ)
+          </div>
+          <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px;">
+            ลงทะเบียนงานใน Windows ให้โปรแกรมรันสแกนอัตโนมัติแบบเงียบ (Silent Background) และบันทึกลง Master CSV แม้ไม่ได้เปิดโปรแกรมทิ้งไว้
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 0.8rem; color: var(--text-muted);">เวลาที่ให้รันทุกวัน:</span>
+              <input type="time" id="timeWinTask" value="02:00" class="input-box" style="padding: 4px 10px; width: 110px;">
+            </div>
+            <div id="badgeWinTaskStatus" class="status-badge" style="background: rgba(148,163,184,0.15); color: var(--text-muted);">
+              ยังไม่ลงทะเบียน
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 10px;">
+            <button class="btn-primary" id="btnRegisterWinTask" style="padding: 8px 16px; font-size: 0.82rem;">
+              ลงทะเบียนใน Windows Task Scheduler
+            </button>
+            <button class="btn-danger" id="btnUnregisterWinTask" style="padding: 8px 14px; font-size: 0.82rem;" disabled>
+              ยกเลิกงานใน Task Scheduler
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fs-modal-footer">
+        <div></div>
+        <div class="fs-footer-actions">
+          <button class="btn-secondary" id="schedBtnDone">เสร็จสิ้น</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1479,35 +1670,57 @@
     // Filter and Render Table
     function renderTable() {
       const filtered = allScannedPCs.filter(pc => {
-        const matchesFilter = (currentFilter === 'all') || (pc.Status === currentFilter);
+        const matchesFilter = (currentFilter === 'all') || 
+          (currentFilter === 'OK' && pc.Status === 'OK') ||
+          (currentFilter === 'Offline' && pc.Status && pc.Status.includes('Offline')) ||
+          (currentFilter === 'Error' && pc.Status && pc.Status.includes('Error'));
+
         const q = searchQuery.toLowerCase();
         const matchesSearch = !q || 
           (pc.PCName && pc.PCName.toLowerCase().includes(q)) ||
+          (pc.User && pc.User.toLowerCase().includes(q)) ||
+          (pc.Model && pc.Model.toLowerCase().includes(q)) ||
           (pc.CPU && pc.CPU.toLowerCase().includes(q)) ||
           (pc.OS && pc.OS.toLowerCase().includes(q)) ||
-          (pc.IP && pc.IP.toLowerCase().includes(q));
+          (pc.IP && pc.IP.toLowerCase().includes(q)) ||
+          (pc.AD_OU && pc.AD_OU.toLowerCase().includes(q));
         return matchesFilter && matchesSearch;
       });
 
       if (filtered.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">${allScannedPCs.length === 0 ? 'ยังไม่มีข้อมูลผลการสแกน' : 'ไม่พบข้อมูลที่ตรงกับการค้นหา'}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--text-muted); padding: 30px;">${allScannedPCs.length === 0 ? 'ยังไม่มีข้อมูลผลการสแกน (กด "เริ่มสแกน" ด้านล่าง)' : 'ไม่พบข้อมูลที่ตรงกับการค้นหา'}</td></tr>`;
         return;
       }
 
       tableBody.innerHTML = filtered.map(pc => {
         let badgeClass = 'ok';
-        if (pc.Status === 'Offline') badgeClass = 'offline';
+        if (pc.Status && pc.Status.includes('Offline')) badgeClass = 'offline';
         else if (pc.Status === 'Scanning') badgeClass = 'scanning';
         else if (pc.Status && pc.Status.startsWith('Error')) badgeClass = 'error';
 
+        // C Drive warning badge if free percentage is low
+        let diskHtml = pc.Disk_C_Free || '-';
+        if (pc.Disk_C_Free && pc.Disk_C_Free.includes('%')) {
+          const match = pc.Disk_C_Free.match(/(\d+)%\s+free/i);
+          if (match && parseInt(match[1]) <= 15) {
+            diskHtml = `<span style="color: var(--accent-rose); font-weight: 600;">⚠️ ${pc.Disk_C_Free}</span>`;
+          }
+        }
+
         return `
           <tr>
-            <td style="font-weight: 600;">${pc.PCName || '-'}</td>
+            <td style="font-weight: 700; color: var(--text-main);">${pc.PCName || '-'}</td>
             <td><span class="status-badge ${badgeClass}">${pc.Status || 'OK'}</span></td>
+            <td>${pc.User || '-'}</td>
             <td>${pc.CPU || '-'}</td>
             <td>${pc.RAM_GB ? pc.RAM_GB + ' GB' : '-'}</td>
+            <td>${diskHtml}</td>
+            <td>${pc.Last_Boot ? pc.Last_Boot + ' <small style="color:var(--text-muted)">(' + (pc.Uptime || '-') + ')</small>' : '-'}</td>
+            <td>${pc.AD_LastLogon || '-'}</td>
+            <td>${pc.AD_OU || '-'}</td>
             <td>${pc.OS || '-'}</td>
             <td>${pc.IP || '-'}</td>
+            <td style="text-align: center;"><span style="background: rgba(6,182,212,0.15); color: var(--accent-cyan); font-weight: 700; padding: 2px 7px; border-radius: 999px; font-size: 0.72rem;">${pc.Scan_Count || '1'}</span></td>
           </tr>
         `;
       }).join('');
@@ -1761,13 +1974,155 @@
       } catch (err) { }
     });
 
-    // Start Scan Action
-    btnStartScan.addEventListener('click', async () => {
+    // Elements for Master DB, Retry, and Scheduler
+    const chkMasterDb = document.getElementById('chkMasterDb');
+    const btnRetryOffline = document.getElementById('btnRetryOffline');
+    const badgeOfflineCount = document.getElementById('badgeOfflineCount');
+    const btnOpenScheduler = document.getElementById('btnOpenScheduler');
+    const btnOpenSchedulerDock = document.getElementById('btnOpenSchedulerDock');
+    const schedModalBackdrop = document.getElementById('schedModalBackdrop');
+    const schedBtnClose = document.getElementById('schedBtnClose');
+    const schedBtnDone = document.getElementById('schedBtnDone');
+    const chkInAppSched = document.getElementById('chkInAppSched');
+    const selInAppInterval = document.getElementById('selInAppInterval');
+    const schedCountdownBanner = document.getElementById('schedCountdownBanner');
+    const lblNextRunTime = document.getElementById('lblNextRunTime');
+    const lblCountdownStr = document.getElementById('lblCountdownStr');
+    const timeWinTask = document.getElementById('timeWinTask');
+    const btnRegisterWinTask = document.getElementById('btnRegisterWinTask');
+    const btnUnregisterWinTask = document.getElementById('btnUnregisterWinTask');
+    const badgeWinTaskStatus = document.getElementById('badgeWinTaskStatus');
+    const sidebarSchedInfo = document.getElementById('sidebarSchedInfo');
+    const sidebarSchedTime = document.getElementById('sidebarSchedTime');
+
+    // Scheduler Modal Handling
+    function openSchedulerModal() {
+      schedModalBackdrop.classList.add('active');
+      fetchScheduleStatus();
+    }
+    function closeSchedulerModal() {
+      schedModalBackdrop.classList.remove('active');
+    }
+
+    if (btnOpenScheduler) btnOpenScheduler.addEventListener('click', openSchedulerModal);
+    if (btnOpenSchedulerDock) btnOpenSchedulerDock.addEventListener('click', openSchedulerModal);
+    if (schedBtnClose) schedBtnClose.addEventListener('click', closeSchedulerModal);
+    if (schedBtnDone) schedBtnDone.addEventListener('click', closeSchedulerModal);
+    if (schedModalBackdrop) {
+      schedModalBackdrop.addEventListener('click', (e) => {
+        if (e.target === schedModalBackdrop) closeSchedulerModal();
+      });
+    }
+
+    async function fetchScheduleStatus() {
+      try {
+        const res = await fetch('/api/schedule');
+        const data = await res.json();
+        if (data.inAppSchedule) {
+          chkInAppSched.checked = !!data.inAppSchedule.enabled;
+          selInAppInterval.value = data.inAppSchedule.intervalHours || 4;
+        }
+        if (data.winTaskInfo) {
+          const isReg = data.winTaskInfo.registered;
+          badgeWinTaskStatus.innerText = isReg ? `พร้อมทำงาน (${data.winTaskInfo.state})` : 'ยังไม่ลงทะเบียน';
+          badgeWinTaskStatus.style.background = isReg ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.15)';
+          badgeWinTaskStatus.style.color = isReg ? '#10b981' : 'var(--text-muted)';
+          btnRegisterWinTask.innerText = isReg ? 'อัปเดตเวลา Task Scheduler' : 'ลงทะเบียนใน Windows Task Scheduler';
+          btnUnregisterWinTask.disabled = !isReg;
+          if (data.winTaskInfo.time) {
+            timeWinTask.value = data.winTaskInfo.time;
+          }
+        }
+      } catch (err) {}
+    }
+
+    chkInAppSched.addEventListener('change', async () => {
+      try {
+        await fetch('/api/schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'updateInApp',
+            enabled: chkInAppSched.checked,
+            intervalHours: parseInt(selInAppInterval.value) || 4
+          })
+        });
+        showToast(chkInAppSched.checked ? 'เปิดใช้งาน In-App Scheduler แล้ว' : 'ปิด In-App Scheduler แล้ว', 'info');
+      } catch (err) {}
+    });
+
+    selInAppInterval.addEventListener('change', async () => {
+      if (chkInAppSched.checked) {
+        try {
+          await fetch('/api/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'updateInApp',
+              enabled: true,
+              intervalHours: parseInt(selInAppInterval.value) || 4
+            })
+          });
+          showToast(`ปรับความถี่เป็นทุก ${selInAppInterval.value} ชั่วโมงแล้ว`, 'info');
+        } catch (err) {}
+      }
+    });
+
+    btnRegisterWinTask.addEventListener('click', async () => {
+      try {
+        btnRegisterWinTask.disabled = true;
+        const res = await fetch('/api/schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'registerWinTask',
+            time: timeWinTask.value || '02:00'
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          showToast(`ลงทะเบียน Windows Task Scheduler สำเร็จ! (รันเวลา ${timeWinTask.value})`, 'success');
+          await fetchScheduleStatus();
+        } else {
+          showToast('ไม่สามารถลงทะเบียนได้: ' + (data.error || 'Unknown'), 'error');
+        }
+      } catch (err) {
+        showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+      } finally {
+        btnRegisterWinTask.disabled = false;
+      }
+    });
+
+    btnUnregisterWinTask.addEventListener('click', async () => {
+      if (!confirm('ต้องการยกเลิกงานสแกนอัตโนมัติใน Windows Task Scheduler ใช่หรือไม่?')) return;
+      try {
+        btnUnregisterWinTask.disabled = true;
+        const res = await fetch('/api/schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'unregisterWinTask' })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          showToast('ยกเลิกงานใน Windows Task Scheduler เรียบร้อยแล้ว', 'info');
+          await fetchScheduleStatus();
+        } else {
+          showToast('ไม่สามารถยกเลิกได้: ' + (data.error || 'Unknown'), 'error');
+        }
+      } catch (err) {
+        showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+      } finally {
+        btnUnregisterWinTask.disabled = false;
+      }
+    });
+
+    // Start Scan Action (Normal or Retry Offline Only)
+    async function startScan(isRetryOffline = false) {
       if (!document.getElementById('chkHw').checked && !chkSw.checked) {
         showToast('กรุณาเลือกอย่างน้อย 1 รายการ: Hardware หรือ Software', 'warning');
         return;
       }
-      if (rbFile.checked && !txtListFile.value.trim()) {
+      if (!isRetryOffline && rbFile.checked && !txtListFile.value.trim()) {
         showToast('กรุณาระบุไฟล์รายชื่อเครื่อง (.txt)', 'warning');
         return;
       }
@@ -1778,6 +2133,8 @@
         listFile: txtListFile.value.trim(),
         scanHw: document.getElementById('chkHw').checked,
         scanSw: chkSw.checked,
+        masterMode: chkMasterDb ? chkMasterDb.checked : true,
+        retryOfflineOnly: isRetryOffline,
         nameFilter: document.getElementById('txtNameFilter').value.trim() || '*',
         includeUser: document.getElementById('chkUser').checked,
         includeHidden: document.getElementById('chkHidden').checked,
@@ -1788,12 +2145,15 @@
 
       try {
         btnStartScan.disabled = true;
+        if (btnRetryOffline) btnRetryOffline.disabled = true;
         btnCancelScan.disabled = false;
-        dockStatusText.innerText = 'กำลังเริ่มการสแกน...';
+        dockStatusText.innerText = isRetryOffline ? 'กำลังสแกนซ้ำเฉพาะเครื่อง Offline...' : 'กำลังเริ่มการสแกน...';
         ringStatus.innerText = 'กำลังสแกน...';
-        scanCurrentMsg.innerText = 'กำลังเชื่อมต่อเครื่องในเครือข่าย...';
-        allScannedPCs = [];
-        renderTable();
+        scanCurrentMsg.innerText = isRetryOffline ? 'กำลังเชื่อมต่อเครื่องที่เคย Offline ใน Master Database...' : 'กำลังเชื่อมต่อเครื่องในเครือข่าย...';
+        if (!isRetryOffline) {
+          allScannedPCs = [];
+          renderTable();
+        }
 
         const res = await fetch('/api/scan', {
           method: 'POST',
@@ -1813,7 +2173,12 @@
         showToast('ไม่สามารถเริ่มสแกนได้: ' + err.message, 'error');
         resetScanUI();
       }
-    });
+    }
+
+    btnStartScan.addEventListener('click', () => startScan(false));
+    if (btnRetryOffline) {
+      btnRetryOffline.addEventListener('click', () => startScan(true));
+    }
 
     // Cancel Scan Action
     btnCancelScan.addEventListener('click', async () => {
@@ -1828,6 +2193,7 @@
     function resetScanUI() {
       isScanning = false;
       btnStartScan.disabled = false;
+      if (btnRetryOffline) btnRetryOffline.disabled = false;
       btnCancelScan.disabled = true;
       dockStatusText.innerText = 'การสแกนเสร็จสมบูรณ์';
       ringStatus.innerText = 'เสร็จสิ้น';
@@ -1860,11 +2226,47 @@
             scanCurrentMsg.innerText = data.currentActivity;
           }
 
+          // In-App Schedule countdown display
+          if (data.inAppSchedule && data.inAppSchedule.enabled) {
+            schedCountdownBanner.style.display = 'block';
+            sidebarSchedInfo.style.display = 'block';
+            lblNextRunTime.innerText = data.inAppSchedule.nextRunAt || '-';
+            sidebarSchedTime.innerText = data.inAppSchedule.nextRunAt ? data.inAppSchedule.nextRunAt.split(' ')[1] : '-';
+            const secs = data.inAppSchedule.countdownSec || 0;
+            const h = Math.floor(secs / 3600);
+            const m = Math.floor((secs % 3600) / 60);
+            const s = secs % 60;
+            lblCountdownStr.innerText = `อีก ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+          } else {
+            schedCountdownBanner.style.display = 'none';
+            sidebarSchedInfo.style.display = 'none';
+          }
+
+          // Windows Task Scheduler status
+          if (data.winTaskInfo) {
+            const isReg = data.winTaskInfo.registered;
+            badgeWinTaskStatus.innerText = isReg ? `พร้อมทำงาน (${data.winTaskInfo.state})` : 'ยังไม่ลงทะเบียน';
+            badgeWinTaskStatus.style.background = isReg ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.15)';
+            badgeWinTaskStatus.style.color = isReg ? '#10b981' : 'var(--text-muted)';
+            btnRegisterWinTask.innerText = isReg ? 'อัปเดตเวลา Task Scheduler' : 'ลงทะเบียนใน Windows Task Scheduler';
+            btnUnregisterWinTask.disabled = !isReg;
+          }
+
+          // Offline Retry Button visibility
+          if (btnRetryOffline) {
+            if (data.offlineMachinesCount > 0) {
+              btnRetryOffline.style.display = 'inline-flex';
+              badgeOfflineCount.innerText = data.offlineMachinesCount;
+            } else {
+              btnRetryOffline.style.display = 'none';
+            }
+          }
+
           // New Logs
           if (data.newLogs && data.newLogs.length > 0) {
             data.newLogs.forEach(l => {
               let cls = '';
-              if (l.includes('---') || l.includes('Method')) cls = 'terminal-info';
+              if (l.includes('---') || l.includes('Method') || l.includes('Master')) cls = 'terminal-info';
               else if (l.includes('OK') || l.includes('done') || l.includes('Success')) cls = 'terminal-success';
               else if (l.includes('WARNING') || l.includes('Offline')) cls = 'terminal-warn';
               else if (l.includes('ERROR') || l.includes('Exception')) cls = 'terminal-error';

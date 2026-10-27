@@ -1,12 +1,8 @@
-# ==============================================================================
-# FTI PC Inventory Tool - Web Application Engine (Edge App Host + Local Server)
-# ==============================================================================
-
-Add-Type -AssemblyName System.Web
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-
-[System.Windows.Forms.Application]::EnableVisualStyles()
+param(
+    [switch]$Silent,
+    [switch]$ScheduledRun,
+    [string]$OutDir = 'C:\Inventory'
+)
 
 # --- 1. Resolve Core Engine & Web UI Assets ---
 if (-not $CoreScript) {
@@ -19,6 +15,32 @@ if (-not $CoreScript) {
         $CoreScript = ''
     }
 }
+
+# --- Silent Mode for Scheduled Tasks / CLI Background Run ---
+if ($Silent -or $ScheduledRun) {
+    Write-Host "[FTI Inventory] Scheduled background run started at $(Get-Date)"
+    New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
+    $logFile = Join-Path $OutDir 'ScheduleRun.log'
+    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Scheduled scan triggered." | Out-File $logFile -Append -Encoding UTF8
+
+    try {
+        $coreParams = @{
+            OutDir     = $OutDir
+            MasterMode = $true
+        }
+        $res = & ([scriptblock]::Create($CoreScript)) @coreParams
+        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Scan completed successfully. Status=$($res.Status)" | Out-File $logFile -Append -Encoding UTF8
+    } catch {
+        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Scan failed: $($_.Exception.Message)" | Out-File $logFile -Append -Encoding UTF8
+    }
+    exit 0
+}
+
+Add-Type -AssemblyName System.Web
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+[System.Windows.Forms.Application]::EnableVisualStyles()
 
 if (-not $HtmlContent) {
     $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
@@ -77,6 +99,16 @@ $script:lastWarnIndex   = 0
 $script:lastErrIndex    = 0
 $script:lastProgIndex   = 0
 $script:sentLogIndex    = 0
+
+# Scheduler State Tracking
+$script:inAppSchedule = @{
+    enabled       = $false
+    intervalHours = 4
+    nextRunAt     = $null
+    lastRunAt     = $null
+}
+$script:lastScanParams = $null
+$script:lastOutDir = 'C:\Inventory'
 
 # --- 5. Background Stream Pump Function ---
 function Update-ScanProgress() {
@@ -137,12 +169,18 @@ function Update-ScanProgress() {
                 $existing = $script:scannedPCs | Where-Object { $_.PCName -eq $pcName }
                 if (-not $existing) {
                     $script:scannedPCs.Add(@{
-                        PCName  = $pcName
-                        Status  = 'Scanning'
-                        CPU     = '...'
-                        RAM_GB  = ''
-                        OS      = '...'
-                        IP      = '...'
+                        PCName       = $pcName
+                        Status       = 'Scanning'
+                        CPU          = '...'
+                        RAM_GB       = ''
+                        Disk_C_Free  = ''
+                        OS           = '...'
+                        IP           = '...'
+                        Last_Boot    = ''
+                        Uptime       = ''
+                        AD_LastLogon = ''
+                        AD_OU        = ''
+                        Scan_Count   = ''
                     })
                 }
             }
@@ -166,19 +204,37 @@ function Update-ScanProgress() {
                 if ($lastObj -and $lastObj.SoftwareHtml) {
                     $script:lastHtmlReport = $lastObj.SoftwareHtml
                 }
-                if ($lastObj -and $lastObj.HardwareCsv -and (Test-Path -LiteralPath $lastObj.HardwareCsv)) {
+
+                $csvToLoad = if ($lastObj -and $lastObj.MasterCsv -and (Test-Path -LiteralPath $lastObj.MasterCsv)) {
+                    $lastObj.MasterCsv
+                } elseif ($lastObj -and $lastObj.HardwareCsv -and (Test-Path -LiteralPath $lastObj.HardwareCsv)) {
+                    $lastObj.HardwareCsv
+                } else { $null }
+
+                if ($csvToLoad) {
                     try {
-                        $csvHw = Import-Csv -LiteralPath $lastObj.HardwareCsv -Encoding UTF8
+                        $csvHw = Import-Csv -LiteralPath $csvToLoad -Encoding UTF8
                         if ($csvHw -and $csvHw.Count -gt 0) {
                             $script:scannedPCs.Clear()
                             foreach ($row in $csvHw) {
                                 $script:scannedPCs.Add(@{
-                                    PCName  = $row.PCName
-                                    Status  = if ($row.Status) { $row.Status } else { 'OK' }
-                                    CPU     = if ($row.CPU) { $row.CPU } else { '-' }
-                                    RAM_GB  = if ($row.RAM_GB) { $row.RAM_GB } else { '-' }
-                                    OS      = if ($row.OS) { $row.OS } else { '-' }
-                                    IP      = if ($row.IP) { $row.IP } else { '-' }
+                                    PCName       = $row.PCName
+                                    Status       = if ($row.Status) { $row.Status } else { 'OK' }
+                                    User         = if ($row.User) { $row.User } else { '-' }
+                                    Maker        = if ($row.Maker) { $row.Maker } else { '-' }
+                                    Model        = if ($row.Model) { $row.Model } else { '-' }
+                                    CPU          = if ($row.CPU) { $row.CPU } else { '-' }
+                                    RAM_GB       = if ($row.RAM_GB) { $row.RAM_GB } else { '-' }
+                                    Disk_C_Free  = if ($row.Disk_C_Free) { $row.Disk_C_Free } else { '-' }
+                                    OS           = if ($row.OS) { $row.OS } else { '-' }
+                                    IP           = if ($row.IP) { $row.IP } else { '-' }
+                                    Last_Boot    = if ($row.Last_Boot) { $row.Last_Boot } else { '-' }
+                                    Uptime       = if ($row.Uptime) { $row.Uptime } else { '-' }
+                                    AD_LastLogon = if ($row.AD_LastLogon) { $row.AD_LastLogon } else { '-' }
+                                    AD_OU        = if ($row.AD_OU) { $row.AD_OU } else { '-' }
+                                    Scan_Count   = if ($row.Scan_Count) { $row.Scan_Count } else { '1' }
+                                    First_Seen   = if ($row.First_Seen) { $row.First_Seen } else { '-' }
+                                    Last_Scan    = if ($row.Last_Scan) { $row.Last_Scan } else { '-' }
                                 })
                             }
                         }
@@ -204,8 +260,8 @@ function Update-ScanProgress() {
             }
         }
         $script:ok = @($script:scannedPCs | Where-Object { $_.Status -eq 'OK' }).Count
-        $script:offline = @($script:scannedPCs | Where-Object { $_.Status -eq 'Offline' }).Count
-        $script:errCount = @($script:scannedPCs | Where-Object { $_.Status -notmatch '^(OK|Offline)$' }).Count
+        $script:offline = @($script:scannedPCs | Where-Object { $_.Status -match 'Offline' }).Count
+        $script:errCount = @($script:scannedPCs | Where-Object { $_.Status -match 'Error' }).Count
         $script:total = $script:scannedPCs.Count
 
         # Auto open HTML report if enabled
@@ -216,6 +272,74 @@ function Update-ScanProgress() {
             } catch {}
         }
     }
+}
+
+# --- Core Scan Invoker Helper ---
+function Start-ExecutionScan([hashtable]$params) {
+    if ($script:psInstance) { return $false }
+
+    $outDir = [string]$params.outDir
+    if ([string]::IsNullOrWhiteSpace($outDir)) { $outDir = 'C:\Inventory' }
+    $script:lastOutDir = $outDir
+
+    if ($params.source -eq 'file') {
+        $listFile = [string]$params.listFile
+        if ([string]::IsNullOrWhiteSpace($listFile) -or -not (Test-Path -LiteralPath $listFile)) {
+            throw "File not found: $listFile"
+        }
+    }
+
+    if (-not (Test-Path -LiteralPath $outDir)) {
+        [void](New-Item -ItemType Directory -Path $outDir -Force)
+    }
+
+    $script:isCompleted     = $false
+    $script:percent         = 0
+    $script:total           = 0
+    $script:ok              = 0
+    $script:offline         = 0
+    $script:errCount        = 0
+    $script:currentActivity = 'Preparing scan...'
+    $script:lastHtmlReport  = $null
+    $script:autoOpenHtml    = if ($params.ContainsKey('autoHtml')) { [bool]$params.autoHtml } else { $true }
+    $script:lastLogs.Clear()
+    $script:scannedPCs.Clear()
+    $script:lastInfoIndex   = 0
+    $script:lastWarnIndex   = 0
+    $script:lastErrIndex    = 0
+    $script:lastProgIndex   = 0
+    $script:sentLogIndex    = 0
+    $script:scanStartTime   = [System.DateTime]::Now
+    $script:scanEndTime     = $null
+
+    $script:psInstance = [powershell]::Create()
+    [void]$script:psInstance.AddScript($CoreScript)
+
+    $isHw = if ($params.ContainsKey('scanHw')) { [bool]$params.scanHw } else { $true }
+    $isSw = if ($params.ContainsKey('scanSw')) { [bool]$params.scanSw } else { $true }
+    [void]$script:psInstance.AddParameter('NoSoftware', (-not $isSw))
+    [void]$script:psInstance.AddParameter('SkipHardware', (-not $isHw))
+    [void]$script:psInstance.AddParameter('NameFilter', [string]$params.nameFilter)
+    [void]$script:psInstance.AddParameter('IncludeUserInstalls', [bool]$params.includeUser)
+    [void]$script:psInstance.AddParameter('IncludeHidden', [bool]$params.includeHidden)
+    [void]$script:psInstance.AddParameter('DaysActive', [int]$params.daysActive)
+    [void]$script:psInstance.AddParameter('Throttle', [int]$params.throttle)
+    [void]$script:psInstance.AddParameter('OutDir', $outDir)
+
+    $isMaster = if ($params.ContainsKey('masterMode')) { [bool]$params.masterMode } else { $true }
+    $isRetryOffline = if ($params.ContainsKey('retryOfflineOnly')) { [bool]$params.retryOfflineOnly } else { $false }
+    [void]$script:psInstance.AddParameter('MasterMode', $isMaster)
+    [void]$script:psInstance.AddParameter('RetryOfflineOnly', $isRetryOffline)
+
+    if ($params.source -eq 'localhost') {
+        [void]$script:psInstance.AddParameter('ScanLocalhost', $true)
+    }
+    elseif ($params.source -eq 'file' -and $params.listFile) {
+        [void]$script:psInstance.AddParameter('ComputerListFile', [string]$params.listFile)
+    }
+
+    $script:asyncResult = $script:psInstance.BeginInvoke()
+    return $true
 }
 
 # --- 6. Launch Standalone Edge App Window ---
@@ -252,6 +376,33 @@ while ($running) {
     Update-ScanProgress
 
     $scanRunning = ($null -ne $script:psInstance)
+
+    # In-App recurring schedule trigger
+    if ($script:inAppSchedule.enabled -and -not $scanRunning -and $script:inAppSchedule.nextRunAt) {
+        if ([System.DateTime]::Now -ge $script:inAppSchedule.nextRunAt) {
+            $script:inAppSchedule.lastRunAt = [System.DateTime]::Now
+            $script:inAppSchedule.nextRunAt = [System.DateTime]::Now.AddHours($script:inAppSchedule.intervalHours)
+            $script:lastLogs.Add("[Scheduler] Auto-scan triggered at $(Get-Date -Format 'HH:mm:ss')")
+            
+            $autoParams = if ($script:lastScanParams) { $script:lastScanParams } else {
+                @{
+                    source           = 'ad'
+                    outDir           = $script:lastOutDir
+                    scanHw           = $true
+                    scanSw           = $true
+                    masterMode       = $true
+                    retryOfflineOnly = $false
+                    daysActive       = 30
+                    throttle         = 20
+                }
+            }
+            try {
+                Start-ExecutionScan $autoParams | Out-Null
+            } catch {
+                $script:lastLogs.Add("[Scheduler Error] $($_.Exception.Message)")
+            }
+        }
+    }
 
     # 1. Graceful exit scheduled by browser window close beacon (after 3s grace if no reload/request)
     if ($script:exitRequestedAt -and -not $scanRunning) {
@@ -297,7 +448,6 @@ while ($running) {
         $req = $context.Request
         $res = $context.Response
 
-        # Receiving any request keeps the server alive and cancels any pending exit (e.g. page F5/reload)
         $script:lastHeartbeat = [System.DateTime]::Now
         $script:hasConnected = $true
         $script:exitRequestedAt = $null
@@ -328,20 +478,54 @@ while ($running) {
                     $script:sentLogIndex = $script:lastLogs.Count
                 }
 
+                # Calculate In-App schedule countdown
+                $countdownSec = 0
+                $nextRunStr = '-'
+                if ($script:inAppSchedule.enabled -and $script:inAppSchedule.nextRunAt) {
+                    $diff = $script:inAppSchedule.nextRunAt - [System.DateTime]::Now
+                    if ($diff.TotalSeconds -gt 0) {
+                        $countdownSec = [math]::Floor($diff.TotalSeconds)
+                        $nextRunStr = $script:inAppSchedule.nextRunAt.ToString('yyyy-MM-dd HH:mm:ss')
+                    }
+                }
+
+                # Check Windows Task Scheduler
+                $winTaskInfo = @{ registered = $false; state = 'NotRegistered'; time = '02:00' }
+                try {
+                    $t = Get-ScheduledTask -TaskName 'FTI_PC_Inventory_AutoScan' -ErrorAction SilentlyContinue
+                    if ($t) {
+                        $winTaskInfo.registered = $true
+                        $winTaskInfo.state = $t.State.ToString()
+                        if ($t.Triggers -and $t.Triggers[0] -and $t.Triggers[0].StartBoundary) {
+                            $winTaskInfo.time = ([datetime]$t.Triggers[0].StartBoundary).ToString('HH:mm')
+                        }
+                    }
+                } catch {}
+
+                $offlineMachinesCount = @($script:scannedPCs | Where-Object { $_.Status -match 'Offline|Error' }).Count
+
                 $statusObj = @{
-                    isAdmin         = $isAdmin
-                    isScanning      = ($null -ne $script:psInstance)
-                    isCompleted     = $script:isCompleted
-                    percent         = $script:percent
-                    elapsed         = $elapsedStr
-                    currentActivity = $script:currentActivity
-                    total           = $script:total
-                    ok              = $script:ok
-                    offline         = $script:offline
-                    error           = $script:errCount
-                    htmlReportReady = ($null -ne $script:lastHtmlReport -and (Test-Path $script:lastHtmlReport))
-                    newLogs         = $newLogs
-                    scannedPCs      = $script:scannedPCs
+                    isAdmin               = $isAdmin
+                    isScanning            = ($null -ne $script:psInstance)
+                    isCompleted           = $script:isCompleted
+                    percent               = $script:percent
+                    elapsed               = $elapsedStr
+                    currentActivity       = $script:currentActivity
+                    total                 = $script:total
+                    ok                    = $script:ok
+                    offline               = $script:offline
+                    error                 = $script:errCount
+                    offlineMachinesCount  = $offlineMachinesCount
+                    htmlReportReady       = ($null -ne $script:lastHtmlReport -and (Test-Path $script:lastHtmlReport))
+                    newLogs               = $newLogs
+                    scannedPCs            = $script:scannedPCs
+                    inAppSchedule         = @{
+                        enabled       = $script:inAppSchedule.enabled
+                        intervalHours = $script:inAppSchedule.intervalHours
+                        nextRunAt     = $nextRunStr
+                        countdownSec  = $countdownSec
+                    }
+                    winTaskInfo           = $winTaskInfo
                 }
 
                 $json = $statusObj | ConvertTo-Json -Depth 5 -Compress
@@ -353,17 +537,106 @@ while ($running) {
             elseif ($path -eq '/api/scan' -and $method -eq 'POST') {
                 $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
                 $body = $reader.ReadToEnd()
+                $paramsObj = $body | ConvertFrom-Json
+
+                # Convert PSCustomObject to Hashtable
+                $scanParams = @{}
+                foreach ($prop in $paramsObj.PSObject.Properties) {
+                    $scanParams[$prop.Name] = $prop.Value
+                }
+                $script:lastScanParams = $scanParams
+
+                try {
+                    Start-ExecutionScan $scanParams | Out-Null
+                    $json = @{ status = 'started' } | ConvertTo-Json
+                    $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
+                    $res.ContentType = 'application/json; charset=utf-8'
+                    $res.ContentLength64 = $buf.Length
+                    $res.OutputStream.Write($buf, 0, $buf.Length)
+                } catch {
+                    $res.StatusCode = 400
+                    $json = @{ error = $_.Exception.Message } | ConvertTo-Json
+                    $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
+                    $res.ContentType = 'application/json; charset=utf-8'
+                    $res.ContentLength64 = $buf.Length
+                    $res.OutputStream.Write($buf, 0, $buf.Length)
+                }
+            }
+            elseif ($path -eq '/api/schedule' -and $method -eq 'GET') {
+                $winTaskInfo = @{ registered = $false; state = 'NotRegistered'; time = '02:00' }
+                try {
+                    $t = Get-ScheduledTask -TaskName 'FTI_PC_Inventory_AutoScan' -ErrorAction SilentlyContinue
+                    if ($t) {
+                        $winTaskInfo.registered = $true
+                        $winTaskInfo.state = $t.State.ToString()
+                        if ($t.Triggers -and $t.Triggers[0] -and $t.Triggers[0].StartBoundary) {
+                            $winTaskInfo.time = ([datetime]$t.Triggers[0].StartBoundary).ToString('HH:mm')
+                        }
+                    }
+                } catch {}
+
+                $schedObj = @{
+                    inAppSchedule = $script:inAppSchedule
+                    winTaskInfo   = $winTaskInfo
+                }
+                $json = $schedObj | ConvertTo-Json -Depth 5 -Compress
+                $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
+                $res.ContentType = 'application/json; charset=utf-8'
+                $res.ContentLength64 = $buf.Length
+                $res.OutputStream.Write($buf, 0, $buf.Length)
+            }
+            elseif ($path -eq '/api/schedule' -and $method -eq 'POST') {
+                $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
+                $body = $reader.ReadToEnd()
                 $params = $body | ConvertFrom-Json
 
-                # Pre-validation: outDir and listFile
-                $outDir = [string]$params.outDir
-                if ([string]::IsNullOrWhiteSpace($outDir)) { $outDir = 'C:\Inventory' }
+                $action = [string]$params.action
+                $msg = 'OK'
 
-                if ($params.source -eq 'file') {
-                    $listFile = [string]$params.listFile
-                    if ([string]::IsNullOrWhiteSpace($listFile) -or -not (Test-Path -LiteralPath $listFile)) {
-                        $res.StatusCode = 400
-                        $json = @{ error = "File not found: $listFile" } | ConvertTo-Json
+                if ($action -eq 'updateInApp') {
+                    $enabled = [bool]$params.enabled
+                    $interval = [int]$params.intervalHours
+                    if ($interval -le 0) { $interval = 4 }
+                    $script:inAppSchedule.enabled = $enabled
+                    $script:inAppSchedule.intervalHours = $interval
+                    if ($enabled) {
+                        $script:inAppSchedule.nextRunAt = [System.DateTime]::Now.AddHours($interval)
+                    } else {
+                        $script:inAppSchedule.nextRunAt = $null
+                    }
+                    $msg = "In-App schedule updated. Enabled=$enabled, Interval=$interval hours."
+                }
+                elseif ($action -eq 'registerWinTask') {
+                    $taskTime = if ($params.time) { [string]$params.time } else { '02:00' }
+                    $exePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+                    if ($exePath -match 'powershell\.exe') {
+                        $exePath = 'E:\FTI_PC_Inventory.exe'
+                    }
+
+                    try {
+                        $taskAction = New-ScheduledTaskAction -Execute $exePath -Argument "-Silent -OutDir `"$($script:lastOutDir)`""
+                        $trigger = New-ScheduledTaskTrigger -Daily -At $taskTime
+                        $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+                        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+                        Register-ScheduledTask -TaskName 'FTI_PC_Inventory_AutoScan' -Action $taskAction -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+                        $msg = "Registered Windows Task 'FTI_PC_Inventory_AutoScan' at $taskTime daily."
+                    } catch {
+                        $res.StatusCode = 500
+                        $json = @{ error = "Failed to register Windows Task: $($_.Exception.Message)" } | ConvertTo-Json
+                        $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
+                        $res.ContentType = 'application/json; charset=utf-8'
+                        $res.ContentLength64 = $buf.Length
+                        $res.OutputStream.Write($buf, 0, $buf.Length)
+                        continue
+                    }
+                }
+                elseif ($action -eq 'unregisterWinTask') {
+                    try {
+                        Unregister-ScheduledTask -TaskName 'FTI_PC_Inventory_AutoScan' -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+                        $msg = "Windows Task 'FTI_PC_Inventory_AutoScan' removed."
+                    } catch {
+                        $res.StatusCode = 500
+                        $json = @{ error = "Failed to remove Windows Task: $($_.Exception.Message)" } | ConvertTo-Json
                         $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
                         $res.ContentType = 'application/json; charset=utf-8'
                         $res.ContentLength64 = $buf.Length
@@ -372,68 +645,7 @@ while ($running) {
                     }
                 }
 
-                try {
-                    if (-not (Test-Path -LiteralPath $outDir)) {
-                        [void](New-Item -ItemType Directory -Path $outDir -Force)
-                    }
-                    $testFile = Join-Path $outDir (".fti_test_write_" + [System.Guid]::NewGuid().ToString('N') + ".tmp")
-                    [System.IO.File]::WriteAllText($testFile, "test")
-                    [System.IO.File]::Delete($testFile)
-                } catch {
-                    $res.StatusCode = 400
-                    $json = @{ error = "Cannot write to output folder ($outDir): $($_.Exception.Message)" } | ConvertTo-Json
-                    $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
-                    $res.ContentType = 'application/json; charset=utf-8'
-                    $res.ContentLength64 = $buf.Length
-                    $res.OutputStream.Write($buf, 0, $buf.Length)
-                    continue
-                }
-
-                # Reset state
-                $script:isCompleted     = $false
-                $script:percent         = 0
-                $script:total           = 0
-                $script:ok              = 0
-                $script:offline         = 0
-                $script:errCount        = 0
-                $script:currentActivity = 'Preparing scan...'
-                $script:lastHtmlReport  = $null
-                $script:autoOpenHtml    = [bool]$params.autoHtml
-                $script:lastLogs.Clear()
-                $script:scannedPCs.Clear()
-                $script:lastInfoIndex   = 0
-                $script:lastWarnIndex   = 0
-                $script:lastErrIndex    = 0
-                $script:lastProgIndex   = 0
-                $script:sentLogIndex    = 0
-                $script:scanStartTime   = [System.DateTime]::Now
-                $script:scanEndTime     = $null
-
-                # Create Background Runspace
-                $script:psInstance = [powershell]::Create()
-                [void]$script:psInstance.AddScript($CoreScript)
-
-                $isHw = [bool]$params.scanHw
-                $isSw = [bool]$params.scanSw
-                [void]$script:psInstance.AddParameter('NoSoftware', (-not $isSw))
-                [void]$script:psInstance.AddParameter('SkipHardware', (-not $isHw))
-                [void]$script:psInstance.AddParameter('NameFilter', [string]$params.nameFilter)
-                [void]$script:psInstance.AddParameter('IncludeUserInstalls', [bool]$params.includeUser)
-                [void]$script:psInstance.AddParameter('IncludeHidden', [bool]$params.includeHidden)
-                [void]$script:psInstance.AddParameter('DaysActive', [int]$params.daysActive)
-                [void]$script:psInstance.AddParameter('Throttle', [int]$params.throttle)
-                [void]$script:psInstance.AddParameter('OutDir', $outDir)
-
-                if ($params.source -eq 'localhost') {
-                    [void]$script:psInstance.AddParameter('ScanLocalhost', $true)
-                }
-                elseif ($params.source -eq 'file' -and $params.listFile) {
-                    [void]$script:psInstance.AddParameter('ComputerListFile', [string]$params.listFile)
-                }
-
-                $script:asyncResult = $script:psInstance.BeginInvoke()
-
-                $json = @{ status = 'started' } | ConvertTo-Json
+                $json = @{ status = 'success'; message = $msg } | ConvertTo-Json
                 $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
                 $res.ContentType = 'application/json; charset=utf-8'
                 $res.ContentLength64 = $buf.Length

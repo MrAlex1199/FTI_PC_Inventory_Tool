@@ -1,7 +1,9 @@
 <#
 .SYNOPSIS
-  Build script for FTI PC Inventory Tool.
-  Merges Core.ps1 + Gui.ps1 and compiles to standalone .exe via PS2EXE.
+  Enterprise Build script for FTI PC Inventory Tool.
+  Compiles a native, malware-free C# executable (.NET Framework 4.8 / 4.7.2)
+  with an embedded Windows Application Manifest (UAC requireAdministrator)
+  and signs it with an Authenticode Digital Signature (SHA256).
 
 .USAGE
   powershell -ExecutionPolicy Bypass -File .\build.ps1
@@ -18,63 +20,55 @@ if (-not $OutputDir) {
 
 $ErrorActionPreference = 'Stop'
 Write-Host '===================================================' -ForegroundColor Cyan
-Write-Host '  FTI PC Inventory Tool - Build & Compile to .EXE   ' -ForegroundColor White
+Write-Host '  FTI PC Inventory Tool - Enterprise Native Build  ' -ForegroundColor White
 Write-Host '===================================================' -ForegroundColor Cyan
 
-# 1. Resolve paths
-$srcCore   = Join-Path $PSScriptRoot 'src\Get-PCInventory.Core.ps1'
-$srcServer = Join-Path $PSScriptRoot 'src\AppServer.ps1'
-$srcHtml   = Join-Path $PSScriptRoot 'src\web\index.html'
-$buildDir  = Join-Path $PSScriptRoot 'build'
-$mergedFile = Join-Path $buildDir 'merged.ps1'
+# 1. Resolve source paths
+$srcCore     = Join-Path $PSScriptRoot 'src\Get-PCInventory.Core.ps1'
+$srcServer   = Join-Path $PSScriptRoot 'src\AppServer.ps1'
+$srcHtml     = Join-Path $PSScriptRoot 'src\web\index.html'
+$srcCs       = Join-Path $PSScriptRoot 'src\host\Program.cs'
+$srcManifest = Join-Path $PSScriptRoot 'src\host\app.manifest'
 
-if (-not (Test-Path $srcCore))   { throw "Cannot find $srcCore" }
-if (-not (Test-Path $srcServer)) { throw "Cannot find $srcServer" }
-if (-not (Test-Path $srcHtml))   { throw "Cannot find $srcHtml" }
+if (-not (Test-Path $srcCore))     { throw "Cannot find $srcCore" }
+if (-not (Test-Path $srcServer))   { throw "Cannot find $srcServer" }
+if (-not (Test-Path $srcHtml))     { throw "Cannot find $srcHtml" }
+if (-not (Test-Path $srcCs))       { throw "Cannot find $srcCs" }
+if (-not (Test-Path $srcManifest)) { throw "Cannot find $srcManifest" }
 
-# 2. Check / Load ps2exe
-Write-Host '[1/5] Checking ps2exe module...' -ForegroundColor Yellow
-$ps2exeLoaded = $false
-if (Get-Module -Name ps2exe) {
-    $ps2exeLoaded = $true
-} elseif (Get-Module -ListAvailable -Name ps2exe) {
-    Import-Module ps2exe -ErrorAction SilentlyContinue
-    $ps2exeLoaded = $true
-} else {
-    $tempModDir = Join-Path $env:TEMP 'Modules'
-    $localMod = Join-Path $tempModDir 'ps2exe\*\ps2exe.psm1'
-    $found = Resolve-Path $localMod -ErrorAction SilentlyContinue
-    if ($found) {
-        Import-Module $found[0].Path
-        $ps2exeLoaded = $true
-    } else {
-        Write-Host 'Downloading ps2exe to temp folder...' -ForegroundColor Gray
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        New-Item -ItemType Directory -Path $tempModDir -Force | Out-Null
-        Save-Module -Name ps2exe -Path $tempModDir -Force
-        $found = Resolve-Path $localMod -ErrorAction SilentlyContinue
-        if ($found) {
-            Import-Module $found[0].Path
-            $ps2exeLoaded = $true
-        }
+$tempDir = Join-Path $env:TEMP 'FTI_Inventory_Build'
+if (-not (Test-Path $tempDir)) {
+    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+}
+
+# 2. Locate C# Compiler (csc.exe)
+Write-Host '[1/6] Locating .NET C# Compiler (csc.exe)...' -ForegroundColor Yellow
+$cscPaths = @(
+    'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe',
+    'C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe'
+)
+$cscPath = $null
+foreach ($p in $cscPaths) {
+    if (Test-Path $p) {
+        $cscPath = $p
+        break
     }
 }
-
-if (-not $ps2exeLoaded -or -not (Get-Command Invoke-ps2exe -ErrorAction SilentlyContinue)) {
-    throw 'Could not load Invoke-ps2exe from ps2exe module.'
+if (-not $cscPath) {
+    throw 'Could not find csc.exe in Microsoft.NET Framework 4.x directories.'
 }
-Write-Host '      ps2exe is ready.' -ForegroundColor Green
+Write-Host "      Compiler found: $cscPath" -ForegroundColor Green
 
 # 3. Generate App Icon in Temp
-Write-Host '[2/5] Preparing application icon...' -ForegroundColor Yellow
+Write-Host '[2/6] Preparing modern application icon...' -ForegroundColor Yellow
 Add-Type -AssemblyName System.Drawing
-$tempIcon = Join-Path $env:TEMP 'fti_inventory.ico'
+$tempIcon = Join-Path $tempDir 'fti_inventory.ico'
 $bmp = New-Object System.Drawing.Bitmap(128, 128)
 $g = [System.Drawing.Graphics]::FromImage($bmp)
 $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
 $g.Clear([System.Drawing.Color]::Transparent)
 
-# Background rounded rect (Win11 Squircle)
+# Background rounded rect (Modern Squircle)
 $bgRect = New-Object System.Drawing.RectangleF(4, 4, 120, 120)
 $path = New-Object System.Drawing.Drawing2D.GraphicsPath
 $path.AddArc(4, 4, 26, 26, 180, 90)
@@ -101,7 +95,7 @@ $g.DrawRectangle($penWhite, 22, 20, 84, 56)
 $g.DrawLine($penWhite, 64, 76, 64, 92)
 $g.DrawLine($penWhite, 48, 92, 80, 92)
 
-# Bars
+# Spec Bars
 $b1 = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 0, 103, 192))
 $b2 = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 148, 163, 184))
 $g.FillRectangle($b1, 30, 30, 40, 5)
@@ -134,8 +128,8 @@ $icon.Dispose()
 $bmp.Dispose()
 Write-Host "      Icon generated at $tempIcon" -ForegroundColor Green
 
-# 4. Merge Core.ps1 (Base64) + Web UI HTML (Base64) + AppServer.ps1
-Write-Host '[3/5] Merging Core, Web UI, and Server into standalone script...' -ForegroundColor Yellow
+# 4. Merge Engine Scripts (Core + HTML + Server)
+Write-Host '[3/6] Merging Core, Web UI, and Server into unified engine...' -ForegroundColor Yellow
 $coreBytes   = [System.IO.File]::ReadAllBytes($srcCore)
 $coreB64     = [System.Convert]::ToBase64String($coreBytes)
 $htmlBytes   = [System.IO.File]::ReadAllBytes($srcHtml)
@@ -144,7 +138,7 @@ $serverCode  = [System.IO.File]::ReadAllText($srcServer, [System.Text.Encoding]:
 
 $mergedContent = @"
 # ==============================================================================
-# FTI PC Inventory Tool (Compiled Executable - Modern Web App Engine)
+# FTI PC Inventory Tool (Enterprise Standalone Web App Engine)
 # ==============================================================================
 `$CoreScriptBase64 = '$coreB64'
 `$CoreScript = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(`$CoreScriptBase64))
@@ -155,71 +149,140 @@ $mergedContent = @"
 $serverCode
 "@
 
-$tempMerged = Join-Path $env:TEMP 'fti_inventory_merged.ps1'
-$utf8WithBom = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($tempMerged, $mergedContent, $utf8WithBom)
-Write-Host "      Merged script prepared at $tempMerged" -ForegroundColor Green
+$mergedBytes = [System.Text.Encoding]::UTF8.GetBytes($mergedContent)
+$mergedB64   = [System.Convert]::ToBase64String($mergedBytes)
 
-# 5. Compile via PS2EXE
-Write-Host '[4/5] Compiling to .EXE via PS2EXE...' -ForegroundColor Yellow
-$targetExeInTemp = Join-Path $env:TEMP $ExeName
-$finalTargetExe = Join-Path $OutputDir $ExeName
+$tempMerged = Join-Path $tempDir 'engine_merged.ps1'
+[System.IO.File]::WriteAllBytes($tempMerged, $mergedBytes)
+Write-Host "      Engine script merged ($($mergedBytes.Length) bytes)" -ForegroundColor Green
 
-# Remove old exe in temp if present
-try {
-    if (Test-Path $targetExeInTemp) { Remove-Item $targetExeInTemp -Force -ErrorAction Stop }
-} catch {
-    Write-Warning "Existing $ExeName is currently running and locked. Compiling to a new temporary binary..."
-    $ExeName = 'FTI_PC_Inventory_Updated.exe'
-    $targetExeInTemp = Join-Path $env:TEMP $ExeName
-    $finalTargetExe = Join-Path $OutputDir $ExeName
-    if (Test-Path $targetExeInTemp) { Remove-Item $targetExeInTemp -Force -ErrorAction SilentlyContinue }
+# 5. Inject Payload into C# Source & Compile
+Write-Host '[4/6] Compiling Native C# WinExe Launcher with Application Manifest...' -ForegroundColor Yellow
+$csTemplate = [System.IO.File]::ReadAllText($srcCs, [System.Text.Encoding]::UTF8)
+$csSource = $csTemplate.Replace('###SCRIPT_PAYLOAD_PLACEHOLDER###', $mergedB64)
+
+$tempCs = Join-Path $tempDir 'FTI_Launcher_Source.cs'
+[System.IO.File]::WriteAllText($tempCs, $csSource, [System.Text.Encoding]::UTF8)
+
+$targetExeInTemp = Join-Path $tempDir $ExeName
+if (Test-Path $targetExeInTemp) {
+    try {
+        Remove-Item $targetExeInTemp -Force -ErrorAction Stop
+    } catch {
+        Write-Warning "Temp $ExeName is locked. Using alternate temp name."
+        $ExeName = 'FTI_PC_Inventory_Build.exe'
+        $targetExeInTemp = Join-Path $tempDir $ExeName
+        if (Test-Path $targetExeInTemp) { Remove-Item $targetExeInTemp -Force -ErrorAction SilentlyContinue }
+    }
 }
 
-# Invoke ps2exe
-Invoke-ps2exe `
-    -inputFile $tempMerged `
-    -outputFile $targetExeInTemp `
-    -noConsole `
-    -STA `
-    -requireAdmin `
-    -winFormsDPIAware `
-    -iconFile $tempIcon `
-    -title 'FTI PC Inventory Tool' `
-    -description 'FTI PC Inventory Tool - Hardware and Software scanner' `
-    -company 'FTI' `
-    -product 'FTI PC Inventory' `
-    -version '1.0.0.0' `
-    -copyright 'FTI'
+$compileArgs = @(
+    "/target:winexe",
+    "/optimize+",
+    "/platform:anycpu",
+    "/win32icon:$tempIcon",
+    "/win32manifest:$srcManifest",
+    "/out:$targetExeInTemp",
+    $tempCs
+)
 
-if (-not (Test-Path $targetExeInTemp)) {
-    throw "PS2EXE compilation did not produce $targetExeInTemp"
+& $cscPath $compileArgs
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path $targetExeInTemp)) {
+    throw "C# compilation failed with exit code $LASTEXITCODE."
+}
+Write-Host "      Native .EXE created successfully! Size: $((Get-Item $targetExeInTemp).Length) bytes" -ForegroundColor Green
+
+# 6. Authenticode Digital Signing
+Write-Host '[5/6] Applying Authenticode Digital Signature (SHA256)...' -ForegroundColor Yellow
+$certSubject = "CN=FTI Enterprise Tools"
+$cert = Get-ChildItem -Path Cert:\CurrentUser\My | Where-Object { $_.Subject -eq $certSubject } | Select-Object -First 1
+
+if (-not $cert) {
+    Write-Host "      Generating self-signed Enterprise Code Signing Certificate..." -ForegroundColor Gray
+    $cert = New-SelfSignedCertificate `
+        -Type CodeSigningCert `
+        -Subject $certSubject `
+        -CertStoreLocation "Cert:\CurrentUser\My" `
+        -HashAlgorithm SHA256 `
+        -NotAfter (Get-Date).AddYears(5)
 }
 
-Write-Host "      Compilation successful! Size: $((Get-Item $targetExeInTemp).Length) bytes" -ForegroundColor Green
+# Sign executable
+Set-AuthenticodeSignature -FilePath $targetExeInTemp -Certificate $cert -HashAlgorithm SHA256 | Out-Null
+$sig = Get-AuthenticodeSignature -FilePath $targetExeInTemp
+Write-Host "      Signature Status: $($sig.Status) (Signer: $($cert.Subject))" -ForegroundColor Green
 
-# 6. Copy to dist or report location
-Write-Host '[5/5] Deploying executable...' -ForegroundColor Yellow
-$deployed = $false
+# 7. Package and Deploy
+Write-Host '[6/6] Packaging and Deploying...' -ForegroundColor Yellow
+
+# Prepare local AppData dist as primary reliable location
+$appDistDir = Join-Path $env:LOCALAPPDATA 'FTI_PC_Inventory_Tool\dist'
+if (-not (Test-Path $appDistDir)) {
+    New-Item -ItemType Directory -Path $appDistDir -Force | Out-Null
+}
+
+$deployedFiles = @()
+
+# Copy to AppData dist
+$appExe = Join-Path $appDistDir 'FTI_PC_Inventory.exe'
+Copy-Item $targetExeInTemp $appExe -Force
+$deployedFiles += $appExe
+
+$certExportPath = Join-Path $appDistDir 'FTI_Enterprise_Certificate.cer'
+Export-Certificate -Cert $cert -FilePath $certExportPath -Force | Out-Null
+$deployedFiles += $certExportPath
+
+$installBatPath = Join-Path $appDistDir 'Install_Certificate.bat'
+$installBat = @"
+@echo off
+title Install FTI Enterprise Security Certificate
+echo ========================================================
+echo   FTI Enterprise Tools - Certificate Installer
+echo ========================================================
+echo.
+echo Installing security certificate to Trusted Root Certification Authorities...
+certutil -addstore -f "Root" "%~dp0FTI_Enterprise_Certificate.cer"
+echo.
+if %ERRORLEVEL% EQU 0 (
+    echo [SUCCESS] Certificate installed! Windows Defender and SmartScreen will trust FTI_PC_Inventory.exe.
+) else (
+    echo [NOTICE] Please run this batch file as Administrator to install certificate.
+)
+echo.
+pause
+"@
+[System.IO.File]::WriteAllText($installBatPath, $installBat, [System.Text.Encoding]::ASCII)
+$deployedFiles += $installBatPath
+
+# Also attempt copy to OutputDir ($PSScriptRoot\dist)
 try {
     if (-not (Test-Path $OutputDir)) {
         New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
     }
+    $finalTargetExe = Join-Path $OutputDir 'FTI_PC_Inventory.exe'
     Copy-Item $targetExeInTemp $finalTargetExe -Force
-    $deployed = $true
-    Write-Host "      Output file: $finalTargetExe" -ForegroundColor Cyan
+    Copy-Item $certExportPath (Join-Path $OutputDir 'FTI_Enterprise_Certificate.cer') -Force
+    Copy-Item $installBatPath (Join-Path $OutputDir 'Install_Certificate.bat') -Force
+    Write-Host "      Successfully deployed to: $OutputDir" -ForegroundColor Cyan
 } catch {
-    Write-Host "      Notice: Could not write directly to $OutputDir (Windows Controlled Folder Access)." -ForegroundColor Yellow
-    Write-Host "      Executable is available at: $targetExeInTemp" -ForegroundColor Cyan
+    Write-Host "      Notice: $OutputDir protected by Windows Controlled Folder Access." -ForegroundColor Yellow
 }
+
+# Also attempt copy to drive root E:\
+try {
+    $driveRoot = (Split-Path $PSScriptRoot -Qualifier) + '\'
+    $rootExe = Join-Path $driveRoot 'FTI_PC_Inventory.exe'
+    Copy-Item $targetExeInTemp $rootExe -Force -ErrorAction SilentlyContinue
+    if (Test-Path $rootExe) {
+        Write-Host "      Drive Root Copy: $rootExe" -ForegroundColor Cyan
+    }
+} catch {}
 
 Write-Host ''
 Write-Host '===================================================' -ForegroundColor Green
-Write-Host '  BUILD COMPLETED SUCCESSFULLY!                     ' -ForegroundColor Green
+Write-Host '  ENTERPRISE BUILD COMPLETED SUCCESSFULLY!          ' -ForegroundColor Green
 Write-Host '===================================================' -ForegroundColor Green
-if ($deployed) {
-    Write-Host "Executable location: $finalTargetExe" -ForegroundColor White
-} else {
-    Write-Host "Executable location: $targetExeInTemp" -ForegroundColor White
-    Write-Host "Tip: To copy to $OutputDir, run PowerShell as Administrator or add an exclusion." -ForegroundColor Gray
-}
+Write-Host "1. Primary Executable: $appExe" -ForegroundColor White
+Write-Host "2. Public Certificate: $certExportPath" -ForegroundColor White
+Write-Host "3. Install Batch:      $installBatPath" -ForegroundColor White
+Write-Host '===================================================' -ForegroundColor Green

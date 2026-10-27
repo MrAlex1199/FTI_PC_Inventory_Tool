@@ -15,13 +15,20 @@ param(
     [int]$Throttle = 20,
     [string]$OutDir = 'C:\Inventory',
     [switch]$FallbackToAD,           # If ComputerListFile is empty, fallback to AD if set
-    [switch]$ScanLocalhost           # Scan current machine directly
+    [switch]$ScanLocalhost,          # Scan current machine directly
+    [switch]$MasterMode = $true,     # Sync with Master Database (Hardware_Master.csv)
+    [switch]$RetryOfflineOnly,       # Filter target to PCs that are Offline/Error in Master file
+    [string]$MasterFile              # Custom path to Master CSV (defaults to OutDir\Hardware_Master.csv)
 )
 
 $Software = -not $NoSoftware
 
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 $stamp = Get-Date -Format 'yyyyMMdd_HHmm'
+
+if (-not $MasterFile) {
+    $MasterFile = Join-Path $OutDir 'Hardware_Master.csv'
+}
 
 $fHw = $null
 $fByPC = $null
@@ -53,10 +60,91 @@ function Test-PCConnection([string]$computer) {
     return $false
 }
 
+# --- Cache and Helper for Active Directory metadata (Logon, OU) ---
+$adCache = @{}
+
+function Get-ADInfo([string]$pc) {
+    if ($adCache.ContainsKey($pc.ToUpper())) {
+        return $adCache[$pc.ToUpper()]
+    }
+    try {
+        $searcher = [adsisearcher]"(&(objectCategory=computer)(name=$pc))"
+        [void]$searcher.PropertiesToLoad.Add('lastlogontimestamp')
+        [void]$searcher.PropertiesToLoad.Add('distinguishedname')
+        $one = $searcher.FindOne()
+        if ($one) {
+            $lastLogonStr = '-'
+            if ($one.Properties.Contains('lastlogontimestamp')) {
+                try {
+                    $ft = [int64]$one.Properties['lastlogontimestamp'][0]
+                    if ($ft -gt 0) {
+                        $lastLogonStr = [datetime]::FromFileTime($ft).ToString('yyyy-MM-dd HH:mm')
+                    }
+                } catch {}
+            }
+            $ouStr = '-'
+            if ($one.Properties.Contains('distinguishedname')) {
+                try {
+                    $dn = [string]$one.Properties['distinguishedname'][0]
+                    $ous = [regex]::Matches($dn, 'OU=([^,]+)') | ForEach-Object { $_.Groups[1].Value }
+                    if ($ous.Count -gt 0) {
+                        $ouArr = @($ous)
+                        [array]::Reverse($ouArr)
+                        $ouStr = $ouArr -join ' / '
+                    }
+                } catch {}
+            }
+            $info = @{ AD_LastLogon = $lastLogonStr; AD_OU = $ouStr }
+            $adCache[$pc.ToUpper()] = $info
+            return $info
+        }
+    } catch {}
+    return @{ AD_LastLogon = '-'; AD_OU = '-' }
+}
+
 # ================= 1) Computer list (works without RSAT) =================
 $pcs = @()
 
-if ($ScanLocalhost) {
+if ($RetryOfflineOnly) {
+    Write-Host '--- Retry Offline Mode Activated ---' -ForegroundColor Yellow
+    if (Test-Path -LiteralPath $MasterFile) {
+        try {
+            $masterRows = Import-Csv -LiteralPath $MasterFile -Encoding UTF8
+            $offlineList = @($masterRows | Where-Object { $_.Status -match 'Offline|Error' } | ForEach-Object { [string]$_.PCName.Trim() } | Where-Object { $_ } | Select-Object -Unique)
+            if ($offlineList.Count -gt 0) {
+                Write-Host "Targeting only previously Offline/Error computers from Master: $($offlineList.Count) PCs" -ForegroundColor Yellow
+                $pcs = $offlineList
+            } else {
+                Write-Host 'No offline or error computers found in Master database to retry.' -ForegroundColor Green
+                return [pscustomobject]@{
+                    Status       = 'Empty'
+                    Message      = 'No offline or error computers found in Master database to retry.'
+                    OutDir       = $OutDir
+                    HardwareCsv  = $null
+                    MasterCsv    = $MasterFile
+                    SoftwareHtml = $null
+                    SoftwareCsv  = $null
+                    Timestamp    = $stamp
+                }
+            }
+        } catch {
+            Write-Warning "Could not read Master database for offline retry: $($_.Exception.Message)"
+        }
+    } else {
+        Write-Warning "Master file ($MasterFile) does not exist yet. Cannot perform offline retry."
+        return [pscustomobject]@{
+            Status       = 'Empty'
+            Message      = "Master file ($MasterFile) does not exist yet. Please run a regular scan first."
+            OutDir       = $OutDir
+            HardwareCsv  = $null
+            MasterCsv    = $MasterFile
+            SoftwareHtml = $null
+            SoftwareCsv  = $null
+            Timestamp    = $stamp
+        }
+    }
+}
+elseif ($ScanLocalhost) {
     $pcs = @($env:COMPUTERNAME)
 }
 elseif ($ComputerListFile) {
@@ -76,7 +164,7 @@ elseif ($ComputerListFile) {
     }
 }
 
-if (-not $ScanLocalhost -and ($pcs.Count -eq 0)) {
+if (-not $RetryOfflineOnly -and -not $ScanLocalhost -and ($pcs.Count -eq 0)) {
     # Active Directory mode
     try {
         $filterParts = @("objectCategory=computer", "operatingSystem=*Windows*", "!(userAccountControl:1.2.840.113556.1.4.803:=2)")
@@ -88,7 +176,41 @@ if (-not $ScanLocalhost -and ($pcs.Count -eq 0)) {
         $ds = [adsisearcher]$ldapFilter
         $ds.PageSize = 1000
         [void]$ds.PropertiesToLoad.Add('name')
-        $pcs = $ds.FindAll() | ForEach-Object { $_.Properties['name'][0] } | Sort-Object
+        [void]$ds.PropertiesToLoad.Add('lastlogontimestamp')
+        [void]$ds.PropertiesToLoad.Add('distinguishedname')
+        
+        $adResults = $ds.FindAll()
+        foreach ($res in $adResults) {
+            $cName = [string]$res.Properties['name'][0]
+            if ($cName) {
+                $lastLogonStr = '-'
+                if ($res.Properties.Contains('lastlogontimestamp')) {
+                    try {
+                        $ft = [int64]$res.Properties['lastlogontimestamp'][0]
+                        if ($ft -gt 0) {
+                            $lastLogonStr = [datetime]::FromFileTime($ft).ToString('yyyy-MM-dd HH:mm')
+                        }
+                    } catch {}
+                }
+                $ouStr = '-'
+                if ($res.Properties.Contains('distinguishedname')) {
+                    try {
+                        $dn = [string]$res.Properties['distinguishedname'][0]
+                        $ous = [regex]::Matches($dn, 'OU=([^,]+)') | ForEach-Object { $_.Groups[1].Value }
+                        if ($ous.Count -gt 0) {
+                            $ouArr = @($ous)
+                            [array]::Reverse($ouArr)
+                            $ouStr = $ouArr -join ' / '
+                        }
+                    } catch {}
+                }
+                $adCache[$cName.ToUpper()] = @{
+                    AD_LastLogon = $lastLogonStr
+                    AD_OU        = $ouStr
+                }
+            }
+        }
+        $pcs = $adResults | ForEach-Object { [string]$_.Properties['name'][0] } | Sort-Object
     } catch {
         Write-Warning "Active Directory query error: $($_.Exception.Message)"
         return [pscustomobject]@{ Status = 'Error'; Message = "Active Directory query error: $($_.Exception.Message)" }
@@ -110,7 +232,32 @@ if (-not $SkipHardware) {
         Write-Progress -Activity 'Hardware scan' -Status "$pc ($i/$($pcs.Count))" -PercentComplete (100 * $i / $pcs.Count)
 
         if (-not (Test-PCConnection $pc)) {
-            [pscustomobject]@{ PCName = $pc; Status = 'Offline' }
+            $ad = Get-ADInfo $pc
+            [pscustomobject]@{
+                PCName       = $pc
+                Status       = 'Offline'
+                User         = '-'
+                Maker        = '-'
+                Model        = '-'
+                Serial       = '-'
+                CPU          = '-'
+                Cores        = '-'
+                RAM_GB       = '-'
+                Disk_C_Free  = '-'
+                Disks        = '-'
+                GPU          = '-'
+                OS           = '-'
+                OSBuild      = '-'
+                Last_Boot    = '-'
+                Uptime       = '-'
+                AD_LastLogon = $ad.AD_LastLogon
+                AD_OU        = $ad.AD_OU
+                IP           = '-'
+                MAC          = '-'
+                Scan_Count   = 0
+                First_Seen   = Get-Date -Format 'yyyy-MM-dd HH:mm'
+                Last_Scan    = '-'
+            }
             continue
         }
         try {
@@ -124,6 +271,7 @@ if (-not $SkipHardware) {
                 $gpu = Get-CimInstance Win32_VideoController -ErrorAction Stop
                 $ram = Get-CimInstance Win32_PhysicalMemory -ErrorAction Stop
                 $net = Get-CimInstance Win32_NetworkAdapterConfiguration -ErrorAction Stop | Where-Object IPEnabled
+                $cDrive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction SilentlyContinue
             } else {
                 $opt = New-CimSessionOption -Protocol Dcom
                 $s = New-CimSession -ComputerName $pc -SessionOption $opt -ErrorAction Stop
@@ -135,34 +283,156 @@ if (-not $SkipHardware) {
                 $gpu = Get-CimInstance Win32_VideoController -CimSession $s
                 $ram = Get-CimInstance Win32_PhysicalMemory -CimSession $s
                 $net = Get-CimInstance Win32_NetworkAdapterConfiguration -CimSession $s | Where-Object IPEnabled
+                $cDrive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -CimSession $s -ErrorAction SilentlyContinue
                 Remove-CimSession $s
             }
 
+            # Extended metrics: LastBoot / Uptime
+            $lastBootStr = '-'
+            $uptimeStr = '-'
+            if ($os.LastBootUpTime) {
+                try {
+                    $bootDt = if ($os.LastBootUpTime -is [datetime]) { $os.LastBootUpTime } else { [datetime]$os.LastBootUpTime }
+                    $lastBootStr = $bootDt.ToString('yyyy-MM-dd HH:mm')
+                    $diff = (Get-Date) - $bootDt
+                    if ($diff.TotalDays -ge 1) {
+                        $uptimeStr = "$([math]::Floor($diff.TotalDays)) วัน $([int]$diff.Hours) ชม."
+                    } else {
+                        $uptimeStr = "$([int]$diff.Hours) ชม. $([int]$diff.Minutes) นาที"
+                    }
+                } catch {}
+            }
+
+            # Extended metrics: C: Free Space
+            $cDiskSummary = '-'
+            if ($cDrive -and $cDrive.Size -gt 0) {
+                try {
+                    $freeB = [double]$cDrive.FreeSpace
+                    $totalB = [double]$cDrive.Size
+                    $cFreeGB = [math]::Round($freeB / 1GB, 1)
+                    $cTotalGB = [math]::Round($totalB / 1GB, 0)
+                    $pct = [math]::Round(($freeB / $totalB) * 100, 0)
+                    $cDiskSummary = "$cFreeGB / $cTotalGB GB ($pct% free)"
+                } catch {}
+            }
+
+            $ad = Get-ADInfo $pc
+
             [pscustomobject]@{
-                PCName   = $cs.Name
-                Status   = 'OK'
-                User     = $cs.UserName
-                Maker    = $cs.Manufacturer
-                Model    = $cs.Model
-                Serial   = $bios.SerialNumber
-                CPU      = $cpu.Name
-                Cores    = $cpu.NumberOfCores
-                RAM_GB   = [math]::Round(($ram | Measure-Object Capacity -Sum).Sum / 1GB)
-                Disks    = ($disk | ForEach-Object { "$($_.Model) $([math]::Round($_.Size/1GB))GB" }) -join '; '
-                GPU      = ($gpu.Name) -join '; '
-                OS       = $os.Caption
-                OSBuild  = $os.BuildNumber
-                IP       = ($net.IPAddress | Where-Object { $_ -match '^\d+\.' }) -join ', '
-                MAC      = ($net.MACAddress) -join ', '
-                Scanned  = Get-Date -Format 'yyyy-MM-dd HH:mm'
+                PCName       = $cs.Name
+                Status       = 'OK'
+                User         = $cs.UserName
+                Maker        = $cs.Manufacturer
+                Model        = $cs.Model
+                Serial       = $bios.SerialNumber
+                CPU          = $cpu.Name
+                Cores        = $cpu.NumberOfCores
+                RAM_GB       = [math]::Round(($ram | Measure-Object Capacity -Sum).Sum / 1GB)
+                Disk_C_Free  = $cDiskSummary
+                Disks        = ($disk | ForEach-Object { "$($_.Model) $([math]::Round($_.Size/1GB))GB" }) -join '; '
+                GPU          = ($gpu.Name) -join '; '
+                OS           = $os.Caption
+                OSBuild      = $os.BuildNumber
+                Last_Boot    = $lastBootStr
+                Uptime       = $uptimeStr
+                AD_LastLogon = $ad.AD_LastLogon
+                AD_OU        = $ad.AD_OU
+                IP           = ($net.IPAddress | Where-Object { $_ -match '^\d+\.' }) -join ', '
+                MAC          = ($net.MACAddress) -join ', '
+                Scan_Count   = 1
+                First_Seen   = Get-Date -Format 'yyyy-MM-dd HH:mm'
+                Last_Scan    = Get-Date -Format 'yyyy-MM-dd HH:mm'
             }
         }
         catch {
-            [pscustomobject]@{ PCName = $pc; Status = "Error: $($_.Exception.Message)" }
+            $ad = Get-ADInfo $pc
+            [pscustomobject]@{
+                PCName       = $pc
+                Status       = "Error: $($_.Exception.Message)"
+                User         = '-'
+                Maker        = '-'
+                Model        = '-'
+                Serial       = '-'
+                CPU          = '-'
+                Cores        = '-'
+                RAM_GB       = '-'
+                Disk_C_Free  = '-'
+                Disks        = '-'
+                GPU          = '-'
+                OS           = '-'
+                OSBuild      = '-'
+                Last_Boot    = '-'
+                Uptime       = '-'
+                AD_LastLogon = $ad.AD_LastLogon
+                AD_OU        = $ad.AD_OU
+                IP           = '-'
+                MAC          = '-'
+                Scan_Count   = 0
+                First_Seen   = Get-Date -Format 'yyyy-MM-dd HH:mm'
+                Last_Scan    = '-'
+            }
         }
     }
     Write-Progress -Activity 'Hardware scan' -Completed
 
+    # --- Master Database Synchronization ---
+    if ($MasterMode) {
+        $masterDict = [ordered]@{}
+        if (Test-Path -LiteralPath $MasterFile) {
+            try {
+                $oldMaster = Import-Csv -LiteralPath $MasterFile -Encoding UTF8
+                foreach ($row in $oldMaster) {
+                    if ($row.PCName) {
+                        $masterDict[$row.PCName.ToUpper()] = $row
+                    }
+                }
+            } catch {
+                Write-Warning "Could not parse existing Master file: $($_.Exception.Message)"
+            }
+        }
+
+        # Merge newly scanned records
+        foreach ($r in $hw) {
+            $key = $r.PCName.ToUpper()
+            if ($r.Status -eq 'OK') {
+                if ($masterDict.Contains($key)) {
+                    $old = $masterDict[$key]
+                    $prevCount = 0
+                    if ($old.Scan_Count) { [int]::TryParse($old.Scan_Count, [ref]$prevCount) | Out-Null }
+                    $r.Scan_Count = $prevCount + 1
+                    $r.First_Seen = if ($old.First_Seen -and $old.First_Seen -ne '-') { $old.First_Seen } else { (Get-Date -Format 'yyyy-MM-dd HH:mm') }
+                    $r.Last_Scan  = Get-Date -Format 'yyyy-MM-dd HH:mm'
+                } else {
+                    $r.Scan_Count = 1
+                    $r.First_Seen = Get-Date -Format 'yyyy-MM-dd HH:mm'
+                    $r.Last_Scan  = Get-Date -Format 'yyyy-MM-dd HH:mm'
+                }
+                $masterDict[$key] = $r
+            } else {
+                # Machine is Offline or Error
+                if ($masterDict.Contains($key)) {
+                    $old = $masterDict[$key]
+                    # If the machine previously had specs from OK scan, preserve previous hardware details!
+                    if ($old.Status -eq 'OK' -or ($old.CPU -and $old.CPU -ne '-')) {
+                        $old.Status = "Offline (Was OK)"
+                        $old.Last_Scan = Get-Date -Format 'yyyy-MM-dd HH:mm'
+                    } else {
+                        $old.Status = $r.Status
+                        $old.Last_Scan = Get-Date -Format 'yyyy-MM-dd HH:mm'
+                    }
+                } else {
+                    $masterDict[$key] = $r
+                }
+            }
+        }
+
+        # Save Master CSV
+        $masterRows = @($masterDict.Values | Sort-Object PCName)
+        $masterRows | Export-Csv $MasterFile -NoTypeInformation -Encoding UTF8
+        Write-Host "Master Database updated: $($masterRows.Count) total records -> $MasterFile" -ForegroundColor Cyan
+    }
+
+    # Snapshot CSV for this specific run
     $fHw = Join-Path $OutDir "Hardware_$stamp.csv"
     $hw | Export-Csv $fHw -NoTypeInformation -Encoding UTF8
     $hwOk = @($hw | Where-Object { $_.Status -eq 'OK' }).Count
@@ -416,7 +686,9 @@ return [pscustomobject]@{
     Status       = 'Success'
     OutDir       = $OutDir
     HardwareCsv  = if (-not $SkipHardware) { $fHw } else { $null }
+    MasterCsv    = if ($MasterMode -and -not $SkipHardware) { $MasterFile } else { $null }
     SoftwareHtml = if ($Software) { $fByPC } else { $null }
     SoftwareCsv  = if ($Software) { $fSoft } else { $null }
     Timestamp    = $stamp
 }
+
