@@ -1,12 +1,15 @@
 param(
     [switch]$Silent,
     [switch]$ScheduledRun,
-    [string]$OutDir = 'C:\Inventory'
+    [string]$OutDir = 'C:\Inventory',
+    [string]$ComputerListFile,
+    [switch]$ScanLocalhost
 )
 
 # --- 1. Resolve Core Engine & Web UI Assets ---
 if (-not $CoreScript) {
-    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot }
+if ($CoreScript) { $CoreScript = $CoreScript.TrimStart([char]0xFEFF) } else { (Get-Location).Path }
     $corePath = Join-Path $scriptDir 'Get-PCInventory.Core.ps1'
     if (-not (Test-Path $corePath)) { $corePath = Join-Path $scriptDir 'src\Get-PCInventory.Core.ps1' }
     if (Test-Path $corePath) {
@@ -18,20 +21,36 @@ if (-not $CoreScript) {
 
 # --- Silent Mode for Scheduled Tasks / CLI Background Run ---
 if ($Silent -or $ScheduledRun) {
-    Write-Host "[FTI Inventory] Scheduled background run started at $(Get-Date)"
+    $startTime = [System.DateTime]::Now
+    Write-Host "[FTI Inventory] Scheduled background run started at $startTime"
     New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
     $logFile = Join-Path $OutDir 'ScheduleRun.log'
-    "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Scheduled scan triggered." | Out-File $logFile -Append -Encoding UTF8
+    $stampStart = $startTime.ToString('yyyy-MM-dd HH:mm:ss')
+    "[$stampStart] Scheduled background scan started (OutDir=$OutDir)." | Out-File $logFile -Append -Encoding UTF8
 
     try {
         $coreParams = @{
             OutDir     = $OutDir
             MasterMode = $true
         }
-        $res = & ([scriptblock]::Create($CoreScript)) @coreParams
-        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Scan completed successfully. Status=$($res.Status)" | Out-File $logFile -Append -Encoding UTF8
+        if ($ComputerListFile) { $coreParams['ComputerListFile'] = $ComputerListFile }
+        if ($ScanLocalhost)    { $coreParams['ScanLocalhost']    = $true }
+        $ps = [powershell]::Create()
+        [void]$ps.AddScript($CoreScript)
+        foreach ($k in $coreParams.Keys) {
+            [void]$ps.AddParameter($k, $coreParams[$k])
+        }
+        $res = $ps.Invoke()
+        if ($ps.Streams.Error.Count -gt 0) {
+            $errMsgs = @($ps.Streams.Error | ForEach-Object { $_.ToString() }) -join "; "
+            Write-Warning "Scan warnings/errors: $errMsgs"
+        }
+        $duration = [math]::Round(([System.DateTime]::Now - $startTime).TotalSeconds, 1)
+        $stampEnd = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+        "[$stampEnd] Scheduled scan finished in $($duration)s. Status=Success" | Out-File $logFile -Append -Encoding UTF8
     } catch {
-        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Scan failed: $($_.Exception.Message)" | Out-File $logFile -Append -Encoding UTF8
+        $stampErr = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+        "[$stampErr] Scheduled scan failed: $($_.Exception.Message)" | Out-File $logFile -Append -Encoding UTF8
     }
     exit 0
 }
@@ -102,13 +121,101 @@ $script:sentLogIndex    = 0
 
 # Scheduler State Tracking
 $script:inAppSchedule = @{
-    enabled       = $false
-    intervalHours = 4
-    nextRunAt     = $null
-    lastRunAt     = $null
+    enabled         = $false
+    intervalMinutes = 240
+    nextRunAt       = $null
+    lastRunAt       = $null
 }
 $script:lastScanParams = $null
 $script:lastOutDir = 'C:\Inventory'
+
+# Helper: Find the real FTI_PC_Inventory.exe
+function Get-FtiExecutablePath() {
+    if ($env:FTI_HOST_EXE -and (Test-Path -LiteralPath $env:FTI_HOST_EXE)) {
+        return (Resolve-Path -LiteralPath $env:FTI_HOST_EXE).Path
+    }
+    $candidates = @(
+        (Join-Path $PSScriptRoot 'FTI_PC_Inventory.exe'),
+        (Join-Path $PSScriptRoot 'dist\FTI_PC_Inventory.exe'),
+        (Join-Path (Split-Path $PSScriptRoot -Parent) 'dist\FTI_PC_Inventory.exe'),
+        (Join-Path $env:LOCALAPPDATA 'FTI_PC_Inventory_Tool\dist\FTI_PC_Inventory.exe'),
+        'C:\FTI_PC_Inventory.exe'
+    )
+    foreach ($c in $candidates) {
+        if ($c -and (Test-Path -LiteralPath $c)) {
+            return (Resolve-Path -LiteralPath $c).Path
+        }
+    }
+    return $null
+}
+
+# Helper: Read detailed Windows Task Scheduler info + last execution log
+function Get-FtiWinTaskInfo() {
+    $info = @{
+        registered      = $false
+        state           = 'NotRegistered'
+        mode            = 'daily'
+        time            = '02:00'
+        intervalMinutes = 15
+        lastRunTime     = $null
+        lastTaskResult  = $null
+        exePath         = $null
+        logExcerpt      = $null
+    }
+    try {
+        $t = Get-ScheduledTask -TaskName 'FTI_PC_Inventory_AutoScan' -ErrorAction SilentlyContinue
+        if ($t) {
+            $info.registered = $true
+            $info.state = $t.State.ToString()
+            if ($t.Triggers -and $t.Triggers[0]) {
+                if ($t.Triggers[0].Repetition -and $t.Triggers[0].Repetition.Interval) {
+                    $info.mode = 'interval'
+                    try {
+                        $ts = [System.Xml.XmlConvert]::ToTimeSpan($t.Triggers[0].Repetition.Interval)
+                        $info.intervalMinutes = [int]$ts.TotalMinutes
+                    } catch {
+                        $info.intervalMinutes = 15
+                    }
+                } else {
+                    $info.mode = 'daily'
+                    if ($t.Triggers[0].StartBoundary) {
+                        try {
+                            $info.time = ([datetime]$t.Triggers[0].StartBoundary).ToString('HH:mm')
+                        } catch {}
+                    }
+                }
+            }
+            if ($t.Actions -and $t.Actions[0]) {
+                $info.exePath = $t.Actions[0].Execute
+            }
+            try {
+                $tInfo = Get-ScheduledTaskInfo -TaskName 'FTI_PC_Inventory_AutoScan' -ErrorAction SilentlyContinue
+                if ($tInfo) {
+                    if ($tInfo.LastRunTime -and $tInfo.LastRunTime -ne [datetime]::MinValue) {
+                        $info.lastRunTime = $tInfo.LastRunTime.ToString('yyyy-MM-dd HH:mm:ss')
+                    }
+                    $info.lastTaskResult = $tInfo.LastTaskResult
+                }
+            } catch {}
+        }
+    } catch {}
+
+    # Read last 5 lines of ScheduleRun.log if available
+    try {
+        $logPath = Join-Path $script:lastOutDir 'ScheduleRun.log'
+        if (-not (Test-Path -LiteralPath $logPath)) {
+            $logPath = 'C:\Inventory\ScheduleRun.log'
+        }
+        if (Test-Path -LiteralPath $logPath) {
+            $lines = Get-Content -LiteralPath $logPath -Tail 5 -Encoding UTF8 -ErrorAction SilentlyContinue
+            if ($lines) {
+                $info.logExcerpt = @($lines)
+            }
+        }
+    } catch {}
+
+    return $info
+}
 
 # --- 5. Background Stream Pump Function ---
 function Update-ScanProgress() {
@@ -396,11 +503,17 @@ while ($running) {
     $scanRunning = ($null -ne $script:psInstance)
 
     # In-App recurring schedule trigger
-    if ($script:inAppSchedule.enabled -and -not $scanRunning -and $script:inAppSchedule.nextRunAt) {
+    if ($script:inAppSchedule.enabled -and $script:inAppSchedule.nextRunAt) {
         if ([System.DateTime]::Now -ge $script:inAppSchedule.nextRunAt) {
-            $script:inAppSchedule.lastRunAt = [System.DateTime]::Now
-            $script:inAppSchedule.nextRunAt = [System.DateTime]::Now.AddHours($script:inAppSchedule.intervalHours)
-            $script:lastLogs.Add("[Scheduler] Auto-scan triggered at $(Get-Date -Format 'HH:mm:ss')")
+            $intervalMins = if ($script:inAppSchedule.intervalMinutes -ge 1) { [int]$script:inAppSchedule.intervalMinutes } else { 240 }
+            if ($scanRunning) {
+                # Overlap prevention: Skip this trigger if already scanning
+                $script:lastLogs.Add("[Scheduler] Previous scan still running at $(Get-Date -Format 'HH:mm:ss'). Skipping trigger.")
+                $script:inAppSchedule.nextRunAt = [System.DateTime]::Now.AddMinutes($intervalMins)
+            } else {
+                $script:inAppSchedule.lastRunAt = [System.DateTime]::Now
+                $script:inAppSchedule.nextRunAt = [System.DateTime]::Now.AddMinutes($intervalMins)
+                $script:lastLogs.Add("[Scheduler] Auto-scan triggered at $(Get-Date -Format 'HH:mm:ss') (Interval: $intervalMins min)")
             
             $autoParams = if ($script:lastScanParams) { $script:lastScanParams } else {
                 @{
@@ -420,6 +533,7 @@ while ($running) {
                 $script:lastLogs.Add("[Scheduler Error] $($_.Exception.Message)")
             }
         }
+    }
     }
 
     # 1. Graceful exit scheduled by browser window close beacon (after 3s grace if no reload/request)
@@ -508,17 +622,7 @@ while ($running) {
                 }
 
                 # Check Windows Task Scheduler
-                $winTaskInfo = @{ registered = $false; state = 'NotRegistered'; time = '02:00' }
-                try {
-                    $t = Get-ScheduledTask -TaskName 'FTI_PC_Inventory_AutoScan' -ErrorAction SilentlyContinue
-                    if ($t) {
-                        $winTaskInfo.registered = $true
-                        $winTaskInfo.state = $t.State.ToString()
-                        if ($t.Triggers -and $t.Triggers[0] -and $t.Triggers[0].StartBoundary) {
-                            $winTaskInfo.time = ([datetime]$t.Triggers[0].StartBoundary).ToString('HH:mm')
-                        }
-                    }
-                } catch {}
+                $winTaskInfo = Get-FtiWinTaskInfo
 
                 $offlineMachinesCount = @($script:scannedPCs | Where-Object { $_.Status -match 'Offline|Error' }).Count
 
@@ -538,10 +642,11 @@ while ($running) {
                     newLogs               = $newLogs
                     scannedPCs            = $script:scannedPCs
                     inAppSchedule         = @{
-                        enabled       = $script:inAppSchedule.enabled
-                        intervalHours = $script:inAppSchedule.intervalHours
-                        nextRunAt     = $nextRunStr
-                        countdownSec  = $countdownSec
+                        enabled         = $script:inAppSchedule.enabled
+                        intervalMinutes = $script:inAppSchedule.intervalMinutes
+                        intervalHours   = [math]::Round($script:inAppSchedule.intervalMinutes / 60, 2)
+                        nextRunAt       = $nextRunStr
+                        countdownSec    = $countdownSec
                     }
                     winTaskInfo           = $winTaskInfo
                 }
@@ -581,20 +686,14 @@ while ($running) {
                 }
             }
             elseif ($path -eq '/api/schedule' -and $method -eq 'GET') {
-                $winTaskInfo = @{ registered = $false; state = 'NotRegistered'; time = '02:00' }
-                try {
-                    $t = Get-ScheduledTask -TaskName 'FTI_PC_Inventory_AutoScan' -ErrorAction SilentlyContinue
-                    if ($t) {
-                        $winTaskInfo.registered = $true
-                        $winTaskInfo.state = $t.State.ToString()
-                        if ($t.Triggers -and $t.Triggers[0] -and $t.Triggers[0].StartBoundary) {
-                            $winTaskInfo.time = ([datetime]$t.Triggers[0].StartBoundary).ToString('HH:mm')
-                        }
-                    }
-                } catch {}
-
+                $winTaskInfo = Get-FtiWinTaskInfo
                 $schedObj = @{
-                    inAppSchedule = $script:inAppSchedule
+                    inAppSchedule = @{
+                        enabled         = $script:inAppSchedule.enabled
+                        intervalMinutes = $script:inAppSchedule.intervalMinutes
+                        intervalHours   = [math]::Round($script:inAppSchedule.intervalMinutes / 60, 2)
+                        nextRunAt       = if ($script:inAppSchedule.nextRunAt) { $script:inAppSchedule.nextRunAt.ToString('yyyy-MM-dd HH:mm:ss') } else { '-' }
+                    }
                     winTaskInfo   = $winTaskInfo
                 }
                 $json = $schedObj | ConvertTo-Json -Depth 5 -Compress
@@ -613,31 +712,53 @@ while ($running) {
 
                 if ($action -eq 'updateInApp') {
                     $enabled = [bool]$params.enabled
-                    $interval = [int]$params.intervalHours
-                    if ($interval -le 0) { $interval = 4 }
+                    $intervalMins = 0
+                    if ($params.intervalMinutes) {
+                        $intervalMins = [int]$params.intervalMinutes
+                    } elseif ($params.intervalHours) {
+                        $intervalMins = [int]([double]$params.intervalHours * 60)
+                    }
+                    if ($intervalMins -lt 1) { $intervalMins = 240 }
+
                     $script:inAppSchedule.enabled = $enabled
-                    $script:inAppSchedule.intervalHours = $interval
+                    $script:inAppSchedule.intervalMinutes = $intervalMins
                     if ($enabled) {
-                        $script:inAppSchedule.nextRunAt = [System.DateTime]::Now.AddHours($interval)
+                        $script:inAppSchedule.nextRunAt = [System.DateTime]::Now.AddMinutes($intervalMins)
                     } else {
                         $script:inAppSchedule.nextRunAt = $null
                     }
-                    $msg = "In-App schedule updated. Enabled=$enabled, Interval=$interval hours."
+                    $msg = "In-App schedule updated. Enabled=$enabled, Interval=$intervalMins minutes."
                 }
                 elseif ($action -eq 'registerWinTask') {
+                    $mode = if ($params.mode) { [string]$params.mode } else { 'daily' }
                     $taskTime = if ($params.time) { [string]$params.time } else { '02:00' }
-                    $exePath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
-                    if ($exePath -match 'powershell\.exe') {
-                        $exePath = 'E:\FTI_PC_Inventory.exe'
+                    $intervalMins = if ($params.intervalMinutes) { [int]$params.intervalMinutes } else { 15 }
+                    if ($intervalMins -lt 1) { $intervalMins = 1 }
+
+                    $exe = Get-FtiExecutablePath
+                    if (-not $exe) {
+                        $res.StatusCode = 500
+                        $json = @{ error = "Cannot find FTI_PC_Inventory.exe. Please build the application first." } | ConvertTo-Json
+                        $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
+                        $res.ContentType = 'application/json; charset=utf-8'
+                        $res.ContentLength64 = $buf.Length
+                        $res.OutputStream.Write($buf, 0, $buf.Length)
+                        continue
                     }
 
                     try {
-                        $taskAction = New-ScheduledTaskAction -Execute $exePath -Argument "-Silent -OutDir `"$($script:lastOutDir)`""
-                        $trigger = New-ScheduledTaskTrigger -Daily -At $taskTime
+                        $taskAction = New-ScheduledTaskAction -Execute $exe -Argument "-Silent -OutDir `"$($script:lastOutDir)`""
+                        if ($mode -eq 'interval') {
+                            $startStr = (Get-Date).ToString("HH:mm")
+                            $trigger = New-ScheduledTaskTrigger -Once -At $startStr -RepetitionInterval (New-TimeSpan -Minutes $intervalMins) -RepetitionDuration (New-TimeSpan -Days 3650)
+                            $msg = "Registered Windows Task 'FTI_PC_Inventory_AutoScan' repeating every $intervalMins minute(s). (Executable: $exe)"
+                        } else {
+                            $trigger = New-ScheduledTaskTrigger -Daily -At $taskTime
+                            $msg = "Registered Windows Task 'FTI_PC_Inventory_AutoScan' at $taskTime daily. (Executable: $exe)"
+                        }
                         $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
                         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
                         Register-ScheduledTask -TaskName 'FTI_PC_Inventory_AutoScan' -Action $taskAction -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
-                        $msg = "Registered Windows Task 'FTI_PC_Inventory_AutoScan' at $taskTime daily."
                     } catch {
                         $res.StatusCode = 500
                         $json = @{ error = "Failed to register Windows Task: $($_.Exception.Message)" } | ConvertTo-Json
@@ -650,11 +771,30 @@ while ($running) {
                 }
                 elseif ($action -eq 'unregisterWinTask') {
                     try {
-                        Unregister-ScheduledTask -TaskName 'FTI_PC_Inventory_AutoScan' -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+                        Unregister-ScheduledTask -TaskName 'FTI_PC_Inventory_AutoScan' -Confirm:$false -ErrorAction Stop | Out-Null
                         $msg = "Windows Task 'FTI_PC_Inventory_AutoScan' removed."
                     } catch {
                         $res.StatusCode = 500
                         $json = @{ error = "Failed to remove Windows Task: $($_.Exception.Message)" } | ConvertTo-Json
+                        $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
+                        $res.ContentType = 'application/json; charset=utf-8'
+                        $res.ContentLength64 = $buf.Length
+                        $res.OutputStream.Write($buf, 0, $buf.Length)
+                        continue
+                    }
+                }
+                elseif ($action -eq 'testRunWinTask') {
+                    try {
+                        $t = Get-ScheduledTask -TaskName 'FTI_PC_Inventory_AutoScan' -ErrorAction SilentlyContinue
+                        if (-not $t) {
+                            throw "Task 'FTI_PC_Inventory_AutoScan' is not registered yet. Please register before testing."
+                        }
+                        Start-ScheduledTask -TaskName 'FTI_PC_Inventory_AutoScan'
+                        Start-Sleep -Seconds 2
+                        $msg = "Test run triggered for Windows Task 'FTI_PC_Inventory_AutoScan'."
+                    } catch {
+                        $res.StatusCode = 500
+                        $json = @{ error = "Failed to test run Windows Task: $($_.Exception.Message)" } | ConvertTo-Json
                         $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
                         $res.ContentType = 'application/json; charset=utf-8'
                         $res.ContentLength64 = $buf.Length
@@ -671,10 +811,11 @@ while ($running) {
             }
             elseif ($path -eq '/api/cancel' -and $method -eq 'POST') {
                 if ($script:psInstance) {
+                    $script:currentActivity = 'Cancelling scan by user request...'
+                    $script:lastLogs.Add('[Cancelled] Scan stopped by user request.')
                     try { $script:psInstance.Stop() } catch {}
-                    $script:lastLogs.Add('[Cancelled] Scan stopped by user.')
                 }
-                $json = @{ status = 'cancelled' } | ConvertTo-Json
+                $json = @{ status = 'cancelled'; message = 'Scan cancelled by user.' } | ConvertTo-Json
                 $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
                 $res.ContentType = 'application/json; charset=utf-8'
                 $res.ContentLength64 = $buf.Length

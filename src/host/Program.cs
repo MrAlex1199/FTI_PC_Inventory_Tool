@@ -59,6 +59,22 @@ namespace FTI.PCInventory
                     }
                 }
 
+                // Identify host executable location
+                string hostExe = null;
+                try
+                {
+                    hostExe = Assembly.GetExecutingAssembly().Location;
+                }
+                catch { }
+                if (string.IsNullOrEmpty(hostExe) || !File.Exists(hostExe))
+                {
+                    try
+                    {
+                        hostExe = Process.GetCurrentProcess().MainModule.FileName;
+                    }
+                    catch { }
+                }
+
                 // Prepare PowerShell launcher arguments
                 StringBuilder argBuilder = new StringBuilder();
                 argBuilder.Append("-NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Hidden -File ");
@@ -89,6 +105,11 @@ namespace FTI.PCInventory
                     CreateNoWindow = true,
                     WindowStyle = ProcessWindowStyle.Hidden
                 };
+
+                if (!string.IsNullOrEmpty(hostExe) && File.Exists(hostExe))
+                {
+                    psi.EnvironmentVariables["FTI_HOST_EXE"] = hostExe;
+                }
 
                 using (Process proc = Process.Start(psi))
                 {

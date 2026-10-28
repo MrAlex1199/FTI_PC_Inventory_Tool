@@ -4,6 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FTI PC Inventory Tool</title>
+  <script>
+    window.addEventListener('error', function(e) {
+      console.error('Fatal Script Error:', e.message, 'at', e.lineno);
+      var b = document.getElementById('fatalJsBanner');
+      if (!b) {
+        b = document.createElement('div');
+        b.id = 'fatalJsBanner';
+        b.style = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:12px 20px;z-index:999999;font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 15px rgba(0,0,0,0.5);';
+        if (document.body) { document.body.appendChild(b); } else { document.documentElement.appendChild(b); }
+      }
+      b.innerHTML = '<span>⚠️ ข้อผิดพลาดในสคริปต์: ' + (e.message || 'Unknown') + ' (บรรทัดที่ ' + e.lineno + ')</span><button onclick="this.parentElement.remove()" style="background:transparent;border:none;color:#fff;cursor:pointer;font-size:16px;">✖</button>';
+    });
+  </script>
   <style>
     :root {
       --bg-base: #060a14;
@@ -555,6 +568,21 @@
     }
     tr:hover td { background: rgba(255, 255, 255, 0.03); }
 
+    .preset-pill {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--text-muted);
+      border-radius: 12px;
+      padding: 3px 10px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .preset-pill:hover {
+      background: rgba(6,182,212,0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
     .status-badge {
       display: inline-flex;
       align-items: center;
@@ -567,7 +595,33 @@
     .status-badge.ok { background: rgba(16, 185, 129, 0.15); color: #10b981; }
     .status-badge.offline { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
     .status-badge.error { background: rgba(244, 63, 94, 0.15); color: #f43f5e; }
-    .status-badge.scanning { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); border: 1px solid rgba(6, 182, 212, 0.3); }
+    .status-badge.scanning {
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      animation: pulse-cyan 1.5s infinite;
+    }
+    @keyframes pulse-cyan {
+      0%, 100% { box-shadow: 0 0 6px rgba(6,182,212,0.3); }
+      50% { box-shadow: 0 0 16px rgba(6,182,212,0.7); }
+    }
+    .btn-scanning-pulse {
+      animation: pulse-cyan 1.5s infinite !important;
+      opacity: 0.9;
+    }
+    @keyframes ring-glow-pulse {
+      0%, 100% { filter: drop-shadow(0 0 4px rgba(6,182,212,0.3)); }
+      50% { filter: drop-shadow(0 0 14px rgba(6,182,212,0.85)); }
+    }
+    .ring-active-glow svg circle.progress {
+      animation: ring-glow-pulse 1.8s infinite;
+    }
+    .spinning-icon {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
 
     /* Terminal Console Drawer */
     .terminal-card {
@@ -1429,16 +1483,23 @@
             <span style="font-weight: 600;">เปิดใช้งานการสแกนอัตโนมัติตามรอบเวลา</span>
           </label>
 
-          <div id="inAppSchedOptions" style="margin-top: 12px; display: flex; align-items: center; gap: 12px;">
-            <span style="font-size: 0.8rem; color: var(--text-muted);">ความถี่ในการสแกน:</span>
-            <select id="selInAppInterval" class="input-box" style="padding: 6px 12px; width: 180px;">
-              <option value="1">ทุกๆ 1 ชั่วโมง</option>
-              <option value="2">ทุกๆ 2 ชั่วโมง</option>
-              <option value="4" selected>ทุกๆ 4 ชั่วโมง (แนะนำ)</option>
-              <option value="8">ทุกๆ 8 ชั่วโมง</option>
-              <option value="12">ทุกๆ 12 ชั่วโมง</option>
-              <option value="24">ทุกๆ 24 ชั่วโมง (วันละครั้ง)</option>
-            </select>
+          <div id="inAppSchedOptions" style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <span style="font-size: 0.8rem; color: var(--text-muted);">ความถี่ในการสแกน: ทุกๆ</span>
+              <input type="number" id="txtInAppIntervalVal" min="1" max="10000" value="4" class="input-box" style="padding: 4px 10px; width: 75px; text-align: center; font-weight: 600;">
+              <select id="selInAppIntervalUnit" class="input-box" style="padding: 4px 10px; width: 95px;">
+                <option value="m">นาที</option>
+                <option value="h" selected>ชั่วโมง</option>
+              </select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span style="font-size: 0.72rem; color: var(--text-muted);">เลือกด่วน:</span>
+              <button type="button" class="preset-pill" onclick="setInAppPreset(5, 'm')">5 นาที</button>
+              <button type="button" class="preset-pill" onclick="setInAppPreset(15, 'm')">15 นาที</button>
+              <button type="button" class="preset-pill" onclick="setInAppPreset(30, 'm')">30 นาที</button>
+              <button type="button" class="preset-pill" onclick="setInAppPreset(1, 'h')">1 ชม.</button>
+              <button type="button" class="preset-pill" onclick="setInAppPreset(4, 'h')">4 ชม.</button>
+            </div>
           </div>
 
           <div id="schedCountdownBanner" style="margin-top: 12px; padding: 10px 14px; background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3); border-radius: var(--radius-sm); font-size: 0.82rem; display: none;">
@@ -1456,23 +1517,74 @@
             ลงทะเบียนงานใน Windows ให้โปรแกรมรันสแกนอัตโนมัติแบบเงียบ (Silent Background) และบันทึกลง Master CSV แม้ไม่ได้เปิดโปรแกรมทิ้งไว้
           </div>
 
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 0.8rem; color: var(--text-muted);">เวลาที่ให้รันทุกวัน:</span>
-              <input type="time" id="timeWinTask" value="02:00" class="input-box" style="padding: 4px 10px; width: 110px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <div style="display: flex; gap: 16px; font-size: 0.82rem;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="radio" name="radWinTaskMode" id="radWinTaskDaily" value="daily" checked style="accent-color: var(--accent-emerald);">
+                <span>รันประจำวัน (Daily)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="radio" name="radWinTaskMode" id="radWinTaskInterval" value="interval" style="accent-color: var(--accent-emerald);">
+                <span>รันวนซ้ำตามช่วงเวลา (Interval)</span>
+              </label>
             </div>
             <div id="badgeWinTaskStatus" class="status-badge" style="background: rgba(148,163,184,0.15); color: var(--text-muted);">
               ยังไม่ลงทะเบียน
             </div>
           </div>
 
-          <div style="display: flex; gap: 10px;">
+          <!-- Daily Time Input -->
+          <div id="rowWinTaskDaily" style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+            <span style="font-size: 0.8rem; color: var(--text-muted);">เวลาที่ให้รันทุกวัน:</span>
+            <input type="time" id="timeWinTask" value="02:00" class="input-box" style="padding: 4px 10px; width: 110px;">
+          </div>
+
+          <!-- Interval Input -->
+          <div id="rowWinTaskInterval" style="display: none; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <span style="font-size: 0.8rem; color: var(--text-muted);">รันวนซ้ำทุกๆ:</span>
+              <input type="number" id="txtWinTaskIntervalVal" min="1" max="10000" value="15" class="input-box" style="padding: 4px 10px; width: 75px; text-align: center; font-weight: 600;">
+              <select id="selWinTaskIntervalUnit" class="input-box" style="padding: 4px 10px; width: 95px;">
+                <option value="m" selected>นาที</option>
+                <option value="h">ชั่วโมง</option>
+              </select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span style="font-size: 0.72rem; color: var(--text-muted);">เลือกด่วน:</span>
+              <button type="button" class="preset-pill" onclick="setWinTaskPreset(5, 'm')">5 นาที</button>
+              <button type="button" class="preset-pill" onclick="setWinTaskPreset(15, 'm')">15 นาที</button>
+              <button type="button" class="preset-pill" onclick="setWinTaskPreset(30, 'm')">30 นาที</button>
+              <button type="button" class="preset-pill" onclick="setWinTaskPreset(1, 'h')">1 ชม.</button>
+              <button type="button" class="preset-pill" onclick="setWinTaskPreset(4, 'h')">4 ชม.</button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <button class="btn-primary" id="btnRegisterWinTask" style="padding: 8px 16px; font-size: 0.82rem;">
               ลงทะเบียนใน Windows Task Scheduler
+            </button>
+            <button class="btn-secondary" id="btnTestRunWinTask" style="padding: 8px 14px; font-size: 0.82rem;" disabled title="สั่งรัน Windows Scheduled Task ทันทีเพื่อทดสอบ">
+              ทดสอบรันทันที
             </button>
             <button class="btn-danger" id="btnUnregisterWinTask" style="padding: 8px 14px; font-size: 0.82rem;" disabled>
               ยกเลิกงานใน Task Scheduler
             </button>
+          </div>
+
+          <div id="boxWinTaskLastRun" style="display: none; margin-top: 14px; padding: 12px; background: rgba(15,23,42,0.6); border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); font-size: 0.78rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="color: var(--text-muted);">ผลการรันล่าสุด:</span>
+              <span id="lblWinTaskResult" style="padding: 2px 8px; border-radius: 4px; font-weight: 600;">-</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="color: var(--text-muted);">เวลาที่รันล่าสุด:</span>
+              <span id="lblWinTaskLastRun" style="font-family: monospace; color: var(--text-bright);">-</span>
+            </div>
+            <div id="lblWinTaskExePath" style="color: var(--text-muted); font-size: 0.72rem; word-break: break-all; margin-bottom: 6px;"></div>
+            <div style="margin-top: 6px;">
+              <span style="color: var(--text-muted); display: block; margin-bottom: 4px;">บันทึกการทำงานล่าสุด (ScheduleRun.log):</span>
+              <pre id="boxWinTaskLog" style="background: rgba(0,0,0,0.4); padding: 8px; border-radius: 4px; color: #94a3b8; font-family: monospace; font-size: 0.72rem; max-height: 100px; overflow-y: auto; white-space: pre-wrap; margin: 0;"></pre>
+            </div>
           </div>
         </div>
       </div>
@@ -1482,6 +1594,23 @@
         <div class="fs-footer-actions">
           <button class="btn-secondary" id="schedBtnDone">เสร็จสิ้น</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cyber Glassmorphic Cancel Confirmation Dialog -->
+  <div class="fs-modal-backdrop" id="modalConfirmCancel" style="z-index: 10000;">
+    <div style="background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-lg); padding: 26px; max-width: 440px; width: 90%; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 30px rgba(239,68,68,0.25); backdrop-filter: blur(16px);">
+      <div style="width: 52px; height: 52px; margin: 0 auto 16px; border-radius: 50%; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); display: flex; align-items: center; justify-content: center; color: #ef4444;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <h3 style="font-size: 1.15rem; font-weight: 700; color: #fff; margin-bottom: 8px;">ยืนยันการยกเลิกการสแกน?</h3>
+      <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 22px;">
+        กระบวนการสแกนที่กำลังทำงานจะถูกหยุดลงทันที และระบบจะบันทึกผลเฉพาะเครื่องที่สแกนเสร็จแล้ว
+      </p>
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button class="btn-secondary" id="btnConfirmCancelNo" style="min-width: 110px; padding: 9px 18px;">สแกนต่อ</button>
+        <button class="btn-danger" id="btnConfirmCancelYes" style="min-width: 130px; padding: 9px 20px;">ยืนยันยกเลิก</button>
       </div>
     </div>
   </div>
@@ -1994,13 +2123,26 @@
     const schedBtnClose = document.getElementById('schedBtnClose');
     const schedBtnDone = document.getElementById('schedBtnDone');
     const chkInAppSched = document.getElementById('chkInAppSched');
-    const selInAppInterval = document.getElementById('selInAppInterval');
+    const txtInAppIntervalVal = document.getElementById('txtInAppIntervalVal');
+    const selInAppIntervalUnit = document.getElementById('selInAppIntervalUnit');
+    const radWinTaskDaily = document.getElementById('radWinTaskDaily');
+    const radWinTaskInterval = document.getElementById('radWinTaskInterval');
+    const rowWinTaskDaily = document.getElementById('rowWinTaskDaily');
+    const rowWinTaskInterval = document.getElementById('rowWinTaskInterval');
+    const txtWinTaskIntervalVal = document.getElementById('txtWinTaskIntervalVal');
+    const selWinTaskIntervalUnit = document.getElementById('selWinTaskIntervalUnit');
     const schedCountdownBanner = document.getElementById('schedCountdownBanner');
     const lblNextRunTime = document.getElementById('lblNextRunTime');
     const lblCountdownStr = document.getElementById('lblCountdownStr');
     const timeWinTask = document.getElementById('timeWinTask');
     const btnRegisterWinTask = document.getElementById('btnRegisterWinTask');
     const btnUnregisterWinTask = document.getElementById('btnUnregisterWinTask');
+    const btnTestRunWinTask = document.getElementById('btnTestRunWinTask');
+    const boxWinTaskLastRun = document.getElementById('boxWinTaskLastRun');
+    const lblWinTaskLastRun = document.getElementById('lblWinTaskLastRun');
+    const lblWinTaskResult = document.getElementById('lblWinTaskResult');
+    const lblWinTaskExePath = document.getElementById('lblWinTaskExePath');
+    const boxWinTaskLog = document.getElementById('boxWinTaskLog');
     const badgeWinTaskStatus = document.getElementById('badgeWinTaskStatus');
     const sidebarSchedInfo = document.getElementById('sidebarSchedInfo');
     const sidebarSchedTime = document.getElementById('sidebarSchedTime');
@@ -2030,23 +2172,101 @@
         const data = await res.json();
         if (data.inAppSchedule) {
           chkInAppSched.checked = !!data.inAppSchedule.enabled;
-          selInAppInterval.value = data.inAppSchedule.intervalHours || 4;
+          const mins = data.inAppSchedule.intervalMinutes || 240;
+          if (mins % 60 === 0 && mins >= 60) {
+            if (txtInAppIntervalVal) txtInAppIntervalVal.value = mins / 60;
+            if (selInAppIntervalUnit) selInAppIntervalUnit.value = 'h';
+          } else {
+            if (txtInAppIntervalVal) txtInAppIntervalVal.value = mins;
+            if (selInAppIntervalUnit) selInAppIntervalUnit.value = 'm';
+          }
         }
         if (data.winTaskInfo) {
           const isReg = data.winTaskInfo.registered;
-          badgeWinTaskStatus.innerText = isReg ? `พร้อมทำงาน (${data.winTaskInfo.state})` : 'ยังไม่ลงทะเบียน';
+          badgeWinTaskStatus.innerText = isReg ? ('พร้อมทำงาน (' + data.winTaskInfo.state + ')') : 'ยังไม่ลงทะเบียน';
           badgeWinTaskStatus.style.background = isReg ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.15)';
           badgeWinTaskStatus.style.color = isReg ? '#10b981' : 'var(--text-muted)';
-          btnRegisterWinTask.innerText = isReg ? 'อัปเดตเวลา Task Scheduler' : 'ลงทะเบียนใน Windows Task Scheduler';
+          btnRegisterWinTask.innerText = isReg ? 'อัปเดตการตั้งค่า Task Scheduler' : 'ลงทะเบียนใน Windows Task Scheduler';
           btnUnregisterWinTask.disabled = !isReg;
-          if (data.winTaskInfo.time) {
-            timeWinTask.value = data.winTaskInfo.time;
+          if (btnTestRunWinTask) btnTestRunWinTask.disabled = !isReg;
+          if (boxWinTaskLastRun) {
+            if (isReg || data.winTaskInfo.lastRunTime || data.winTaskInfo.logExcerpt) {
+              boxWinTaskLastRun.style.display = 'block';
+              lblWinTaskLastRun.innerText = data.winTaskInfo.lastRunTime || 'ยังไม่มีประวัติการรัน';
+              var resCode = data.winTaskInfo.lastTaskResult;
+              if (resCode === 0) {
+                lblWinTaskResult.innerText = 'สำเร็จ (0x0)';
+                lblWinTaskResult.style.color = '#10b981';
+                lblWinTaskResult.style.background = 'rgba(16,185,129,0.15)';
+              } else if (resCode !== null && resCode !== undefined) {
+                lblWinTaskResult.innerText = 'รหัส ' + resCode;
+                lblWinTaskResult.style.color = '#f59e0b';
+                lblWinTaskResult.style.background = 'rgba(245,158,11,0.15)';
+              } else {
+                lblWinTaskResult.innerText = '-';
+              }
+              lblWinTaskExePath.innerText = data.winTaskInfo.exePath ? ('ไฟล์ที่รัน: ' + data.winTaskInfo.exePath) : '';
+              if (data.winTaskInfo.logExcerpt && data.winTaskInfo.logExcerpt.length > 0) {
+                boxWinTaskLog.innerText = data.winTaskInfo.logExcerpt.join('\n');
+              } else {
+                boxWinTaskLog.innerText = 'ยังไม่มีบันทึกใน ScheduleRun.log';
+              }
+            } else {
+              boxWinTaskLastRun.style.display = 'none';
+            }
+          }
+          if (data.winTaskInfo.mode === 'interval') {
+            if (radWinTaskInterval) radWinTaskInterval.checked = true;
+            if (rowWinTaskDaily) rowWinTaskDaily.style.display = 'none';
+            if (rowWinTaskInterval) rowWinTaskInterval.style.display = 'flex';
+            const wMins = data.winTaskInfo.intervalMinutes || 15;
+            if (wMins % 60 === 0 && wMins >= 60) {
+              if (txtWinTaskIntervalVal) txtWinTaskIntervalVal.value = wMins / 60;
+              if (selWinTaskIntervalUnit) selWinTaskIntervalUnit.value = 'h';
+            } else {
+              if (txtWinTaskIntervalVal) txtWinTaskIntervalVal.value = wMins;
+              if (selWinTaskIntervalUnit) selWinTaskIntervalUnit.value = 'm';
+            }
+          } else {
+            if (radWinTaskDaily) radWinTaskDaily.checked = true;
+            if (rowWinTaskDaily) rowWinTaskDaily.style.display = 'flex';
+            if (rowWinTaskInterval) rowWinTaskInterval.style.display = 'none';
+            if (data.winTaskInfo.time && timeWinTask) {
+              timeWinTask.value = data.winTaskInfo.time;
+            }
           }
         }
       } catch (err) {}
     }
 
-    chkInAppSched.addEventListener('change', async () => {
+    window.setInAppPreset = function(val, unit) {
+      if (txtInAppIntervalVal) txtInAppIntervalVal.value = val;
+      if (selInAppIntervalUnit) selInAppIntervalUnit.value = unit;
+      triggerInAppUpdate();
+    };
+
+    window.setWinTaskPreset = function(val, unit) {
+      if (txtWinTaskIntervalVal) txtWinTaskIntervalVal.value = val;
+      if (selWinTaskIntervalUnit) selWinTaskIntervalUnit.value = unit;
+    };
+
+    if (radWinTaskDaily) {
+      radWinTaskDaily.addEventListener('change', () => {
+        rowWinTaskDaily.style.display = 'flex';
+        rowWinTaskInterval.style.display = 'none';
+      });
+    }
+    if (radWinTaskInterval) {
+      radWinTaskInterval.addEventListener('change', () => {
+        rowWinTaskDaily.style.display = 'none';
+        rowWinTaskInterval.style.display = 'flex';
+      });
+    }
+
+    async function triggerInAppUpdate() {
+      const val = parseInt(txtInAppIntervalVal.value) || 15;
+      const unit = selInAppIntervalUnit.value;
+      const mins = unit === 'h' ? val * 60 : val;
       try {
         await fetch('/api/schedule', {
           method: 'POST',
@@ -2054,44 +2274,41 @@
           body: JSON.stringify({
             action: 'updateInApp',
             enabled: chkInAppSched.checked,
-            intervalHours: parseInt(selInAppInterval.value) || 4
+            intervalMinutes: mins
           })
         });
-        showToast(chkInAppSched.checked ? 'เปิดใช้งาน In-App Scheduler แล้ว' : 'ปิด In-App Scheduler แล้ว', 'info');
+        showToast(chkInAppSched.checked ? ('เปิดใช้งาน In-App Scheduler (ทุกๆ ' + val + ' ' + (unit === 'h' ? 'ชม.' : 'นาที') + ')') : 'ปิด In-App Scheduler แล้ว', 'info');
       } catch (err) {}
-    });
+    }
 
-    selInAppInterval.addEventListener('change', async () => {
-      if (chkInAppSched.checked) {
-        try {
-          await fetch('/api/schedule', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'updateInApp',
-              enabled: true,
-              intervalHours: parseInt(selInAppInterval.value) || 4
-            })
-          });
-          showToast(`ปรับความถี่เป็นทุก ${selInAppInterval.value} ชั่วโมงแล้ว`, 'info');
-        } catch (err) {}
-      }
-    });
+    chkInAppSched.addEventListener('change', triggerInAppUpdate);
+    if (txtInAppIntervalVal) txtInAppIntervalVal.addEventListener('change', () => { if (chkInAppSched.checked) triggerInAppUpdate(); });
+    if (selInAppIntervalUnit) selInAppIntervalUnit.addEventListener('change', () => { if (chkInAppSched.checked) triggerInAppUpdate(); });
 
     btnRegisterWinTask.addEventListener('click', async () => {
       try {
         btnRegisterWinTask.disabled = true;
+        const isInterval = radWinTaskInterval.checked;
+        const val = parseInt(txtWinTaskIntervalVal.value) || 15;
+        const unit = selWinTaskIntervalUnit.value;
+        const mins = unit === 'h' ? val * 60 : val;
+
+        const payload = {
+          action: 'registerWinTask',
+          mode: isInterval ? 'interval' : 'daily',
+          time: timeWinTask.value || '02:00',
+          intervalMinutes: mins
+        };
+
         const res = await fetch('/api/schedule', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'registerWinTask',
-            time: timeWinTask.value || '02:00'
-          })
+          body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (data.status === 'success') {
-          showToast(`ลงทะเบียน Windows Task Scheduler สำเร็จ! (รันเวลา ${timeWinTask.value})`, 'success');
+          const detail = isInterval ? ('รันวนซ้ำทุกๆ ' + val + ' ' + (unit === 'h' ? 'ชม.' : 'นาที')) : ('รันประจำวันเวลา ' + timeWinTask.value);
+          showToast('ลงทะเบียน Windows Task Scheduler สำเร็จ! (' + detail + ')', 'success');
           await fetchScheduleStatus();
         } else {
           showToast('ไม่สามารถลงทะเบียนได้: ' + (data.error || 'Unknown'), 'error');
@@ -2102,6 +2319,31 @@
         btnRegisterWinTask.disabled = false;
       }
     });
+
+    if (btnTestRunWinTask) {
+      btnTestRunWinTask.addEventListener('click', async () => {
+        try {
+          btnTestRunWinTask.disabled = true;
+          showToast('กำลังสั่งรัน Windows Task Scheduler...', 'info');
+          const res = await fetch('/api/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'testRunWinTask' })
+          });
+          const data = await res.json();
+          if (data.status === 'success') {
+            showToast('สั่งรันงานใน Windows Task Scheduler สำเร็จแล้ว!', 'success');
+            setTimeout(fetchScheduleStatus, 3000);
+          } else {
+            showToast('ไม่สามารถสั่งรันได้: ' + (data.error || 'Unknown'), 'error');
+          }
+        } catch (err) {
+          showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+        } finally {
+          btnTestRunWinTask.disabled = false;
+        }
+      });
+    }
 
     btnUnregisterWinTask.addEventListener('click', async () => {
       if (!confirm('ต้องการยกเลิกงานสแกนอัตโนมัติใน Windows Task Scheduler ใช่หรือไม่?')) return;
@@ -2126,8 +2368,34 @@
       }
     });
 
+    // Centralized Promax Scanning State Machine
+    function applyScanningState(active, activityMsg) {
+      isScanning = active;
+      btnStartScan.disabled = active;
+      btnCancelScan.disabled = !active;
+      if (btnRetryOffline) btnRetryOffline.disabled = active;
+
+      // Lock or unlock configuration controls during scan
+      const formSelectors = 'input[name="scanSource"], #txtListFile, #btnBrowseFile, #numDays, #chkHw, #chkSw, #chkUser, #chkHidden, #numThrottle, #sliderThrottle, #txtNameFilter, #txtOutDir, #btnBrowseOutDir, #chkMasterDb, #chkSkipServers, #chkAutoHtml';
+      const formInputs = document.querySelectorAll(formSelectors);
+      formInputs.forEach(el => { el.disabled = active; });
+
+      const ringContainer = document.querySelector('.status-ring');
+      if (active) {
+        btnStartScan.classList.add('btn-scanning-pulse');
+        if (ringContainer) ringContainer.classList.add('ring-active-glow');
+        dockStatusText.innerText = activityMsg || 'กำลังดำเนินการสแกน...';
+        ringStatus.innerText = 'สแกน';
+      } else {
+        btnStartScan.classList.remove('btn-scanning-pulse');
+        if (ringContainer) ringContainer.classList.remove('ring-active-glow');
+        btnCancelScan.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg> ยกเลิกการสแกน`;
+      }
+    }
+
     // Start Scan Action (Normal or Retry Offline Only)
     async function startScan(isRetryOffline = false) {
+      if (isScanning) return;
       if (!document.getElementById('chkHw').checked && !chkSw.checked) {
         showToast('กรุณาเลือกอย่างน้อย 1 รายการ: Hardware หรือ Software', 'warning');
         return;
@@ -2135,6 +2403,15 @@
       if (!isRetryOffline && rbFile.checked && !txtListFile.value.trim()) {
         showToast('กรุณาระบุไฟล์รายชื่อเครื่อง (.txt)', 'warning');
         return;
+      }
+
+      applyScanningState(true, isRetryOffline ? 'กำลังสแกนซ้ำเฉพาะเครื่อง Offline...' : 'กำลังเริ่มการสแกน...');
+      dockStatusText.innerText = isRetryOffline ? 'กำลังสแกนซ้ำเฉพาะเครื่อง Offline...' : 'กำลังเริ่มการสแกน...';
+      ringStatus.innerText = 'กำลังสแกน...';
+      scanCurrentMsg.innerText = isRetryOffline ? 'กำลังเชื่อมต่อเครื่องที่เคย Offline ใน Master Database...' : 'กำลังเชื่อมต่อเครื่องในเครือข่าย...';
+      if (!isRetryOffline) {
+        allScannedPCs = [];
+        renderTable();
       }
 
       const payload = {
@@ -2155,17 +2432,6 @@
       };
 
       try {
-        btnStartScan.disabled = true;
-        if (btnRetryOffline) btnRetryOffline.disabled = true;
-        btnCancelScan.disabled = false;
-        dockStatusText.innerText = isRetryOffline ? 'กำลังสแกนซ้ำเฉพาะเครื่อง Offline...' : 'กำลังเริ่มการสแกน...';
-        ringStatus.innerText = 'กำลังสแกน...';
-        scanCurrentMsg.innerText = isRetryOffline ? 'กำลังเชื่อมต่อเครื่องที่เคย Offline ใน Master Database...' : 'กำลังเชื่อมต่อเครื่องในเครือข่าย...';
-        if (!isRetryOffline) {
-          allScannedPCs = [];
-          renderTable();
-        }
-
         const res = await fetch('/api/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2174,15 +2440,13 @@
         const resp = await res.json();
         if (resp.error) {
           showToast(resp.error, 'error');
-          resetScanUI();
+          applyScanningState(false);
           return;
         }
-
-        isScanning = true;
-        startPolling();
+        setPollingSpeed(500); // Accelerate Real-Time polling rate immediately
       } catch (err) {
         showToast('ไม่สามารถเริ่มสแกนได้: ' + err.message, 'error');
-        resetScanUI();
+        applyScanningState(false);
       }
     }
 
@@ -2191,137 +2455,209 @@
       btnRetryOffline.addEventListener('click', () => startScan(true));
     }
 
-    // Cancel Scan Action
-    btnCancelScan.addEventListener('click', async () => {
-      if (confirm('คุณต้องการยกเลิกการสแกนใช่หรือไม่?')) {
-        try {
-          await fetch('/api/cancel', { method: 'POST' });
-          appendTerminalLog('[Cancelling...] กำลังหยุดการสแกนตามคำสั่ง', 'terminal-warn');
-        } catch (err) { }
+    // Cyber Glass Cancel Modal & Handlers
+    const modalConfirmCancel = document.getElementById('modalConfirmCancel');
+    const btnConfirmCancelYes = document.getElementById('btnConfirmCancelYes');
+    const btnConfirmCancelNo = document.getElementById('btnConfirmCancelNo');
+
+    btnCancelScan.addEventListener('click', () => {
+      if (!isScanning) return;
+      modalConfirmCancel.classList.add('active');
+    });
+
+    btnConfirmCancelNo.addEventListener('click', () => {
+      modalConfirmCancel.classList.remove('active');
+    });
+
+    modalConfirmCancel.addEventListener('click', (e) => {
+      if (e.target === modalConfirmCancel) {
+        modalConfirmCancel.classList.remove('active');
+      }
+    });
+
+    btnConfirmCancelYes.addEventListener('click', async () => {
+      modalConfirmCancel.classList.remove('active');
+      btnCancelScan.disabled = true;
+      btnCancelScan.innerHTML = `<svg class="spinning-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg> กำลังยกเลิก...`;
+      showToast('กำลังส่งคำสั่งหยุดการสแกน...', 'info');
+      try {
+        await fetch('/api/cancel', { method: 'POST' });
+        appendTerminalLog('[Cancelling...] กำลังหยุดการสแกนตามคำสั่งผู้ใช้', 'terminal-warn');
+      } catch (err) {
+        showToast('เกิดข้อผิดพลาดในการยกเลิก: ' + err.message, 'error');
       }
     });
 
     function resetScanUI() {
-      isScanning = false;
-      btnStartScan.disabled = false;
-      if (btnRetryOffline) btnRetryOffline.disabled = false;
-      btnCancelScan.disabled = true;
+      applyScanningState(false);
       dockStatusText.innerText = 'การสแกนเสร็จสมบูรณ์';
       ringStatus.innerText = 'เสร็จสิ้น';
       scanCurrentMsg.innerText = 'การสแกนเสร็จสิ้นเรียบร้อยแล้ว';
     }
 
-    // Polling Loop with Reconnection Awareness
+    // Adaptive Real-Time Polling Loop (500ms when scanning, 2000ms when idle)
     let consecutivePollErrors = 0;
+    let currentPollingInterval = 2000;
+    pollTimer = null;
 
-    function startPolling() {
+    function setPollingSpeed(intervalMs) {
+      if (currentPollingInterval === intervalMs && pollTimer) return;
+      currentPollingInterval = intervalMs;
       if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(async () => {
-        try {
-          const res = await fetch('/api/status');
-          const data = await res.json();
-          consecutivePollErrors = 0;
+      pollTimer = setInterval(pollTick, currentPollingInterval);
+    }
 
-          // Stats
-          statTotal.innerText = data.total || 0;
-          statOk.innerText = data.ok || 0;
-          statOffline.innerText = data.offline || 0;
-          statError.innerText = data.error || 0;
+    async function pollTick() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        consecutivePollErrors = 0;
 
-          // Progress & Ring
-          setProgress(data.percent || 0);
-          if (data.elapsed) {
-            scanElapsed.innerText = `เวลาที่ใช้: ${data.elapsed}`;
+        // Reactive Scanning State Synchronization from Server (Single Source of Truth)
+        if (data.isScanning) {
+          if (!isScanning) {
+            applyScanningState(true, data.currentActivity || 'กำลังดำเนินการสแกน...');
+            showToast('ระบบเริ่มทำการสแกนคอมพิวเตอร์...', 'info');
           }
-          if (data.currentActivity) {
-            scanCurrentMsg.innerText = data.currentActivity;
-          }
-
-          // In-App Schedule countdown display
-          if (data.inAppSchedule && data.inAppSchedule.enabled) {
-            schedCountdownBanner.style.display = 'block';
-            sidebarSchedInfo.style.display = 'block';
-            lblNextRunTime.innerText = data.inAppSchedule.nextRunAt || '-';
-            sidebarSchedTime.innerText = data.inAppSchedule.nextRunAt ? data.inAppSchedule.nextRunAt.split(' ')[1] : '-';
-            const secs = data.inAppSchedule.countdownSec || 0;
-            const h = Math.floor(secs / 3600);
-            const m = Math.floor((secs % 3600) / 60);
-            const s = secs % 60;
-            lblCountdownStr.innerText = `อีก ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-          } else {
-            schedCountdownBanner.style.display = 'none';
-            sidebarSchedInfo.style.display = 'none';
-          }
-
-          // Windows Task Scheduler status
-          if (data.winTaskInfo) {
-            const isReg = data.winTaskInfo.registered;
-            badgeWinTaskStatus.innerText = isReg ? `พร้อมทำงาน (${data.winTaskInfo.state})` : 'ยังไม่ลงทะเบียน';
-            badgeWinTaskStatus.style.background = isReg ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.15)';
-            badgeWinTaskStatus.style.color = isReg ? '#10b981' : 'var(--text-muted)';
-            btnRegisterWinTask.innerText = isReg ? 'อัปเดตเวลา Task Scheduler' : 'ลงทะเบียนใน Windows Task Scheduler';
-            btnUnregisterWinTask.disabled = !isReg;
-          }
-
-          // Offline Retry Button visibility
-          if (btnRetryOffline) {
-            if (data.offlineMachinesCount > 0) {
-              btnRetryOffline.style.display = 'inline-flex';
-              badgeOfflineCount.innerText = data.offlineMachinesCount;
-            } else {
-              btnRetryOffline.style.display = 'none';
-            }
-          }
-
-          // New Logs
-          if (data.newLogs && data.newLogs.length > 0) {
-            data.newLogs.forEach(l => {
-              let cls = '';
-              if (l.includes('---') || l.includes('Method') || l.includes('Master')) cls = 'terminal-info';
-              else if (l.includes('OK') || l.includes('done') || l.includes('Success')) cls = 'terminal-success';
-              else if (l.includes('WARNING') || l.includes('Offline')) cls = 'terminal-warn';
-              else if (l.includes('ERROR') || l.includes('Exception')) cls = 'terminal-error';
-              appendTerminalLog(l, cls);
-            });
-          }
-
-          // Scanned PCs updates
-          if (data.scannedPCs && data.scannedPCs.length > 0) {
-            allScannedPCs = data.scannedPCs;
+          setPollingSpeed(500); // Accelerate to 500ms Real-Time Poll rate while scanning
+        } else {
+          if (isScanning || data.isCompleted) {
+            applyScanningState(false);
             if (data.isCompleted) {
-              allScannedPCs.forEach(pc => {
-                if (pc.Status === 'Scanning') pc.Status = 'OK';
-              });
+              dockStatusText.innerText = 'การสแกนเสร็จสมบูรณ์';
+              ringStatus.innerText = 'เสร็จสิ้น';
+              scanCurrentMsg.innerText = 'การสแกนเสร็จสิ้นเรียบร้อยแล้ว';
             }
-            renderTable();
           }
+          setPollingSpeed(2000); // Idle: 2000ms Poll rate
+        }
 
-          // Enable HTML Report button if report is available
-          if (data.htmlReportReady) {
-            btnOpenHtmlReport.disabled = false;
+        // Stats
+        statTotal.innerText = data.total || 0;
+        statOk.innerText = data.ok || 0;
+        statOffline.innerText = data.offline || 0;
+        statError.innerText = data.error || 0;
+
+        // Progress & Ring (Real-Time Smooth Animation)
+        setProgress(data.percent || 0);
+        if (data.elapsed) {
+          scanElapsed.innerText = `เวลาที่ใช้: ${data.elapsed}`;
+        }
+        if (data.currentActivity) {
+          scanCurrentMsg.innerText = data.currentActivity;
+          if (data.isScanning) {
+            dockStatusText.innerText = data.currentActivity;
           }
+        }
 
-          // Check if finished
+        // In-App Schedule countdown display
+        if (data.inAppSchedule && data.inAppSchedule.enabled) {
+          schedCountdownBanner.style.display = 'block';
+          sidebarSchedInfo.style.display = 'block';
+          lblNextRunTime.innerText = data.inAppSchedule.nextRunAt || '-';
+          sidebarSchedTime.innerText = data.inAppSchedule.nextRunAt ? data.inAppSchedule.nextRunAt.split(' ')[1] : '-';
+          const secs = data.inAppSchedule.countdownSec || 0;
+          const h = Math.floor(secs / 3600);
+          const m = Math.floor((secs % 3600) / 60);
+          const s = secs % 60;
+          lblCountdownStr.innerText = `อีก ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        } else {
+          schedCountdownBanner.style.display = 'none';
+          sidebarSchedInfo.style.display = 'none';
+        }
+
+        // Windows Task Scheduler status
+        if (data.winTaskInfo) {
+          const isReg = data.winTaskInfo.registered;
+          badgeWinTaskStatus.innerText = isReg ? `พร้อมทำงาน (${data.winTaskInfo.state})` : 'ยังไม่ลงทะเบียน';
+          badgeWinTaskStatus.style.background = isReg ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.15)';
+          badgeWinTaskStatus.style.color = isReg ? '#10b981' : 'var(--text-muted)';
+          btnRegisterWinTask.innerText = isReg ? 'อัปเดตการตั้งค่า Task Scheduler' : 'ลงทะเบียนใน Windows Task Scheduler';
+          btnUnregisterWinTask.disabled = !isReg;
+          if (btnTestRunWinTask) btnTestRunWinTask.disabled = !isReg;
+          if (boxWinTaskLastRun) {
+            if (isReg || data.winTaskInfo.lastRunTime || data.winTaskInfo.logExcerpt) {
+              boxWinTaskLastRun.style.display = 'block';
+              lblWinTaskLastRun.innerText = data.winTaskInfo.lastRunTime || 'ยังไม่มีประวัติการรัน';
+              var resCode = data.winTaskInfo.lastTaskResult;
+              if (resCode === 0) {
+                lblWinTaskResult.innerText = 'สำเร็จ (0x0)';
+                lblWinTaskResult.style.color = '#10b981';
+                lblWinTaskResult.style.background = 'rgba(16,185,129,0.15)';
+              } else if (resCode !== null && resCode !== undefined) {
+                lblWinTaskResult.innerText = 'รหัส ' + resCode;
+                lblWinTaskResult.style.color = '#f59e0b';
+                lblWinTaskResult.style.background = 'rgba(245,158,11,0.15)';
+              } else {
+                lblWinTaskResult.innerText = '-';
+              }
+              lblWinTaskExePath.innerText = data.winTaskInfo.exePath ? ('ไฟล์ที่รัน: ' + data.winTaskInfo.exePath) : '';
+              if (data.winTaskInfo.logExcerpt && data.winTaskInfo.logExcerpt.length > 0) {
+                boxWinTaskLog.innerText = data.winTaskInfo.logExcerpt.join('\n');
+              } else {
+                boxWinTaskLog.innerText = 'ยังไม่มีบันทึกใน ScheduleRun.log';
+              }
+            } else {
+              boxWinTaskLastRun.style.display = 'none';
+            }
+          }
+        }
+
+        // Offline Retry Button visibility
+        if (btnRetryOffline) {
+          if (data.offlineMachinesCount > 0) {
+            btnRetryOffline.style.display = 'inline-flex';
+            badgeOfflineCount.innerText = data.offlineMachinesCount;
+          } else {
+            btnRetryOffline.style.display = 'none';
+          }
+        }
+
+        // New Logs (Real-Time Terminal Stream)
+        if (data.newLogs && data.newLogs.length > 0) {
+          data.newLogs.forEach(l => {
+            let cls = '';
+            if (l.includes('---') || l.includes('Method') || l.includes('Master')) cls = 'terminal-info';
+            else if (l.includes('OK') || l.includes('done') || l.includes('Success')) cls = 'terminal-success';
+            else if (l.includes('WARNING') || l.includes('Offline')) cls = 'terminal-warn';
+            else if (l.includes('ERROR') || l.includes('Exception')) cls = 'terminal-error';
+            appendTerminalLog(l, cls);
+          });
+        }
+
+        // Scanned PCs updates (Real-Time Live Table)
+        if (data.scannedPCs && data.scannedPCs.length > 0) {
+          allScannedPCs = data.scannedPCs;
           if (data.isCompleted) {
-            if (isScanning) {
-              resetScanUI();
-              showToast('การสแกนเสร็จสมบูรณ์เรียบร้อยแล้ว!', 'success');
-            }
-            dockStatusText.innerText = 'การสแกนเสร็จสมบูรณ์';
-            ringStatus.innerText = 'เสร็จสิ้น';
-            scanCurrentMsg.innerText = 'การสแกนเสร็จสิ้นเรียบร้อยแล้ว';
             allScannedPCs.forEach(pc => {
               if (pc.Status === 'Scanning') pc.Status = 'OK';
             });
-            renderTable();
           }
-        } catch (err) {
-          consecutivePollErrors++;
-          if (consecutivePollErrors >= 5) {
-            dockStatusText.innerText = '⚠️ กำลังพยายามเชื่อมต่อระบบใหม่...';
-          }
+          renderTable();
         }
-      }, 800);
+
+        // Enable HTML Report button if report is available
+        if (data.htmlReportReady) {
+          btnOpenHtmlReport.disabled = false;
+        }
+
+        // Check if finished
+        if (data.isCompleted) {
+          if (isScanning) {
+            resetScanUI();
+            showToast('การสแกนเสร็จสมบูรณ์เรียบร้อยแล้ว!', 'success');
+          }
+          allScannedPCs.forEach(pc => {
+            if (pc.Status === 'Scanning') pc.Status = 'OK';
+          });
+          renderTable();
+        }
+      } catch (err) {
+        consecutivePollErrors++;
+        if (consecutivePollErrors >= 5) {
+          dockStatusText.innerText = '⚠️ กำลังพยายามเชื่อมต่อระบบใหม่...';
+        }
+      }
     }
 
     // Send exit signal on window close
@@ -2329,8 +2665,13 @@
       try { navigator.sendBeacon('/api/exit'); } catch (e) {}
     });
 
+    function startPolling() {
+      setPollingSpeed(2000);
+    }
+
     // Start background status polling immediately on page load
     startPolling();
+    document.documentElement.setAttribute('data-js-loaded', 'true');
   </script>
 </body>
 </html>

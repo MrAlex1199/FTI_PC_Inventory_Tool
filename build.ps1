@@ -7,12 +7,14 @@
 
 .USAGE
   powershell -ExecutionPolicy Bypass -File .\build.ps1
+  powershell -ExecutionPolicy Bypass -File .\build.ps1 -SkipSign
 #>
 
 [CmdletBinding()]
 param(
     [string]$OutputDir,
-    [string]$ExeName = 'FTI_PC_Inventory.exe'
+    [string]$ExeName = 'FTI_PC_Inventory.exe',
+    [switch]$SkipSign = $false
 )
 if (-not $OutputDir) {
     $OutputDir = Join-Path $PSScriptRoot 'dist'
@@ -42,7 +44,7 @@ if (-not (Test-Path $tempDir)) {
 }
 
 # 2. Locate C# Compiler (csc.exe)
-Write-Host '[1/6] Locating .NET C# Compiler (csc.exe)...' -ForegroundColor Yellow
+Write-Host '[1/7] Locating .NET C# Compiler (csc.exe)...' -ForegroundColor Yellow
 $cscPaths = @(
     'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe',
     'C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe'
@@ -59,8 +61,47 @@ if (-not $cscPath) {
 }
 Write-Host "      Compiler found: $cscPath" -ForegroundColor Green
 
-# 3. Generate App Icon in Temp
-Write-Host '[2/6] Preparing modern application icon...' -ForegroundColor Yellow
+# 3. Validate Web UI & JavaScript Syntax Integrity
+Write-Host '[2/7] Validating Web UI & JavaScript syntax integrity...' -ForegroundColor Yellow
+$browserPaths = @(
+    'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
+    'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
+    "$env:LOCALAPPDATA\Microsoft\Edge\Application\msedge.exe",
+    'C:\Program Files\Google\Chrome\Application\chrome.exe',
+    'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'
+)
+$headlessBrowser = $browserPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+if ($headlessBrowser) {
+    $tempDump = Join-Path $tempDir 'syntax_test_dom.txt'
+    $htmlUri = "file:///$($srcHtml.Replace('\', '/'))"
+    & cmd.exe /c "`"$headlessBrowser`" --headless --disable-gpu --dump-dom `"$htmlUri`" 2>nul" | Out-File -FilePath $tempDump -Encoding utf8
+
+    if (Test-Path $tempDump) {
+        $domContent = Get-Content -Path $tempDump -Raw
+        Remove-Item $tempDump -Force -ErrorAction SilentlyContinue
+
+        $hasFatalBanner = $domContent.Contains('<div id="fatalJsBanner"')
+        $hasJsLoaded = $domContent.Contains('data-js-loaded="true"')
+
+        if ($hasFatalBanner -or -not $hasJsLoaded) {
+            $errMsg = "JavaScript execution or syntax error detected in $srcHtml."
+            if ($domContent -match 'id="fatalJsBanner"[^>]*><span>(.*?)</span>') {
+                $errMsg += " Details: $($matches[1])"
+            }
+            Write-Host "      [ERROR] $errMsg" -ForegroundColor Red
+            throw $errMsg
+        }
+        Write-Host "      Web UI syntax integrity verified (Zero syntax errors, full execution confirmed)." -ForegroundColor Green
+    } else {
+        Write-Warning "      Could not capture headless browser DOM dump; skipping automated UI validation."
+    }
+} else {
+    Write-Warning "      No supported Chromium browser found for headless verification; skipping."
+}
+
+# 4. Generate App Icon in Temp
+Write-Host '[3/7] Preparing modern application icon...' -ForegroundColor Yellow
 Add-Type -AssemblyName System.Drawing
 $tempIcon = Join-Path $tempDir 'fti_inventory.ico'
 $bmp = New-Object System.Drawing.Bitmap(128, 128)
@@ -128,8 +169,8 @@ $icon.Dispose()
 $bmp.Dispose()
 Write-Host "      Icon generated at $tempIcon" -ForegroundColor Green
 
-# 4. Merge Engine Scripts (Core + HTML + Server)
-Write-Host '[3/6] Merging Core, Web UI, and Server into unified engine...' -ForegroundColor Yellow
+# 5. Merge Engine Scripts (Core + HTML + Server)
+Write-Host '[4/7] Merging Core, Web UI, and Server into unified engine...' -ForegroundColor Yellow
 $coreBytes   = [System.IO.File]::ReadAllBytes($srcCore)
 $coreB64     = [System.Convert]::ToBase64String($coreBytes)
 $htmlBytes   = [System.IO.File]::ReadAllBytes($srcHtml)
@@ -146,12 +187,11 @@ if ($serverCode -match '(?ms)^\s*param\s*\((.*?)\)\s*(.*)$') {
 
 $mergedContent = @"
 $paramBlock
-
 # ==============================================================================
 # FTI PC Inventory Tool (Enterprise Standalone Web App Engine)
 # ==============================================================================
 `$CoreScriptBase64 = '$coreB64'
-`$CoreScript = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(`$CoreScriptBase64))
+`$CoreScript = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(`$CoreScriptBase64)).TrimStart([char]0xFEFF)
 
 `$HtmlContentBase64 = '$htmlB64'
 `$HtmlContent = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(`$HtmlContentBase64))
@@ -165,8 +205,8 @@ $tempMerged = Join-Path $tempDir 'engine_merged.ps1'
 [System.IO.File]::WriteAllBytes($tempMerged, $mergedBytes)
 Write-Host "      Engine script merged ($($mergedBytes.Length) bytes)" -ForegroundColor Green
 
-# 5. Compile Native C# WinExe Launcher with Embedded Resource
-Write-Host '[4/6] Compiling Native C# WinExe Launcher with Embedded Engine & Manifest...' -ForegroundColor Yellow
+# 6. Compile Native C# WinExe Launcher with Embedded Resource
+Write-Host '[5/7] Compiling Native C# WinExe Launcher with Embedded Engine & Manifest...' -ForegroundColor Yellow
 
 $targetExeInTemp = Join-Path $tempDir $ExeName
 if (Test-Path $targetExeInTemp) {
@@ -197,47 +237,60 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path $targetExeInTemp)) {
 }
 Write-Host "      Native .EXE created successfully! Size: $((Get-Item $targetExeInTemp).Length) bytes" -ForegroundColor Green
 
-# 6. Authenticode Digital Signing
-Write-Host '[5/6] Applying Authenticode Digital Signature (SHA256)...' -ForegroundColor Yellow
-$certSubject = "CN=FTI Enterprise Tools"
-$cert = Get-ChildItem -Path Cert:\CurrentUser\My | Where-Object { $_.Subject -eq $certSubject } | Select-Object -First 1
+# 7. Authenticode Digital Signing
+Write-Host '[6/7] Applying Authenticode Digital Signature (SHA256)...' -ForegroundColor Yellow
+$cert = $null
+if (-not $SkipSign) {
+    try {
+        $certSubject = "CN=FTI Enterprise Tools"
+        $cert = Get-ChildItem -Path Cert:\CurrentUser\My -ErrorAction SilentlyContinue | Where-Object { $_.Subject -eq $certSubject } | Select-Object -First 1
 
-if (-not $cert) {
-    Write-Host "      Generating self-signed Enterprise Code Signing Certificate..." -ForegroundColor Gray
-    $cert = New-SelfSignedCertificate `
-        -Type CodeSigningCert `
-        -Subject $certSubject `
-        -CertStoreLocation "Cert:\CurrentUser\My" `
-        -HashAlgorithm SHA256 `
-        -NotAfter (Get-Date).AddYears(5)
+        if (-not $cert) {
+            Write-Host "      Generating self-signed Enterprise Code Signing Certificate..." -ForegroundColor Gray
+            $cert = New-SelfSignedCertificate `
+                -Type CodeSigningCert `
+                -Subject $certSubject `
+                -CertStoreLocation "Cert:\CurrentUser\My" `
+                -HashAlgorithm SHA256 `
+                -NotAfter (Get-Date).AddYears(5) `
+                -ErrorAction Stop
+        }
+
+        # Sign executable
+        Set-AuthenticodeSignature -FilePath $targetExeInTemp -Certificate $cert -HashAlgorithm SHA256 | Out-Null
+        $sig = Get-AuthenticodeSignature -FilePath $targetExeInTemp
+        Write-Host "      Signature Status: $($sig.Status) (Signer: $($cert.Subject))" -ForegroundColor Green
+    } catch {
+        Write-Warning "Authenticode signing skipped: $($_.Exception.Message)"
+        Write-Host "      [TIP] For signed release binaries, run PowerShell as Administrator." -ForegroundColor Cyan
+        $cert = $null
+    }
+} else {
+    Write-Host "      Signing skipped (-SkipSign specified)." -ForegroundColor Gray
 }
 
-# Sign executable
-Set-AuthenticodeSignature -FilePath $targetExeInTemp -Certificate $cert -HashAlgorithm SHA256 | Out-Null
-$sig = Get-AuthenticodeSignature -FilePath $targetExeInTemp
-Write-Host "      Signature Status: $($sig.Status) (Signer: $($cert.Subject))" -ForegroundColor Green
+# 8. Package and Deploy
+Write-Host '[7/7] Packaging and Deploying...' -ForegroundColor Yellow
 
-# 7. Package and Deploy
-Write-Host '[6/6] Packaging and Deploying...' -ForegroundColor Yellow
-
-# Prepare local AppData dist as primary reliable location
-$appDistDir = Join-Path $env:LOCALAPPDATA 'FTI_PC_Inventory_Tool\dist'
-if (-not (Test-Path $appDistDir)) {
-    New-Item -ItemType Directory -Path $appDistDir -Force | Out-Null
+# Primary distribution folder ($OutputDir = $PSScriptRoot\dist)
+if (-not (Test-Path $OutputDir)) {
+    New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 }
 
-$deployedFiles = @()
+$finalTargetExe = Join-Path $OutputDir 'FTI_PC_Inventory.exe'
+Copy-Item $targetExeInTemp $finalTargetExe -Force
+Write-Host "      Successfully deployed to: $OutputDir" -ForegroundColor Cyan
 
-# Copy to AppData dist
-$appExe = Join-Path $appDistDir 'FTI_PC_Inventory.exe'
-Copy-Item $targetExeInTemp $appExe -Force
-$deployedFiles += $appExe
+$certExportPath = Join-Path $OutputDir 'FTI_Enterprise_Certificate.cer'
+if ($cert) {
+    try {
+        Export-Certificate -Cert $cert -FilePath $certExportPath -Force | Out-Null
+    } catch {
+        Write-Warning "Could not export certificate: $($_.Exception.Message)"
+    }
+}
 
-$certExportPath = Join-Path $appDistDir 'FTI_Enterprise_Certificate.cer'
-Export-Certificate -Cert $cert -FilePath $certExportPath -Force | Out-Null
-$deployedFiles += $certExportPath
-
-$installBatPath = Join-Path $appDistDir 'Install_Certificate.bat'
+$installBatPath = Join-Path $OutputDir 'Install_Certificate.bat'
 $installBat = @"
 @echo off
 title Install FTI Enterprise Security Certificate
@@ -257,27 +310,27 @@ echo.
 pause
 "@
 [System.IO.File]::WriteAllText($installBatPath, $installBat, [System.Text.Encoding]::ASCII)
-$deployedFiles += $installBatPath
 
-# Also attempt copy to OutputDir ($PSScriptRoot\dist)
+# Secondary optional deployment: AppData
 try {
-    if (-not (Test-Path $OutputDir)) {
-        New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
+    $appDistDir = Join-Path $env:LOCALAPPDATA 'FTI_PC_Inventory_Tool\dist'
+    if (-not (Test-Path $appDistDir -ErrorAction SilentlyContinue)) {
+        New-Item -ItemType Directory -Path $appDistDir -Force -ErrorAction SilentlyContinue | Out-Null
     }
-    $finalTargetExe = Join-Path $OutputDir 'FTI_PC_Inventory.exe'
-    Copy-Item $targetExeInTemp $finalTargetExe -Force
-    Copy-Item $certExportPath (Join-Path $OutputDir 'FTI_Enterprise_Certificate.cer') -Force
-    Copy-Item $installBatPath (Join-Path $OutputDir 'Install_Certificate.bat') -Force
-    Write-Host "      Successfully deployed to: $OutputDir" -ForegroundColor Cyan
-} catch {
-    Write-Host "      Notice: $OutputDir protected by Windows Controlled Folder Access." -ForegroundColor Yellow
-}
+    if (Test-Path $appDistDir -ErrorAction SilentlyContinue) {
+        Copy-Item $finalTargetExe (Join-Path $appDistDir 'FTI_PC_Inventory.exe') -Force -ErrorAction SilentlyContinue
+        if (Test-Path $certExportPath) {
+            Copy-Item $certExportPath (Join-Path $appDistDir 'FTI_Enterprise_Certificate.cer') -Force -ErrorAction SilentlyContinue
+        }
+        Copy-Item $installBatPath (Join-Path $appDistDir 'Install_Certificate.bat') -Force -ErrorAction SilentlyContinue
+    }
+} catch {}
 
-# Also attempt copy to drive root E:\
+# Secondary optional deployment: Drive Root
 try {
     $driveRoot = (Split-Path $PSScriptRoot -Qualifier) + '\'
     $rootExe = Join-Path $driveRoot 'FTI_PC_Inventory.exe'
-    Copy-Item $targetExeInTemp $rootExe -Force -ErrorAction SilentlyContinue
+    Copy-Item $finalTargetExe $rootExe -Force -ErrorAction SilentlyContinue
     if (Test-Path $rootExe) {
         Write-Host "      Drive Root Copy: $rootExe" -ForegroundColor Cyan
     }
@@ -287,7 +340,9 @@ Write-Host ''
 Write-Host '===================================================' -ForegroundColor Green
 Write-Host '  ENTERPRISE BUILD COMPLETED SUCCESSFULLY!          ' -ForegroundColor Green
 Write-Host '===================================================' -ForegroundColor Green
-Write-Host "1. Primary Executable: $appExe" -ForegroundColor White
-Write-Host "2. Public Certificate: $certExportPath" -ForegroundColor White
+Write-Host "1. Primary Executable: $finalTargetExe" -ForegroundColor White
+if (Test-Path $certExportPath) {
+    Write-Host "2. Public Certificate: $certExportPath" -ForegroundColor White
+}
 Write-Host "3. Install Batch:      $installBatPath" -ForegroundColor White
 Write-Host '===================================================' -ForegroundColor Green

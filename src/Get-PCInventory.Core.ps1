@@ -308,7 +308,7 @@ if (-not $SkipHardware) {
                 $cDrive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction SilentlyContinue
             } else {
                 $opt = New-CimSessionOption -Protocol Dcom
-                $s = New-CimSession -ComputerName $pc -SessionOption $opt -ErrorAction Stop
+                $s = New-CimSession -ComputerName $pc -SessionOption $opt -OperationTimeoutSec 15 -ErrorAction Stop
                 $cs = Get-CimInstance Win32_ComputerSystem -CimSession $s
                 $bios = Get-CimInstance Win32_BIOS -CimSession $s
                 $os = Get-CimInstance Win32_OperatingSystem -CimSession $s
@@ -559,7 +559,7 @@ if ($Software) {
     function Get-SoftwareDcom {
         param([string]$pc, [bool]$IncludeUser, [bool]$IncludeHidden)
 
-        $sess = New-CimSession -ComputerName $pc -SessionOption (New-CimSessionOption -Protocol Dcom) -ErrorAction Stop
+        $sess = New-CimSession -ComputerName $pc -SessionOption (New-CimSessionOption -Protocol Dcom) -OperationTimeoutSec 15 -ErrorAction Stop
         try {
             function Reg([string]$m, [hashtable]$a) {
                 Invoke-CimMethod -CimSession $sess -Namespace 'root\default' -ClassName StdRegProv -MethodName $m -Arguments $a -ErrorAction Stop

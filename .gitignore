@@ -9,8 +9,11 @@ build/merged.ps1
 *.log
 *.tmp
 ~*
-.vscode/
 .idea/
+.vscode/
+
+# Tool modules cache
+tools/modules/
 
 # Edge Web profile cache
 fti_inventory_web_profile/
