@@ -216,10 +216,13 @@
     .sidebar-compact {
       width: 300px;
       min-width: 300px;
+      height: 100%;
+      min-height: 0;
       background: var(--bg-surface);
       border-right: 1px solid var(--border-subtle);
       display: flex;
       flex-direction: column;
+      overflow: hidden;
       transition: width 0.25s ease, min-width 0.25s ease, margin 0.25s ease;
       z-index: 20;
     }
@@ -238,6 +241,7 @@
       align-items: center;
       justify-content: space-between;
       background: var(--bg-surface-elevated);
+      flex-shrink: 0;
     }
     .sidebar-header-title {
       font-size: 0.82rem;
@@ -249,22 +253,26 @@
     }
 
     .sidebar-body {
-      flex: 1;
+      flex: 1 1 0%;
+      min-height: 0;
       overflow-y: auto;
+      overflow-x: hidden;
       padding: 10px 12px;
       display: flex;
       flex-direction: column;
       gap: 8px;
     }
 
-    /* Accordion Sections */
+    /* Accordion Sections - flex-shrink: 0 prevents any squishing/overlapping */
     .accordion-section {
+      flex-shrink: 0;
       border: 1px solid var(--border-subtle);
       border-radius: 8px;
       background: var(--bg-surface);
       overflow: hidden;
     }
     .accordion-header {
+      flex-shrink: 0;
       padding: 8px 12px;
       background: var(--bg-surface-elevated);
       cursor: pointer;
@@ -274,6 +282,7 @@
       font-size: 0.80rem;
       font-weight: 700;
       color: var(--text-secondary);
+      user-select: none;
     }
     .accordion-header:hover {
       color: var(--accent-primary);
@@ -285,6 +294,7 @@
       transform: rotate(180deg);
     }
     .accordion-content {
+      flex-shrink: 0;
       padding: 10px 12px;
       display: none;
       flex-direction: column;
@@ -426,6 +436,7 @@
 
     /* Sticky Bottom Actions inside Sidebar */
     .sidebar-footer-actions {
+      flex-shrink: 0;
       padding: 10px 12px;
       border-top: 1px solid var(--border-subtle);
       background: var(--bg-surface);
@@ -520,99 +531,23 @@
       box-shadow: var(--shadow-sm);
     }
 
-    /* 4-Step Horizontal Progress Pipeline */
-    .stepper-pipeline {
+    /* Top Stepper & Real-time KPI Bar */
+    .top-stepper-kpi-bar {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* KPI Summary Row (4 Stat Cards 25% each) */
+    .kpi-row {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 8px;
-      position: relative;
-    }
-
-    .step-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 10px;
-      border-radius: 6px;
-      background: var(--bg-surface-elevated);
-      border: 1px solid var(--border-subtle);
-      transition: all 0.2s;
-    }
-    .step-num {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      background: var(--border-subtle);
-      color: var(--text-muted);
-      font-size: 0.72rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .step-text {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .step-title {
-      font-size: 0.74rem;
-      font-weight: 700;
-      color: var(--text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .step-desc {
-      font-size: 0.65rem;
-      color: var(--text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .step-item.active {
-      border-color: var(--accent-primary);
-      background: rgba(2, 132, 199, 0.08);
-    }
-    .step-item.active .step-num {
-      background: var(--accent-primary);
-      color: #fff;
-      box-shadow: 0 0 8px rgba(2, 132, 199, 0.5);
-      animation: pulse-ring 1.5s infinite;
-    }
-    .step-item.active .step-title {
-      color: var(--accent-primary);
-    }
-
-    .step-item.completed {
-      border-color: rgba(16, 185, 129, 0.4);
-      background: rgba(16, 185, 129, 0.06);
-    }
-    .step-item.completed .step-num {
-      background: var(--accent-emerald);
-      color: #fff;
-    }
-    .step-item.completed .step-title {
-      color: var(--accent-emerald);
-    }
-
-    .step-item.skipped {
-      opacity: 0.6;
-      border-style: dashed;
-    }
-
-    @keyframes pulse-ring {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.1); }
-    }
-
-    /* KPI Summary Row (4 Stat Cards + Progress %) */
-    .kpi-row {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr) 200px;
-      gap: 10px;
       align-items: center;
     }
 
@@ -638,33 +573,246 @@
     .kpi-card.offline .kpi-value { color: var(--accent-amber); }
     .kpi-card.error .kpi-value { color: var(--accent-rose); }
 
-    .kpi-progress-box {
+    /* Connected Step Progress Bar */
+    .connected-progress-container {
       background: var(--bg-surface-elevated);
       border: 1px solid var(--border-subtle);
-      border-radius: 6px;
-      padding: 6px 10px;
+      border-radius: 8px;
+      padding: 8px 14px 10px 14px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 8px;
+      transition: border-color 0.3s, background-color 0.3s;
     }
-    .kpi-progress-header {
+    .connected-progress-container.completed-glow {
+      border-color: rgba(16, 185, 129, 0.45);
+      background: rgba(16, 185, 129, 0.04);
+    }
+
+    .connected-progress-header {
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      font-size: 0.72rem;
-      font-weight: 700;
+      gap: 10px;
     }
-    .progress-track {
-      height: 6px;
+    .progress-status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .status-indicator-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      flex-shrink: 0;
+      transition: all 0.25s;
+    }
+    .status-indicator-dot.scanning {
+      background: var(--accent-primary);
+      box-shadow: 0 0 8px rgba(2, 132, 199, 0.7);
+      animation: pulse-ring 1.3s infinite;
+    }
+    .status-indicator-dot.completed {
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
+    }
+
+    .status-phase-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .status-sep {
+      color: var(--border-subtle);
+      font-size: 0.70rem;
+    }
+    .status-activity-detail {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .progress-metrics-badge {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .metric-time-wrap {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-family: monospace;
+      font-weight: 600;
+    }
+    .metric-percent {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--accent-primary);
+      line-height: 1;
+      min-width: 44px;
+      text-align: right;
+    }
+    .metric-percent.completed {
+      color: var(--accent-emerald);
+    }
+
+    /* Connected Stepper Horizontal Track Wrap */
+    .connected-stepper-track-wrap {
+      position: relative;
+      width: 100%;
+      padding: 4px 0 2px 0;
+    }
+
+    .stepper-line-bg {
+      position: absolute;
+      top: 16px;
+      left: 50px;
+      right: 50px;
+      height: 4px;
       background: var(--border-subtle);
       border-radius: 999px;
-      overflow: hidden;
+      z-index: 1;
     }
-    .progress-bar-fill {
-      height: 100%;
-      width: 0%;
+
+    .stepper-line-fill {
+      position: absolute;
+      top: 16px;
+      left: 50px;
+      height: 4px;
+      max-width: calc(100% - 100px);
       background: linear-gradient(90deg, var(--accent-primary), var(--accent-emerald));
       border-radius: 999px;
-      transition: width 0.3s ease;
+      z-index: 2;
+      transition: width 0.35s ease;
+    }
+    .stepper-line-fill.completed {
+      background: var(--accent-emerald);
+      max-width: calc(100% - 100px);
+    }
+
+    .stepper-node-list {
+      position: relative;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      z-index: 3;
+    }
+
+    .stepper-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 130px;
+      text-align: center;
+      cursor: default;
+    }
+
+    .node-circle {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--bg-surface);
+      border: 2px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      transition: all 0.25s ease;
+      box-shadow: var(--shadow-sm);
+    }
+    .node-circle .node-check {
+      display: none;
+    }
+    .node-circle .node-num {
+      display: block;
+      line-height: 1;
+    }
+
+    .node-label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 4px;
+      overflow: hidden;
+      width: 100%;
+    }
+    .node-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: color 0.25s;
+    }
+    .node-subtitle {
+      font-size: 0.63rem;
+      color: var(--text-muted);
+      opacity: 0.8;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Active Node State */
+    .stepper-node.active .node-circle {
+      border-color: var(--accent-primary);
+      background: var(--accent-primary);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(2, 132, 199, 0.5);
+      animation: pulse-ring 1.5s infinite;
+    }
+    .stepper-node.active .node-title {
+      color: var(--accent-primary);
+      font-weight: 800;
+    }
+
+    /* Completed Node State */
+    .stepper-node.completed .node-circle {
+      border-color: var(--accent-emerald);
+      background: var(--accent-emerald);
+      color: #fff;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
+    }
+    .stepper-node.completed .node-circle .node-num {
+      display: none;
+    }
+    .stepper-node.completed .node-circle .node-check {
+      display: block;
+      stroke: #fff;
+    }
+    .stepper-node.completed .node-title {
+      color: var(--accent-emerald);
+      font-weight: 700;
+    }
+
+    /* Skipped Node State */
+    .stepper-node.skipped .node-circle {
+      border-style: dashed;
+      opacity: 0.5;
+    }
+    .stepper-node.skipped .node-title,
+    .stepper-node.skipped .node-subtitle {
+      opacity: 0.5;
+    }
+
+    @keyframes pulse-ring {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
     }
 
     /* Live Data Grid (Full-Width 100%) */
@@ -1267,42 +1415,7 @@
 
       <!-- Top Stepper & Real-time KPI Bar -->
       <div class="top-stepper-kpi-bar" id="topStepperBar">
-        <!-- 4-Step Pipeline -->
-        <div class="stepper-pipeline">
-          <div class="step-item active" id="step1Item">
-            <div class="step-num" id="step1Num">1</div>
-            <div class="step-text">
-              <span class="step-title">เตรียมเป้าหมาย</span>
-              <span class="step-desc">กรองเครื่อง & Server</span>
-            </div>
-          </div>
-
-          <div class="step-item" id="step2Item">
-            <div class="step-num" id="step2Num">2</div>
-            <div class="step-text">
-              <span class="step-title">สแกนฮาร์ดแวร์</span>
-              <span class="step-desc">WMI/CIM Real-time</span>
-            </div>
-          </div>
-
-          <div class="step-item" id="step3Item">
-            <div class="step-num" id="step3Num">3</div>
-            <div class="step-text">
-              <span class="step-title">สแกนซอฟต์แวร์</span>
-              <span class="step-desc">WinRM & DCOM</span>
-            </div>
-          </div>
-
-          <div class="step-item" id="step4Item">
-            <div class="step-num" id="step4Num">4</div>
-            <div class="step-text">
-              <span class="step-title">สรุป & บันทึก Master</span>
-              <span class="step-desc">สร้างเอกสารรายงาน</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- KPI 4 Cards + Real-time Progress -->
+        <!-- KPI 4 Cards -->
         <div class="kpi-row">
           <div class="kpi-card total">
             <div class="kpi-meta">
@@ -1331,17 +1444,80 @@
               <div class="kpi-value" id="statError">0</div>
             </div>
           </div>
+        </div>
 
-          <div class="kpi-progress-box">
-            <div class="kpi-progress-header">
-              <span id="scanElapsed">00:00</span>
-              <span id="progressPctText" style="color: var(--accent-primary);">0%</span>
+        <!-- Connected Step Progress Bar Container -->
+        <div class="connected-progress-container" id="connectedProgressContainer">
+          <!-- Status & Metrics Header Row -->
+          <div class="connected-progress-header">
+            <div class="progress-status-badge">
+              <span class="status-indicator-dot" id="statusIndicatorDot"></span>
+              <span class="status-phase-title" id="statusPhaseTitle">พร้อมสำหรับการสแกน</span>
+              <span class="status-sep">|</span>
+              <span class="status-activity-detail" id="scanCurrentMsg">กรุณาเลือกเป้าหมายแล้วกดเริ่มการสแกน</span>
             </div>
-            <div class="progress-track">
-              <div class="progress-bar-fill" id="progressBarFill"></div>
+            <div class="progress-metrics-badge">
+              <span class="metric-time-wrap">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span id="scanElapsed">00:00</span>
+              </span>
+              <span class="metric-percent" id="progressPctText">0%</span>
             </div>
-            <div style="font-size: 0.65rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" id="scanCurrentMsg">
-              พร้อมสำหรับการสแกน
+          </div>
+
+          <!-- Connected Track & Step Nodes -->
+          <div class="connected-stepper-track-wrap">
+            <div class="stepper-line-bg"></div>
+            <div class="stepper-line-fill" id="progressBarFill" style="width: 0%;"></div>
+
+            <div class="stepper-node-list">
+              <!-- Step 1 -->
+              <div class="stepper-node active" id="step1Item">
+                <div class="node-circle" id="step1Circle">
+                  <span class="node-num" id="step1Num">1</span>
+                  <svg class="node-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="node-label">
+                  <span class="node-title">1. เตรียมเป้าหมาย</span>
+                  <span class="node-subtitle">กรองเครื่อง & Server</span>
+                </div>
+              </div>
+
+              <!-- Step 2 -->
+              <div class="stepper-node" id="step2Item">
+                <div class="node-circle" id="step2Circle">
+                  <span class="node-num" id="step2Num">2</span>
+                  <svg class="node-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="node-label">
+                  <span class="node-title">2. สแกนฮาร์ดแวร์</span>
+                  <span class="node-subtitle">WMI / CIM</span>
+                </div>
+              </div>
+
+              <!-- Step 3 -->
+              <div class="stepper-node" id="step3Item">
+                <div class="node-circle" id="step3Circle">
+                  <span class="node-num" id="step3Num">3</span>
+                  <svg class="node-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="node-label">
+                  <span class="node-title">3. สแกนซอฟต์แวร์</span>
+                  <span class="node-subtitle">WinRM / DCOM</span>
+                </div>
+              </div>
+
+              <!-- Step 4 -->
+              <div class="stepper-node" id="step4Item">
+                <div class="node-circle" id="step4Circle">
+                  <span class="node-num" id="step4Num">4</span>
+                  <svg class="node-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="node-label">
+                  <span class="node-title">4. สรุป & สร้างไฟล์</span>
+                  <span class="node-subtitle">Master CSV & Report</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1846,34 +2022,136 @@
       badge.innerText = count;
     }
 
-    // Multi-Step Progress Tracker (Stepper UI)
-    function updateStepperUI(currentStep, stepText) {
+    // Multi-Step Progress Tracker (Connected Stepper UI)
+    function updateStepperUI(currentStep, stepText, isCompleted) {
       const s1 = document.getElementById('step1Item');
       const s2 = document.getElementById('step2Item');
       const s3 = document.getElementById('step3Item');
       const s4 = document.getElementById('step4Item');
-
-      [s1, s2, s3, s4].forEach(s => { s.className = 'step-item'; });
-
+      const statusTitle = document.getElementById('statusPhaseTitle');
+      const statusDot = document.getElementById('statusIndicatorDot');
+      const container = document.getElementById('connectedProgressContainer');
       const swScanEnabled = chkSw.checked;
-      if (!swScanEnabled) {
+
+      const nodes = [s1, s2, s3, s4];
+      nodes.forEach(n => {
+        if (!n) return;
+        n.className = 'stepper-node';
+        const num = n.querySelector('.node-num');
+        const check = n.querySelector('.node-check');
+        if (num) num.style.display = 'block';
+        if (check) check.style.display = 'none';
+      });
+
+      if (!swScanEnabled && s3) {
         s3.classList.add('skipped');
       }
 
+      if (isCompleted || currentStep >= 5) {
+        nodes.forEach(n => {
+          if (!n) return;
+          n.className = 'stepper-node completed';
+          const num = n.querySelector('.node-num');
+          const check = n.querySelector('.node-check');
+          if (num) num.style.display = 'none';
+          if (check) check.style.display = 'block';
+        });
+        if (statusDot) {
+          statusDot.className = 'status-indicator-dot completed';
+        }
+        if (statusTitle) {
+          statusTitle.innerText = '✓ การสแกนเสร็จสมบูรณ์ (100%)';
+          statusTitle.style.color = 'var(--accent-emerald)';
+        }
+        if (container) {
+          container.classList.add('completed-glow');
+        }
+        if (progressPctText) {
+          progressPctText.innerText = '100%';
+          progressPctText.classList.add('completed');
+        }
+        if (progressBarFill) {
+          progressBarFill.style.width = 'calc(100% - 100px)';
+          progressBarFill.classList.add('completed');
+        }
+        return;
+      }
+
+      if (container) container.classList.remove('completed-glow');
+      if (progressPctText) progressPctText.classList.remove('completed');
+      if (progressBarFill) progressBarFill.classList.remove('completed');
+
+      if (statusDot) {
+        statusDot.className = isScanning ? 'status-indicator-dot scanning' : 'status-indicator-dot';
+      }
+
       if (currentStep === 1) {
-        s1.classList.add('active');
+        if (s1) s1.classList.add('active');
+        if (statusTitle) {
+          statusTitle.innerText = 'ขั้นตอนที่ 1: เตรียมเป้าหมาย & กรอง Server';
+          statusTitle.style.color = 'var(--text-main)';
+        }
       } else if (currentStep === 2) {
-        s1.classList.add('completed');
-        s2.classList.add('active');
+        if (s1) {
+          s1.classList.add('completed');
+          const num = s1.querySelector('.node-num');
+          const check = s1.querySelector('.node-check');
+          if (num) num.style.display = 'none';
+          if (check) check.style.display = 'block';
+        }
+        if (s2) s2.classList.add('active');
+        if (statusTitle) {
+          statusTitle.innerText = 'ขั้นตอนที่ 2: กำลังสแกนฮาร์ดแวร์ (WMI/CIM)';
+          statusTitle.style.color = 'var(--accent-primary)';
+        }
       } else if (currentStep === 3) {
-        s1.classList.add('completed');
-        s2.classList.add('completed');
-        if (swScanEnabled) { s3.classList.add('active'); } else { s3.classList.add('skipped'); }
-      } else if (currentStep >= 4) {
-        s1.classList.add('completed');
-        s2.classList.add('completed');
-        if (swScanEnabled) { s3.classList.add('completed'); } else { s3.classList.add('skipped'); }
-        s4.classList.add('active');
+        [s1, s2].forEach(s => {
+          if (!s) return;
+          s.classList.add('completed');
+          const num = s.querySelector('.node-num');
+          const check = s.querySelector('.node-check');
+          if (num) num.style.display = 'none';
+          if (check) check.style.display = 'block';
+        });
+        if (swScanEnabled) {
+          if (s3) s3.classList.add('active');
+          if (statusTitle) {
+            statusTitle.innerText = 'ขั้นตอนที่ 3: กำลังสแกนซอฟต์แวร์ (WinRM/DCOM)';
+            statusTitle.style.color = 'var(--accent-primary)';
+          }
+        } else {
+          if (s3) s3.classList.add('skipped');
+          if (statusTitle) {
+            statusTitle.innerText = 'ขั้นตอนที่ 3: ข้ามสแกนซอฟต์แวร์ตามตั้งค่า';
+            statusTitle.style.color = 'var(--text-muted)';
+          }
+        }
+      } else if (currentStep === 4) {
+        [s1, s2].forEach(s => {
+          if (!s) return;
+          s.classList.add('completed');
+          const num = s.querySelector('.node-num');
+          const check = s.querySelector('.node-check');
+          if (num) num.style.display = 'none';
+          if (check) check.style.display = 'block';
+        });
+        if (swScanEnabled && s3) {
+          s3.classList.add('completed');
+          const num = s3.querySelector('.node-num');
+          const check = s3.querySelector('.node-check');
+          if (num) num.style.display = 'none';
+          if (check) check.style.display = 'block';
+        }
+        if (s4) s4.classList.add('active');
+        if (statusTitle) {
+          statusTitle.innerText = 'ขั้นตอนที่ 4: สรุปข้อมูล & สร้างเอกสารรายงาน';
+          statusTitle.style.color = 'var(--accent-primary)';
+        }
+      } else {
+        if (statusTitle) {
+          statusTitle.innerText = 'พร้อมสำหรับการสแกน';
+          statusTitle.style.color = 'var(--text-main)';
+        }
       }
     }
 
@@ -2092,6 +2370,7 @@
       }
 
       isScanning = true;
+      scanFinishedHandled = false;
       btnStartScan.disabled = true;
       btnCancelScan.disabled = false;
       if (btnRetryOffline) btnRetryOffline.disabled = true;
@@ -2172,20 +2451,25 @@
       pollTimer = setInterval(pollTick, currentPollingInterval);
     }
 
+    let scanFinishedHandled = false;
+
     async function pollTick() {
       try {
         const res = await fetch('/api/status');
         const data = await res.json();
 
+        const serverIsScanning = !!data.isScanning;
+        const serverIsCompleted = !!data.isCompleted;
+
         // Scanning State Sync
-        if (data.isScanning) {
+        if (serverIsScanning) {
           isScanning = true;
+          scanFinishedHandled = false;
           btnStartScan.disabled = true;
           btnCancelScan.disabled = false;
           if (btnRetryOffline) btnRetryOffline.disabled = true;
           setPollingSpeed(500);
         } else {
-          isScanning = false;
           btnStartScan.disabled = false;
           btnCancelScan.disabled = true;
           if (btnRetryOffline) btnRetryOffline.disabled = false;
@@ -2193,8 +2477,10 @@
         }
 
         // Stepper Pipeline Sync
-        if (data.scanStep) {
-          updateStepperUI(data.scanStep, data.scanStepText || '');
+        if (serverIsCompleted || data.scanStep >= 5) {
+          updateStepperUI(5, 'Completed', true);
+        } else if (data.scanStep) {
+          updateStepperUI(data.scanStep, data.scanStepText || '', false);
         }
 
         // KPI Counters
@@ -2205,8 +2491,14 @@
 
         // Progress Fill
         const pct = Math.min(100, Math.max(0, data.percent || 0));
-        progressBarFill.style.width = pct + '%';
-        progressPctText.innerText = Math.round(pct) + '%';
+        if (serverIsCompleted || data.scanStep >= 5) {
+          progressBarFill.style.width = 'calc(100% - 100px)';
+          progressPctText.innerText = '100%';
+        } else {
+          // Connected bar fill spans across 4 nodes
+          progressBarFill.style.width = `calc((100% - 100px) * ${pct / 100})`;
+          progressPctText.innerText = Math.round(pct) + '%';
+        }
         if (data.elapsed) scanElapsed.innerText = data.elapsed;
         if (data.currentActivity) scanCurrentMsg.innerText = data.currentActivity;
 
@@ -2252,13 +2544,15 @@
           btnOpenHtmlReport.disabled = false;
         }
 
-        // Completion
-        if (data.isCompleted) {
-          if (isScanning) {
+        // Completion Handling (runs exactly once upon completion)
+        if (serverIsCompleted || (isScanning && !serverIsScanning)) {
+          if (!scanFinishedHandled) {
+            scanFinishedHandled = true;
             isScanning = false;
             btnStartScan.disabled = false;
             btnCancelScan.disabled = true;
-            updateStepperUI(4, 'Completed');
+            if (btnRetryOffline) btnRetryOffline.disabled = false;
+            updateStepperUI(5, 'Completed', true);
             fetchMasterStatus();
             showToast('การสแกนเสร็จสมบูรณ์เรียบร้อยแล้ว!', 'success');
           }

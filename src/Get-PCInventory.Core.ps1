@@ -296,7 +296,7 @@ if (-not $SkipHardware) {
     $i = 0
     $hw = foreach ($pc in $pcs) {
         $i++
-        Write-Progress -Activity 'Hardware scan' -Status "$pc ($i/$($pcs.Count))" -PercentComplete (100 * $i / $pcs.Count)
+        Write-Progress -Activity 'Hardware scan' -Status "$pc ($i/$($pcs.Count))" -PercentComplete (10 + [math]::Round(55 * $i / $pcs.Count))
 
         if (-not (Test-PCConnection $pc)) {
             $ad = Get-ADInfo $pc
@@ -509,7 +509,6 @@ if (-not $SkipHardware) {
         Write-Host "Master Database updated: $($masterRows.Count) total records -> $MasterFile" -ForegroundColor Cyan
     }
 
-    Write-Host '[STEP:4] Synchronizing Master DB and Generating Reports...' -ForegroundColor Cyan
     # Snapshot CSV for this specific run
     $fHw = Join-Path $OutDir "Hardware_$stamp.csv"
     $hw | Export-Csv $fHw -NoTypeInformation -Encoding UTF8
@@ -520,6 +519,7 @@ if (-not $SkipHardware) {
 # ================= 3) Installed software (optional) =================
 if ($Software) {
     Write-Host '[STEP:3] Software Scan (WinRM/DCOM)...' -ForegroundColor Cyan
+    Write-Progress -Activity 'Software scan' -Status 'Starting software scan...' -PercentComplete 68
     Write-Host '--- Software scan ---'
 
     # --- Method A: WinRM (fast, parallel) ---
@@ -573,6 +573,7 @@ if ($Software) {
         })
     } else {
         Write-Host 'Method A: WinRM ...'
+        Write-Progress -Activity 'Software scan' -Status 'Scanning via WinRM (parallel)...' -PercentComplete 75
         $winrmErr = @()
         $rows = @(Invoke-Command -ComputerName $pcs -ScriptBlock $remoteBlock `
                 -ArgumentList $IncludeUserInstalls.IsPresent, $IncludeHidden.IsPresent `
@@ -653,7 +654,7 @@ if ($Software) {
         $i = 0
         foreach ($pc in $failed) {
             $i++
-            Write-Progress -Activity 'Software: DCOM fallback' -Status "$pc ($i/$($failed.Count))" -PercentComplete (100 * $i / $failed.Count)
+            Write-Progress -Activity 'Software: DCOM fallback' -Status "$pc ($i/$($failed.Count))" -PercentComplete (75 + [math]::Round(12 * $i / $failed.Count))
             if ($pc -eq $env:COMPUTERNAME -or $pc -eq 'localhost' -or $pc -eq '127.0.0.1') {
                 try {
                     $localRows = & $remoteBlock -IncludeUser $IncludeUserInstalls.IsPresent -IncludeHidden $IncludeHidden.IsPresent
@@ -830,6 +831,12 @@ else {
     Write-Host '[STEP:3] Skipped Software Scan by User Setting' -ForegroundColor Gray
 }
 
+# ================= 4) Master DB Sync & Final Reports =================
+Write-Host '[STEP:4] Synchronizing Master DB and Generating Reports...' -ForegroundColor Cyan
+Write-Progress -Activity 'Report Generation' -Status 'Finalizing reports and Master DB...' -PercentComplete 95
+
+Write-Progress -Activity 'Scan Complete' -Status 'All done' -PercentComplete 100
+Write-Host '[STEP:5] Scan and Report Generation Completed (100%)' -ForegroundColor Green
 Write-Host ''
 Write-Host "All done -> $OutDir"
 

@@ -380,6 +380,8 @@ function Update-ScanProgress() {
     if ($script:asyncResult -and $script:asyncResult.IsCompleted) {
         $script:isCompleted = $true
         $script:percent = 100
+        $script:scanStep = 5
+        $script:scanStepText = 'Scan and Report Generation Completed'
         $script:currentActivity = 'Scan Completed'
         if (-not $script:scanEndTime) {
             $script:scanEndTime = [System.DateTime]::Now
