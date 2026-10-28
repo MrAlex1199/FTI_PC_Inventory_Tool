@@ -95,6 +95,7 @@ if (-not $listener) {
     throw "Unable to bind HttpListener to any local port between 52100-52500."
 }
 Write-Host "APP_PORT=$port"
+Write-SystemLog "INFO" "FTI Backend Engine started on http://127.0.0.1:$port (Admin=$isAdmin)"
 
 # --- 4. Global State Tracking ---
 $script:psInstance      = $null
@@ -112,6 +113,25 @@ $script:lastHtmlReport  = $null
 $script:autoOpenHtml    = $true
 $script:lastLogs        = [System.Collections.Generic.List[string]]::new()
 $script:scannedPCs      = [System.Collections.Generic.List[hashtable]]::new()
+$script:scanStep        = 0
+$script:scanStepText    = 'Ready'
+$script:systemLogs      = [System.Collections.Generic.List[string]]::new()
+$script:sentSystemLogIndex = 0
+
+function Write-SystemLog([string]$level, [string]$message) {
+    $ts = [System.DateTime]::Now.ToString('HH:mm:ss')
+    $entry = "[$ts][$level] $message"
+    $script:systemLogs.Add($entry)
+    if ($script:systemLogs.Count -gt 500) {
+        $rem = $script:systemLogs.Count - 500
+        $script:systemLogs.RemoveRange(0, $rem)
+        if ($script:sentSystemLogIndex -ge $rem) {
+            $script:sentSystemLogIndex -= $rem
+        } else {
+            $script:sentSystemLogIndex = 0
+        }
+    }
+}
 
 $script:lastInfoIndex   = 0
 $script:lastWarnIndex   = 0
@@ -227,13 +247,74 @@ function Update-ScanProgress() {
     if ($streams.Information.Count -gt $script:lastInfoIndex) {
         for ($i = $script:lastInfoIndex; $i -lt $streams.Information.Count; $i++) {
             $msg = $streams.Information[$i].MessageData.ToString()
-            $script:lastLogs.Add($msg)
 
-            if ($msg -match 'Computers to scan:\s+(\d+)') {
-                $script:total = [int]$Matches[1]
+            if ($msg -match '^\[STEP:(\d+)\]\s*(.*)$') {
+                $script:scanStep = [int]$Matches[1]
+                $script:scanStepText = $Matches[2]
+                $script:lastLogs.Add($msg)
+                Write-SystemLog 'STEP' ("Phase " + $script:scanStep + ": " + $script:scanStepText)
             }
-            elseif ($msg -match 'Software done\.\s+OK:\s+(\d+)') {
-                $script:ok = [int]$Matches[1]
+            elseif ($msg -match '^\[LIVE_PC\]\s*(\{.*\})$') {
+                try {
+                    $live = $Matches[1] | ConvertFrom-Json
+                    if ($live -and $live.PCName) {
+                        $pcItem = @{
+                            PCName       = [string]$live.PCName
+                            Status       = [string]$live.Status
+                            User         = if ($live.User) { [string]$live.User } else { '-' }
+                            Maker        = if ($live.Maker) { [string]$live.Maker } else { '-' }
+                            Model        = if ($live.Model) { [string]$live.Model } else { '-' }
+                            Serial       = if ($live.Serial) { [string]$live.Serial } else { '-' }
+                            CPU          = if ($live.CPU) { [string]$live.CPU } else { '-' }
+                            Cores        = if ($live.Cores) { [string]$live.Cores } else { '-' }
+                            RAM_GB       = if ($live.RAM_GB) { [string]$live.RAM_GB } else { '-' }
+                            Disk_C_Free  = if ($live.Disk_C_Free) { [string]$live.Disk_C_Free } else { '-' }
+                            Disks        = if ($live.Disks) { [string]$live.Disks } else { '-' }
+                            GPU          = if ($live.GPU) { [string]$live.GPU } else { '-' }
+                            OS           = if ($live.OS) { [string]$live.OS } else { '-' }
+                            IP           = if ($live.IP) { [string]$live.IP } else { '-' }
+                            Last_Boot    = if ($live.Last_Boot) { [string]$live.Last_Boot } else { '-' }
+                            Uptime       = if ($live.Uptime) { [string]$live.Uptime } else { '-' }
+                            AD_LastLogon = if ($live.AD_LastLogon) { [string]$live.AD_LastLogon } else { '-' }
+                            AD_OU        = if ($live.AD_OU) { [string]$live.AD_OU } else { '-' }
+                            Scan_Count   = if ($live.Scan_Count) { [string]$live.Scan_Count } else { '1' }
+                            First_Seen   = if ($live.First_Seen) { [string]$live.First_Seen } else { '-' }
+                            Last_Scan    = if ($live.Last_Scan) { [string]$live.Last_Scan } else { '-' }
+                        }
+                        $existingIdx = -1
+                        for ($k = 0; $k -lt $script:scannedPCs.Count; $k++) {
+                            if ($script:scannedPCs[$k].PCName -ieq $live.PCName) {
+                                $existingIdx = $k
+                                break
+                            }
+                        }
+                        if ($existingIdx -ge 0) {
+                            $script:scannedPCs[$existingIdx] = $pcItem
+                        } else {
+                            $script:scannedPCs.Add($pcItem)
+                        }
+                        # Recalculate real-time counters
+                        $script:ok = @($script:scannedPCs | Where-Object { $_.Status -eq 'OK' }).Count
+                        $script:offline = @($script:scannedPCs | Where-Object { $_.Status -match 'Offline' }).Count
+                        $script:errCount = @($script:scannedPCs | Where-Object { $_.Status -match 'Error' }).Count
+                        if ($script:scannedPCs.Count -gt $script:total) {
+                            $script:total = $script:scannedPCs.Count
+                        }
+                        $specInfo = if ($live.Status -eq 'OK' -and $live.CPU -and $live.CPU -ne '-') { ' [' + $live.CPU + ' | ' + $live.RAM_GB + 'GB]' } else { '' }
+                        $script:lastLogs.Add("[LIVE] " + $live.PCName + " -> " + $live.Status + $specInfo)
+                    }
+                } catch {
+                    $script:lastLogs.Add($msg)
+                }
+            }
+            else {
+                $script:lastLogs.Add($msg)
+                if ($msg -match 'Computers to scan:\s+(\d+)') {
+                    $script:total = [int]$Matches[1]
+                }
+                elseif ($msg -match 'Software done\.\s+OK:\s+(\d+)') {
+                    $script:ok = [int]$Matches[1]
+                }
             }
         }
         $script:lastInfoIndex = $streams.Information.Count
@@ -406,6 +487,8 @@ function Start-ExecutionScan([hashtable]$params) {
     $script:ok              = 0
     $script:offline         = 0
     $script:errCount        = 0
+    $script:scanStep        = 1
+    $script:scanStepText    = 'Target Discovery'
     $script:currentActivity = 'Preparing scan...'
     $script:lastHtmlReport  = $null
     $script:autoOpenHtml    = if ($params.ContainsKey('autoHtml')) { [bool]$params.autoHtml } else { $true }
@@ -439,6 +522,10 @@ function Start-ExecutionScan([hashtable]$params) {
     [void]$script:psInstance.AddParameter('MasterMode', $isMaster)
     [void]$script:psInstance.AddParameter('RetryOfflineOnly', $isRetryOffline)
     [void]$script:psInstance.AddParameter('SkipServers', $isSkipServers)
+    if ($params.ContainsKey('excludeServerFile') -and [string]$params.excludeServerFile) {
+        [void]$script:psInstance.AddParameter('ExcludeServerFile', [string]$params.excludeServerFile)
+        Write-SystemLog 'INFO' ('Server exclusion file specified: ' + [string]$params.excludeServerFile)
+    }
 
     if ($params.source -eq 'localhost') {
         [void]$script:psInstance.AddParameter('ScanLocalhost', $true)
@@ -447,6 +534,7 @@ function Start-ExecutionScan([hashtable]$params) {
         [void]$script:psInstance.AddParameter('ComputerListFile', [string]$params.listFile)
     }
 
+    Write-SystemLog 'INFO' ('Execution scan started. Source=' + $params.source + ', OutDir=' + $outDir + ', MasterMode=' + $isMaster + ', SkipServers=' + $isSkipServers)
     $script:asyncResult = $script:psInstance.BeginInvoke()
     return $true
 }
@@ -610,6 +698,12 @@ while ($running) {
                     $script:sentLogIndex = $script:lastLogs.Count
                 }
 
+                $newSystemLogs = @()
+                if ($script:systemLogs.Count -gt $script:sentSystemLogIndex) {
+                    $newSystemLogs = @($script:systemLogs.GetRange($script:sentSystemLogIndex, ($script:systemLogs.Count - $script:sentSystemLogIndex)))
+                    $script:sentSystemLogIndex = $script:systemLogs.Count
+                }
+
                 # Calculate In-App schedule countdown
                 $countdownSec = 0
                 $nextRunStr = '-'
@@ -641,6 +735,9 @@ while ($running) {
                     htmlReportReady       = ($null -ne $script:lastHtmlReport -and (Test-Path $script:lastHtmlReport))
                     newLogs               = $newLogs
                     scannedPCs            = $script:scannedPCs
+                    scanStep              = $script:scanStep
+                    scanStepText          = $script:scanStepText
+                    newSystemLogs         = $newSystemLogs
                     inAppSchedule         = @{
                         enabled         = $script:inAppSchedule.enabled
                         intervalMinutes = $script:inAppSchedule.intervalMinutes
@@ -989,6 +1086,16 @@ while ($running) {
                 }
 
                 $json = $resp | ConvertTo-Json -Depth 3 -Compress
+                $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
+                $res.ContentType = 'application/json; charset=utf-8'
+                $res.ContentLength64 = $buf.Length
+                $res.OutputStream.Write($buf, 0, $buf.Length)
+            }
+            elseif ($path -eq '/api/system-log/clear' -and $method -eq 'POST') {
+                $script:systemLogs.Clear()
+                $script:sentSystemLogIndex = 0
+                Write-SystemLog 'INFO' 'System log cleared by user.'
+                $json = @{ status = 'cleared' } | ConvertTo-Json
                 $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
                 $res.ContentType = 'application/json; charset=utf-8'
                 $res.ContentLength64 = $buf.Length

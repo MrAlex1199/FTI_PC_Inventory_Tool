@@ -20,7 +20,8 @@ param(
     [switch]$RetryOfflineOnly,       # Filter target to PCs that are Offline/Error in Master file
     [string]$MasterFile,             # Custom path to Hardware Master CSV (defaults to OutDir\Hardware_Master.csv)
     [string]$SoftwareMasterFile,     # Custom path to Software Master CSV (defaults to OutDir\Software_Master.csv)
-    [switch]$SkipServers = $true     # Skip Servers, DCs, RDS, and Remote servers (PC / Notebooks only)
+    [switch]$SkipServers = $true,    # Skip Servers, DCs, RDS, and Remote servers (PC / Notebooks only)
+    [string]$ExcludeServerFile       # Optional .txt file with hostnames/IPs to exclude from scan
 )
 
 $Software = -not $NoSoftware
@@ -108,6 +109,24 @@ function Get-ADInfo([string]$pc) {
     } catch {}
     return @{ AD_LastLogon = '-'; AD_OU = '-' }
 }
+
+# --- Server & Exclusion List Set ---
+$excludedHosts = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+if ($ExcludeServerFile -and (Test-Path -LiteralPath $ExcludeServerFile)) {
+    try {
+        $exLines = Get-Content -LiteralPath $ExcludeServerFile -Encoding UTF8 -ErrorAction SilentlyContinue |
+            Where-Object { $_.Trim() -and $_.Trim() -notmatch '^#' } |
+            ForEach-Object { $_.Trim() }
+        foreach ($h in $exLines) {
+            [void]$excludedHosts.Add($h)
+        }
+        Write-Host ('Loaded ' + $excludedHosts.Count + ' machines to exclude from file: ' + $ExcludeServerFile) -ForegroundColor Cyan
+    } catch {
+        Write-Warning ('Could not read exclusion file: ' + $_.Exception.Message)
+    }
+}
+
+Write-Host '[STEP:1] Target Discovery and Server Filtering...' -ForegroundColor Cyan
 
 # ================= 1) Computer list (works without RSAT) =================
 $pcs = @()
@@ -198,6 +217,10 @@ if (-not $RetryOfflineOnly -and -not $ScanLocalhost -and ($pcs.Count -eq 0)) {
                 $dnRaw = if ($res.Properties.Contains('distinguishedname')) { [string]$res.Properties['distinguishedname'][0] } else { '' }
                 
                 # Check Server & Remote Server name/OU patterns
+                if ($excludedHosts.Contains($cName)) {
+                    Write-Host "  [SKIP EXCLUDED FILE] $cName" -ForegroundColor Gray
+                    continue
+                }
                 if ($SkipServers) {
                     $isServerName = ($cName -match '(?i)(^|[-_])(SRV|SERVER|DC|RDS|RDP|REMOTE|HYPERV|VHOST|ESX)([-_]|\d|$)')
                     $isServerOU   = ($dnRaw -match '(?i)OU=(Domain Controllers|Servers|Server|Infrastructure)')
@@ -251,6 +274,15 @@ if ($SkipServers -and $pcs.Count -gt 0 -and -not $ScanLocalhost) {
     }
 }
 
+if ($excludedHosts.Count -gt 0 -and $pcs.Count -gt 0 -and -not $ScanLocalhost) {
+    $beforeEx = $pcs.Count
+    $pcs = @($pcs | Where-Object { -not $excludedHosts.Contains($_) })
+    $diffEx = $beforeEx - $pcs.Count
+    if ($diffEx -gt 0) {
+        Write-Host "Filtered out $diffEx machines matching exclusion file. Remaining: $($pcs.Count) PCs" -ForegroundColor Yellow
+    }
+}
+
 Write-Host "Computers to scan: $($pcs.Count)"
 if ($pcs.Count -eq 0) {
     Write-Warning 'No computers found. Nothing to scan.'
@@ -259,6 +291,7 @@ if ($pcs.Count -eq 0) {
 
 # ================= 2) Hardware (CIM / DCOM) =================
 if (-not $SkipHardware) {
+    Write-Host '[STEP:2] Hardware Scan (WMI/CIM)...' -ForegroundColor Cyan
     Write-Host '--- Hardware scan ---'
     $i = 0
     $hw = foreach ($pc in $pcs) {
@@ -267,7 +300,7 @@ if (-not $SkipHardware) {
 
         if (-not (Test-PCConnection $pc)) {
             $ad = Get-ADInfo $pc
-            [pscustomobject]@{
+            $itemOffline = [pscustomobject]@{
                 PCName       = $pc
                 Status       = 'Offline'
                 User         = '-'
@@ -292,6 +325,8 @@ if (-not $SkipHardware) {
                 First_Seen   = Get-Date -Format 'yyyy-MM-dd HH:mm'
                 Last_Scan    = '-'
             }
+            Write-Host ('[LIVE_PC] ' + ($itemOffline | ConvertTo-Json -Compress))
+            $itemOffline
             continue
         }
         try {
@@ -356,7 +391,7 @@ if (-not $SkipHardware) {
 
             $ad = Get-ADInfo $pc
 
-            [pscustomobject]@{
+            $itemOk = [pscustomobject]@{
                 PCName       = $cs.Name
                 Status       = 'OK'
                 User         = $cs.UserName
@@ -381,10 +416,12 @@ if (-not $SkipHardware) {
                 First_Seen   = Get-Date -Format 'yyyy-MM-dd HH:mm'
                 Last_Scan    = Get-Date -Format 'yyyy-MM-dd HH:mm'
             }
+            Write-Host ('[LIVE_PC] ' + ($itemOk | ConvertTo-Json -Compress))
+            $itemOk
         }
         catch {
             $ad = Get-ADInfo $pc
-            [pscustomobject]@{
+            $itemErr = [pscustomobject]@{
                 PCName       = $pc
                 Status       = "Error: $($_.Exception.Message)"
                 User         = '-'
@@ -409,6 +446,8 @@ if (-not $SkipHardware) {
                 First_Seen   = Get-Date -Format 'yyyy-MM-dd HH:mm'
                 Last_Scan    = '-'
             }
+            Write-Host ('[LIVE_PC] ' + ($itemErr | ConvertTo-Json -Compress))
+            $itemErr
         }
     }
     Write-Progress -Activity 'Hardware scan' -Completed
@@ -470,6 +509,7 @@ if (-not $SkipHardware) {
         Write-Host "Master Database updated: $($masterRows.Count) total records -> $MasterFile" -ForegroundColor Cyan
     }
 
+    Write-Host '[STEP:4] Synchronizing Master DB and Generating Reports...' -ForegroundColor Cyan
     # Snapshot CSV for this specific run
     $fHw = Join-Path $OutDir "Hardware_$stamp.csv"
     $hw | Export-Csv $fHw -NoTypeInformation -Encoding UTF8
@@ -479,6 +519,7 @@ if (-not $SkipHardware) {
 
 # ================= 3) Installed software (optional) =================
 if ($Software) {
+    Write-Host '[STEP:3] Software Scan (WinRM/DCOM)...' -ForegroundColor Cyan
     Write-Host '--- Software scan ---'
 
     # --- Method A: WinRM (fast, parallel) ---
@@ -784,6 +825,9 @@ function t(o){document.querySelectorAll('details').forEach(function(d){d.open=o;
     Write-Host "  By PC   : $fByPC  (one file, grouped by computer)"
     Write-Host "  Per PC  : $fSumPC  (one row per computer)"
     Write-Host "  Status  : $fStat"
+}
+else {
+    Write-Host '[STEP:3] Skipped Software Scan by User Setting' -ForegroundColor Gray
 }
 
 Write-Host ''
