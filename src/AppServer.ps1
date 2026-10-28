@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$Silent,
     [switch]$ScheduledRun,
     [string]$OutDir = 'C:\Inventory',
@@ -804,6 +804,191 @@ while ($running) {
                 }
 
                 $json = @{ status = 'success'; message = $msg } | ConvertTo-Json
+                $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
+                $res.ContentType = 'application/json; charset=utf-8'
+                $res.ContentLength64 = $buf.Length
+                $res.OutputStream.Write($buf, 0, $buf.Length)
+            }
+            elseif ($path -eq '/api/master/status' -and $method -eq 'GET') {
+                $outDirParam = $req.QueryString['outDir']
+                if ([string]::IsNullOrWhiteSpace($outDirParam)) {
+                    $outDirParam = if ($script:lastOutDir) { $script:lastOutDir } else { 'C:\Inventory' }
+                }
+
+                $hwMasterPath   = Join-Path $outDirParam 'Hardware_Master.csv'
+                $swMasterPath   = Join-Path $outDirParam 'Software_Master.csv'
+                $swSumPath      = Join-Path $outDirParam 'Software_Summary_Master.csv'
+
+                $hwExists = Test-Path -LiteralPath $hwMasterPath
+                $swExists = Test-Path -LiteralPath $swMasterPath
+                $swSumExists = Test-Path -LiteralPath $swSumPath
+
+                $hwInfo = @{ exists = $false; size = 0; lastModified = '-'; total = 0; ok = 0; offline = 0; error = 0 }
+                $machines = [System.Collections.Generic.List[object]]::new()
+
+                if ($hwExists) {
+                    try {
+                        $item = Get-Item -LiteralPath $hwMasterPath
+                        $hwInfo.exists = $true
+                        $hwInfo.size = "$([math]::Round($item.Length / 1KB, 1)) KB"
+                        $hwInfo.lastModified = $item.LastWriteTime.ToString('yyyy-MM-dd HH:mm')
+
+                        $hwRows = @(Import-Csv -LiteralPath $hwMasterPath -Encoding UTF8)
+                        $hwInfo.total = $hwRows.Count
+                        $hwInfo.ok = @($hwRows | Where-Object { $_.Status -eq 'OK' }).Count
+                        $hwInfo.offline = @($hwRows | Where-Object { $_.Status -match 'Offline' }).Count
+                        $hwInfo.error = @($hwRows | Where-Object { $_.Status -match 'Error' }).Count
+
+                        foreach ($r in $hwRows) {
+                            $machines.Add(@{
+                                PCName      = $r.PCName
+                                Status      = $r.Status
+                                IP          = $r.IP
+                                OS          = $r.OS
+                                User        = $r.User
+                                CPU         = $r.CPU
+                                RAM_GB      = $r.RAM_GB
+                                Disk_C_Free = $r.Disk_C_Free
+                                Last_Boot   = $r.Last_Boot
+                                Scan_Count  = $r.Scan_Count
+                                First_Seen  = $r.First_Seen
+                                Last_Scan   = $r.Last_Scan
+                            })
+                        }
+                    } catch {}
+                }
+
+                $swInfo = @{ exists = $false; size = 0; lastModified = '-'; totalRecords = 0; uniqueApps = 0 }
+                if ($swExists) {
+                    try {
+                        $item = Get-Item -LiteralPath $swMasterPath
+                        $swInfo.exists = $true
+                        $swInfo.size = "$([math]::Round($item.Length / 1KB, 1)) KB"
+                        $swInfo.lastModified = $item.LastWriteTime.ToString('yyyy-MM-dd HH:mm')
+                        $swRows = @(Import-Csv -LiteralPath $swMasterPath -Encoding UTF8)
+                        $swInfo.totalRecords = $swRows.Count
+                    } catch {}
+                }
+                if ($swSumExists) {
+                    try {
+                        $sumRows = @(Import-Csv -LiteralPath $swSumPath -Encoding UTF8)
+                        $swInfo.uniqueApps = $sumRows.Count
+                    } catch {}
+                }
+
+                # Check for backup files
+                $backups = [System.Collections.Generic.List[object]]::new()
+                try {
+                    if (Test-Path -LiteralPath $outDirParam) {
+                        $bFiles = Get-ChildItem -LiteralPath $outDirParam -Filter '*Master_Backup_*.csv' | Sort-Object LastWriteTime -Descending
+                        foreach ($b in $bFiles) {
+                            $backups.Add(@{
+                                name         = $b.Name
+                                size         = "$([math]::Round($b.Length / 1KB, 1)) KB"
+                                lastModified = $b.LastWriteTime.ToString('yyyy-MM-dd HH:mm')
+                            })
+                        }
+                    }
+                } catch {}
+
+                $masterResp = @{
+                    outDir    = $outDirParam
+                    hwMaster  = $hwInfo
+                    swMaster  = $swInfo
+                    machines  = $machines
+                    backups   = $backups
+                }
+
+                $json = $masterResp | ConvertTo-Json -Depth 5 -Compress
+                $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
+                $res.ContentType = 'application/json; charset=utf-8'
+                $res.ContentLength64 = $buf.Length
+                $res.OutputStream.Write($buf, 0, $buf.Length)
+            }
+            elseif ($path -eq '/api/master/action' -and $method -eq 'POST') {
+                $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
+                $body = $reader.ReadToEnd()
+                $params = $body | ConvertFrom-Json
+                $action = [string]$params.action
+                $outDirParam = [string]$params.outDir
+                if ([string]::IsNullOrWhiteSpace($outDirParam)) {
+                    $outDirParam = if ($script:lastOutDir) { $script:lastOutDir } else { 'C:\Inventory' }
+                }
+
+                $hwMasterPath = Join-Path $outDirParam 'Hardware_Master.csv'
+                $swMasterPath = Join-Path $outDirParam 'Software_Master.csv'
+                $swSumPath    = Join-Path $outDirParam 'Software_Summary_Master.csv'
+
+                $resp = @{ status = 'OK'; message = '' }
+
+                if ($action -eq 'openFile') {
+                    $fileType = [string]$params.fileType # 'hw', 'sw', or 'swSum'
+                    $targetPath = if ($fileType -eq 'sw') { $swMasterPath } elseif ($fileType -eq 'swSum') { $swSumPath } else { $hwMasterPath }
+                    if (Test-Path -LiteralPath $targetPath) {
+                        [System.Diagnostics.Process]::Start($targetPath) | Out-Null
+                        $resp.message = "Opened $targetPath"
+                    } else {
+                        $res.StatusCode = 404
+                        $resp.status = 'Error'
+                        $resp.message = "File not found: $targetPath"
+                    }
+                }
+                elseif ($action -eq 'backupMaster') {
+                    $stampBackup = Get-Date -Format 'yyyyMMdd_HHmmss'
+                    $copiedCount = 0
+                    if (Test-Path -LiteralPath $hwMasterPath) {
+                        $destHw = Join-Path $outDirParam "Hardware_Master_Backup_$stampBackup.csv"
+                        Copy-Item -LiteralPath $hwMasterPath -Destination $destHw -Force
+                        $copiedCount++
+                    }
+                    if (Test-Path -LiteralPath $swMasterPath) {
+                        $destSw = Join-Path $outDirParam "Software_Master_Backup_$stampBackup.csv"
+                        Copy-Item -LiteralPath $swMasterPath -Destination $destSw -Force
+                        $copiedCount++
+                    }
+                    $resp.message = "Created $copiedCount backup files (Timestamp: $stampBackup)"
+                }
+                elseif ($action -eq 'deleteMachine') {
+                    $targetPC = [string]$params.pcName
+                    if (-not [string]::IsNullOrWhiteSpace($targetPC)) {
+                        $deletedHw = $false
+                        if (Test-Path -LiteralPath $hwMasterPath) {
+                            $rows = Import-Csv -LiteralPath $hwMasterPath -Encoding UTF8
+                            $newRows = @($rows | Where-Object { $_.PCName.Trim().ToUpper() -ne $targetPC.Trim().ToUpper() })
+                            if ($newRows.Count -lt $rows.Count) {
+                                $newRows | Export-Csv -LiteralPath $hwMasterPath -NoTypeInformation -Encoding UTF8
+                                $deletedHw = $true
+                            }
+                        }
+                        if (Test-Path -LiteralPath $swMasterPath) {
+                            $swRows = Import-Csv -LiteralPath $swMasterPath -Encoding UTF8
+                            $newSwRows = @($swRows | Where-Object { $_.PCName.Trim().ToUpper() -ne $targetPC.Trim().ToUpper() })
+                            if ($newSwRows.Count -lt $swRows.Count) {
+                                $newSwRows | Export-Csv -LiteralPath $swMasterPath -NoTypeInformation -Encoding UTF8
+                            }
+                        }
+                        $resp.message = "Deleted $targetPC from Master database."
+                    }
+                }
+                elseif ($action -eq 'resetMaster') {
+                    $stampBackup = Get-Date -Format 'yyyyMMdd_HHmmss'
+                    if (Test-Path -LiteralPath $hwMasterPath) {
+                        $destHw = Join-Path $outDirParam "Hardware_Master_Backup_$stampBackup.csv"
+                        Copy-Item -LiteralPath $hwMasterPath -Destination $destHw -Force
+                        Remove-Item -LiteralPath $hwMasterPath -Force
+                    }
+                    if (Test-Path -LiteralPath $swMasterPath) {
+                        $destSw = Join-Path $outDirParam "Software_Master_Backup_$stampBackup.csv"
+                        Copy-Item -LiteralPath $swMasterPath -Destination $destSw -Force
+                        Remove-Item -LiteralPath $swMasterPath -Force
+                    }
+                    if (Test-Path -LiteralPath $swSumPath) {
+                        Remove-Item -LiteralPath $swSumPath -Force -ErrorAction SilentlyContinue
+                    }
+                    $resp.message = "Master database reset successfully. (Safety backup saved: $stampBackup)"
+                }
+
+                $json = $resp | ConvertTo-Json -Depth 3 -Compress
                 $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
                 $res.ContentType = 'application/json; charset=utf-8'
                 $res.ContentLength64 = $buf.Length

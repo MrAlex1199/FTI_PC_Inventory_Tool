@@ -1066,6 +1066,105 @@
     .fs-mkdir-row.active {
       display: flex;
     }
+  
+    /* Master Hub Modal & Cards */
+    .master-modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(6, 10, 20, 0.82);
+      backdrop-filter: blur(18px);
+      z-index: 210;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      animation: fsFadeIn 0.2s ease-out;
+    }
+    .master-modal-backdrop.active { display: flex; }
+    .master-modal {
+      width: 100%;
+      max-width: 1060px;
+      max-height: 90vh;
+      background: var(--bg-surface);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .master-tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0 20px;
+      background: var(--bg-surface-elevated);
+    }
+    .master-tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      padding: 12px 16px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .master-tab-btn:hover {
+      color: var(--text-main);
+    }
+    .master-tab-btn.active {
+      color: var(--accent-cyan);
+      border-bottom-color: var(--accent-cyan);
+    }
+    .master-file-card {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .master-stat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+    }
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444, #b91c1c);
+      color: white;
+      border: none;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-danger:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
+    }
+    .btn-danger:active {
+      transform: scale(0.96);
+    }
+
+    
   </style>
 </head>
 <body>
@@ -1273,6 +1372,41 @@
       </div>
     </div>
 
+    <!-- Card 5: Master Database Hub Card -->
+      <div class="glass-card" style="border-color: rgba(6, 182, 212, 0.25);">
+        <div class="card-title" style="color: var(--accent-cyan);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 10h16M10 4v16"/></svg>
+          5. ฐานข้อมูลหลัก (Master Hub)
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px;">
+          จัดการไฟล์สะสมข้อมูลฮาร์ดแวร์และซอฟต์แวร์ทั้งองค์กร
+        </div>
+        <div style="background: var(--bg-surface-elevated); padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); margin-bottom: 10px; font-size: 0.75rem;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span style="color: var(--text-muted);">ฮาร์ดแวร์ใน Master:</span>
+            <span id="sbMasterHwCount" style="font-weight: 700; color: var(--accent-cyan);">-</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span style="color: var(--text-muted);">ซอฟต์แวร์ใน Master:</span>
+            <span id="sbMasterSwCount" style="font-weight: 700; color: var(--accent-emerald);">-</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.70rem; color: var(--text-muted);">
+            <span>อัปเดตล่าสุด:</span>
+            <span id="sbMasterLastMod">-</span>
+          </div>
+        </div>
+        <button type="button" class="btn-secondary" id="btnOpenMasterHub" style="width: 100%; justify-content: center; margin-bottom: 6px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+          ศูนย์จัดการ Master Files...
+        </button>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn-preset" id="btnQuickOpenHw" style="flex: 1; padding: 4px 6px; font-size: 0.70rem; justify-content: center; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer;">📂 Hardware</button>
+          <button type="button" class="btn-preset" id="btnQuickOpenSw" style="flex: 1; padding: 4px 6px; font-size: 0.70rem; justify-content: center; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer;">📂 Software</button>
+        </div>
+      </div>
+    </div>
+
+    
     <!-- Right Column: Command Center -->
     <div class="command-center">
       <!-- 4 StatCards -->
@@ -1436,6 +1570,12 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: -2px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         ตั้งเวลาสแกน
       </button>
+
+      <button class="btn-secondary" id="btnOpenMasterDock">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px; vertical-align: -2px;"><path d="M4 4h16v16H4z"/><path d="M4 10h16M10 4v16"/></svg>
+        Master Hub <span id="dockMasterCountBadge" style="background: rgba(6, 182, 212, 0.2); color: var(--accent-cyan); padding: 1px 6px; border-radius: 8px; margin-left: 4px; font-size: 0.72rem;">0</span>
+      </button>
+
 
       <button class="btn-danger" id="btnCancelScan" disabled>
         ⏹ ยกเลิก
@@ -1615,6 +1755,234 @@
     </div>
   </div>
 
+  <!-- Master Files Management Hub Modal -->
+  <div class="master-modal-backdrop" id="masterModalBackdrop">
+    <div class="master-modal">
+      <div class="fs-modal-header">
+        <div class="fs-modal-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M4 10h16M10 4v16"/></svg>
+          <span style="font-weight: 700;">ศูนย์จัดการข้อมูลหลัก Master Files (Master Hub)</span>
+        </div>
+        <button class="fs-close-btn" id="masterBtnClose" title="ปิด">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Master Tabs -->
+      <div class="master-tabs">
+        <button class="master-tab-btn active" id="tabMasterOverview" data-target="masterPanelOverview">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          ภาพรวมและไฟล์ Master (Overview & Files)
+        </button>
+        <button class="master-tab-btn" id="tabMasterDirectory" data-target="masterPanelDirectory">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          สารบบเครื่อง PC (Machines Directory) <span id="badgeTabMachinesCount" style="background: rgba(6, 182, 212, 0.2); color: var(--accent-cyan); padding: 1px 6px; border-radius: 8px; font-size: 0.70rem;">0</span>
+        </button>
+        <button class="master-tab-btn" id="tabMasterBackups" data-target="masterPanelBackups">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          ประวัติการสำรอง (Backup Snapshots) <span id="badgeTabBackupsCount" style="background: rgba(16, 185, 129, 0.2); color: var(--accent-emerald); padding: 1px 6px; border-radius: 8px; font-size: 0.70rem;">0</span>
+        </button>
+      </div>
+
+      <!-- Modal Body Panels -->
+      <div style="padding: 20px; overflow-y: auto; max-height: 72vh;">
+        <!-- Panel 1: Overview & Files -->
+        <div id="masterPanelOverview" class="master-tab-panel">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div style="font-size: 0.82rem; color: var(--text-muted);">
+              จัดการไฟล์ Master CSV สะสมขององค์กรในโฟลเดอร์ผลลัพธ์
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-secondary" id="btnRefreshMaster" style="padding: 6px 12px; font-size: 0.78rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                รีเฟรชข้อมูล
+              </button>
+              <button class="btn-primary" id="btnBackupAllMaster" style="padding: 6px 14px; font-size: 0.78rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                สร้าง Snapshot สำรองตอนนี้
+              </button>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px;">
+            <!-- HW Master File Card -->
+            <div class="master-file-card">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 6px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    Hardware_Master.csv
+                  </div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+                    ฐานข้อมูลสเปกเครื่อง, Uptime, รอบการสแกน และผู้ใช้
+                  </div>
+                </div>
+                <span id="badgeHwMasterStatus" class="status-badge ok">พบไฟล์</span>
+              </div>
+
+              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                <span class="master-stat-pill">💻 เครื่องทั้งหมด: <b id="lblHwMasterTotal" style="color: var(--accent-cyan);">-</b></span>
+                <span class="master-stat-pill" style="color: var(--accent-emerald);">🟢 ปกติ: <b id="lblHwMasterOk">-</b></span>
+                <span class="master-stat-pill" style="color: var(--accent-amber);">🟠 ออฟไลน์: <b id="lblHwMasterOffline">-</b></span>
+                <span class="master-stat-pill" style="color: var(--accent-rose);">🔴 ผิดพลาด: <b id="lblHwMasterError">-</b></span>
+              </div>
+
+              <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; justify-content: space-between; border-top: 1px solid var(--border-subtle); padding-top: 8px;">
+                <span>ขนาดไฟล์: <b id="lblHwMasterSize">-</b></span>
+                <span>อัปเดตล่าสุด: <b id="lblHwMasterDate">-</b></span>
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <button class="btn-secondary" id="btnOpenHwMasterFile" style="flex: 1; justify-content: center; font-size: 0.8rem; padding: 7px 10px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  เปิดดูใน Excel / CSV
+                </button>
+                <button class="btn-secondary" id="btnBackupHwMaster" style="font-size: 0.8rem; padding: 7px 12px;" title="สร้าง Snapshot สำรอง">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  สำรอง
+                </button>
+              </div>
+            </div>
+
+            <!-- SW Master File Card -->
+            <div class="master-file-card">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                  <div style="font-weight: 700; font-size: 0.95rem; color: var(--accent-emerald); display: flex; align-items: center; gap: 6px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    Software_Master.csv
+                  </div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+                    ฐานข้อมูลโปรแกรมสะสมแยกตามเครื่อง และ สรุปโปรแกรมทั้งองค์กร
+                  </div>
+                </div>
+                <span id="badgeSwMasterStatus" class="status-badge ok">พบไฟล์</span>
+              </div>
+
+              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                <span class="master-stat-pill">📦 รายการโปรแกรมสะสม: <b id="lblSwMasterRecords" style="color: var(--accent-emerald);">-</b></span>
+                <span class="master-stat-pill">✨ ซอฟต์แวร์ที่ไม่ซ้ำ: <b id="lblSwMasterUnique" style="color: var(--accent-cyan);">-</b></span>
+              </div>
+
+              <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; justify-content: space-between; border-top: 1px solid var(--border-subtle); padding-top: 8px;">
+                <span>ขนาดไฟล์: <b id="lblSwMasterSize">-</b></span>
+                <span>อัปเดตล่าสุด: <b id="lblSwMasterDate">-</b></span>
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-top: 4px;">
+                <button class="btn-secondary" id="btnOpenSwMasterFile" style="flex: 1; justify-content: center; font-size: 0.8rem; padding: 7px 10px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  เปิด Software_Master
+                </button>
+                <button class="btn-secondary" id="btnOpenSwSumMasterFile" style="flex: 1; justify-content: center; font-size: 0.8rem; padding: 7px 10px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  เปิด Summary สรุป
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Danger Zone Box -->
+          <div style="background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-md); padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="font-weight: 700; font-size: 0.85rem; color: #f87171; display: flex; align-items: center; gap: 6px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                พื้นที่ควบคุมพิเศษ (Danger Zone)
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                ล้างข้อมูลในไฟล์ Master ทั้งหมดเพื่อเริ่มสะสมใหม่ (ระบบจะสร้างไฟล์สำรองให้โดยอัตโนมัติก่อนล้าง)
+              </div>
+            </div>
+            <button class="btn-danger" id="btnResetMasterDb" style="padding: 7px 14px; font-size: 0.78rem;">
+              ล้างฐานข้อมูล Master...
+            </button>
+          </div>
+        </div>
+
+        <!-- Panel 2: Machines Directory -->
+        <div id="masterPanelDirectory" class="master-tab-panel" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 12px; flex-wrap: wrap;">
+            <div class="search-wrap" style="flex: 1; max-width: 320px;">
+              <svg viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="txtMasterSearch" placeholder="ค้นหาชื่อเครื่อง, IP, OS, User...">
+            </div>
+
+            <div class="filter-pills">
+              <button class="filter-btn active" id="btnFilterMasterAll" data-mfilter="all">ทั้งหมด</button>
+              <button class="filter-btn" id="btnFilterMasterOk" data-mfilter="OK">OK</button>
+              <button class="filter-btn" id="btnFilterMasterOffline" data-mfilter="Offline">Offline</button>
+              <button class="filter-btn" id="btnFilterMasterError" data-mfilter="Error">Error</button>
+            </div>
+
+            <div style="font-size: 0.75rem; color: var(--text-muted);" id="lblMasterFilteredCount">
+              แสดง 0 จาก 0 เครื่อง
+            </div>
+          </div>
+
+          <div class="table-scroll" style="max-height: 48vh;">
+            <table>
+              <thead>
+                <tr>
+                  <th>ชื่อเครื่อง (PC Name)</th>
+                  <th>สถานะ</th>
+                  <th>IP Address</th>
+                  <th>ระบบปฏิบัติการ (OS)</th>
+                  <th>ผู้ใช้ล่าสุด</th>
+                  <th>เปิดล่าสุด (Boot)</th>
+                  <th>สแกนล่าสุด</th>
+                  <th style="text-align: center;">รอบสแกน</th>
+                  <th style="text-align: center;">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="masterMachinesBody">
+                <tr>
+                  <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                    ยังไม่มีข้อมูลเครื่องใน Master
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Panel 3: Backup Snapshots -->
+        <div id="masterPanelBackups" class="master-tab-panel" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <div>
+              <div style="font-weight: 700; font-size: 0.88rem; color: var(--text-main);">
+                รายการ Snapshot สำรองข้อมูลย้อนหลัง
+              </div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
+                ไฟล์สำรองทั้งหมดจัดเก็บอยู่ในโฟลเดอร์ผลลัพธ์ สามารถเปิดไฟล์ตรวจสอบหรือนำกลับมาใช้ได้
+              </div>
+            </div>
+            <button class="btn-primary" id="btnCreateBackupNow" style="padding: 6px 14px; font-size: 0.78rem;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+              สำรองตอนนี้ (New Snapshot)
+            </button>
+          </div>
+
+          <div id="masterBackupsContainer" style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="text-align: center; color: var(--text-muted); padding: 30px;">
+              ไม่มีไฟล์ Snapshot ในโฟลเดอร์นี้
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="fs-modal-footer">
+        <div class="fs-selected-display">
+          โฟลเดอร์ Master: <b id="masterFooterPath" style="color: var(--accent-cyan);">-</b>
+        </div>
+        <div class="fs-footer-actions">
+          <button class="btn-primary" id="masterBtnDone" style="padding: 7px 18px;">เสร็จสิ้น</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  
   <!-- In-App File & Folder Browser Modal -->
   <div class="fs-modal-backdrop" id="fsModalBackdrop">
     <div class="fs-modal">
@@ -2496,6 +2864,436 @@
     }
 
     // Adaptive Real-Time Polling Loop (500ms when scanning, 2000ms when idle)
+        // ==========================================
+    // Master Files Management Hub Implementation
+    // ==========================================
+    const masterModalBackdrop = document.getElementById('masterModalBackdrop');
+    const btnOpenMasterHub = document.getElementById('btnOpenMasterHub');
+    const btnOpenMasterDock = document.getElementById('btnOpenMasterDock');
+    const masterBtnClose = document.getElementById('masterBtnClose');
+    const masterBtnDone = document.getElementById('masterBtnDone');
+    const btnRefreshMaster = document.getElementById('btnRefreshMaster');
+    const btnBackupAllMaster = document.getElementById('btnBackupAllMaster');
+    const btnCreateBackupNow = document.getElementById('btnCreateBackupNow');
+    const btnOpenHwMasterFile = document.getElementById('btnOpenHwMasterFile');
+    const btnBackupHwMaster = document.getElementById('btnBackupHwMaster');
+    const btnOpenSwMasterFile = document.getElementById('btnOpenSwMasterFile');
+    const btnOpenSwSumMasterFile = document.getElementById('btnOpenSwSumMasterFile');
+    const btnResetMasterDb = document.getElementById('btnResetMasterDb');
+    const btnQuickOpenHw = document.getElementById('btnQuickOpenHw');
+    const btnQuickOpenSw = document.getElementById('btnQuickOpenSw');
+
+    const txtMasterSearch = document.getElementById('txtMasterSearch');
+    const lblMasterFilteredCount = document.getElementById('lblMasterFilteredCount');
+    const masterMachinesBody = document.getElementById('masterMachinesBody');
+    const masterBackupsContainer = document.getElementById('masterBackupsContainer');
+    const dockMasterCountBadge = document.getElementById('dockMasterCountBadge');
+    const badgeTabMachinesCount = document.getElementById('badgeTabMachinesCount');
+    const badgeTabBackupsCount = document.getElementById('badgeTabBackupsCount');
+    const masterFooterPath = document.getElementById('masterFooterPath');
+
+    // Sidebar elements
+    const sbMasterHwCount = document.getElementById('sbMasterHwCount');
+    const sbMasterSwCount = document.getElementById('sbMasterSwCount');
+    const sbMasterLastMod = document.getElementById('sbMasterLastMod');
+
+    // Hardware Card
+    const badgeHwMasterStatus = document.getElementById('badgeHwMasterStatus');
+    const lblHwMasterTotal = document.getElementById('lblHwMasterTotal');
+    const lblHwMasterOk = document.getElementById('lblHwMasterOk');
+    const lblHwMasterOffline = document.getElementById('lblHwMasterOffline');
+    const lblHwMasterError = document.getElementById('lblHwMasterError');
+    const lblHwMasterSize = document.getElementById('lblHwMasterSize');
+    const lblHwMasterDate = document.getElementById('lblHwMasterDate');
+
+    // Software Card
+    const badgeSwMasterStatus = document.getElementById('badgeSwMasterStatus');
+    const lblSwMasterRecords = document.getElementById('lblSwMasterRecords');
+    const lblSwMasterUnique = document.getElementById('lblSwMasterUnique');
+    const lblSwMasterSize = document.getElementById('lblSwMasterSize');
+    const lblSwMasterDate = document.getElementById('lblSwMasterDate');
+
+    let currentMasterMachines = [];
+    let currentMasterBackups = [];
+    let masterSearchQuery = '';
+    let masterCurrentFilter = 'all';
+
+    function openMasterModal() {
+      if (masterModalBackdrop) {
+        masterModalBackdrop.classList.add('active');
+        fetchMasterStatus();
+      }
+    }
+
+    function closeMasterModal() {
+      if (masterModalBackdrop) {
+        masterModalBackdrop.classList.remove('active');
+      }
+    }
+
+    if (btnOpenMasterHub) btnOpenMasterHub.addEventListener('click', openMasterModal);
+    if (btnOpenMasterDock) btnOpenMasterDock.addEventListener('click', openMasterModal);
+    if (masterBtnClose) masterBtnClose.addEventListener('click', closeMasterModal);
+    if (masterBtnDone) masterBtnDone.addEventListener('click', closeMasterModal);
+    if (masterModalBackdrop) {
+      masterModalBackdrop.addEventListener('click', (e) => {
+        if (e.target === masterModalBackdrop) closeMasterModal();
+      });
+    }
+
+    // Tab switching in Master Modal
+    document.querySelectorAll('.master-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.master-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.master-tab-panel').forEach(p => p.style.display = 'none');
+
+        btn.classList.add('active');
+        const targetId = btn.getAttribute('data-target');
+        const targetPanel = document.getElementById(targetId);
+        if (targetPanel) targetPanel.style.display = 'block';
+      });
+    });
+
+    // Master Status Fetcher
+    async function fetchMasterStatus() {
+      const outDir = txtOutDir ? txtOutDir.value.trim() : 'C:\\Inventory';
+      if (masterFooterPath) masterFooterPath.innerText = outDir;
+
+      try {
+        const res = await fetch(`/api/master/status?outDir=${encodeURIComponent(outDir)}`);
+        const data = await res.json();
+
+        // Update Sidebar Card 5
+        if (sbMasterHwCount) {
+          sbMasterHwCount.innerText = data.hwMaster && data.hwMaster.exists ? `${data.hwMaster.total} เครื่อง` : 'ยังไม่มีไฟล์';
+        }
+        if (sbMasterSwCount) {
+          sbMasterSwCount.innerText = data.swMaster && data.swMaster.exists ? `${data.swMaster.uniqueApps} โปรแกรม` : 'ยังไม่มีไฟล์';
+        }
+        if (sbMasterLastMod) {
+          sbMasterLastMod.innerText = (data.hwMaster && data.hwMaster.lastModified) || (data.swMaster && data.swMaster.lastModified) || '-';
+        }
+
+        // Update Dock Badge
+        if (dockMasterCountBadge) {
+          dockMasterCountBadge.innerText = (data.hwMaster && data.hwMaster.total) || 0;
+        }
+
+        // Update Tab Badges
+        if (badgeTabMachinesCount) {
+          badgeTabMachinesCount.innerText = (data.hwMaster && data.hwMaster.total) || 0;
+        }
+        if (badgeTabBackupsCount) {
+          badgeTabBackupsCount.innerText = (data.backups && data.backups.length) || 0;
+        }
+
+        // Update HW Card
+        if (data.hwMaster && data.hwMaster.exists) {
+          badgeHwMasterStatus.innerText = 'พบไฟล์ Master';
+          badgeHwMasterStatus.className = 'status-badge ok';
+          lblHwMasterTotal.innerText = data.hwMaster.total || 0;
+          lblHwMasterOk.innerText = data.hwMaster.ok || 0;
+          lblHwMasterOffline.innerText = data.hwMaster.offline || 0;
+          lblHwMasterError.innerText = data.hwMaster.error || 0;
+          lblHwMasterSize.innerText = data.hwMaster.size || '-';
+          lblHwMasterDate.innerText = data.hwMaster.lastModified || '-';
+        } else {
+          badgeHwMasterStatus.innerText = 'ยังไม่มีไฟล์';
+          badgeHwMasterStatus.className = 'status-badge offline';
+          lblHwMasterTotal.innerText = '0';
+          lblHwMasterOk.innerText = '0';
+          lblHwMasterOffline.innerText = '0';
+          lblHwMasterError.innerText = '0';
+          lblHwMasterSize.innerText = '-';
+          lblHwMasterDate.innerText = '-';
+        }
+
+        // Update SW Card
+        if (data.swMaster && data.swMaster.exists) {
+          badgeSwMasterStatus.innerText = 'พบไฟล์ Master';
+          badgeSwMasterStatus.className = 'status-badge ok';
+          lblSwMasterRecords.innerText = data.swMaster.totalRecords || 0;
+          lblSwMasterUnique.innerText = data.swMaster.uniqueApps || 0;
+          lblSwMasterSize.innerText = data.swMaster.size || '-';
+          lblSwMasterDate.innerText = data.swMaster.lastModified || '-';
+        } else {
+          badgeSwMasterStatus.innerText = 'ยังไม่มีไฟล์';
+          badgeSwMasterStatus.className = 'status-badge offline';
+          lblSwMasterRecords.innerText = '0';
+          lblSwMasterUnique.innerText = '0';
+          lblSwMasterSize.innerText = '-';
+          lblSwMasterDate.innerText = '-';
+        }
+
+        // Update Machines Table
+        currentMasterMachines = data.machines || [];
+        renderMasterMachines();
+
+        // Update Backups List
+        currentMasterBackups = data.backups || [];
+        renderMasterBackups();
+      } catch (err) {
+        console.error('fetchMasterStatus error:', err);
+      }
+    }
+
+    // Render Machines Directory
+    function renderMasterMachines() {
+      if (!masterMachinesBody) return;
+
+      const q = masterSearchQuery.toLowerCase();
+      const filtered = currentMasterMachines.filter(m => {
+        const matchesFilter = (masterCurrentFilter === 'all') ||
+          (masterCurrentFilter.toLowerCase() === (m.Status || '').toLowerCase());
+
+        const matchesSearch = !q ||
+          (m.PCName && m.PCName.toLowerCase().includes(q)) ||
+          (m.IP && m.IP.toLowerCase().includes(q)) ||
+          (m.OS && m.OS.toLowerCase().includes(q)) ||
+          (m.User && m.User.toLowerCase().includes(q));
+
+        return matchesFilter && matchesSearch;
+      });
+
+      if (lblMasterFilteredCount) {
+        lblMasterFilteredCount.innerText = `แสดง ${filtered.length} จาก ${currentMasterMachines.length} เครื่อง`;
+      }
+
+      if (filtered.length === 0) {
+        masterMachinesBody.innerHTML = `
+          <tr>
+            <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">
+              ${currentMasterMachines.length === 0 ? 'ยังไม่มีข้อมูลเครื่องในฐานข้อมูล Master' : 'ไม่พบเครื่องที่ตรงกับเงื่อนไขการค้นหา'}
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      masterMachinesBody.innerHTML = filtered.map(m => {
+        let badgeCls = 'ok';
+        if (m.Status === 'Offline') badgeCls = 'offline';
+        else if (m.Status === 'Error') badgeCls = 'error';
+
+        return `
+          <tr>
+            <td style="font-weight: 700; color: var(--text-main);">${m.PCName || '-'}</td>
+            <td><span class="status-badge ${badgeCls}">${m.Status || 'OK'}</span></td>
+            <td>${m.IP || '-'}</td>
+            <td>${m.OS || '-'}</td>
+            <td>${m.User || '-'}</td>
+            <td><small style="color:var(--text-muted)">${m.Last_Boot || '-'}</small></td>
+            <td><small style="color:var(--text-muted)">${m.Last_Scan || '-'}</small></td>
+            <td style="text-align: center;">
+              <span style="background: rgba(6,182,212,0.15); color: var(--accent-cyan); font-weight: 700; padding: 2px 7px; border-radius: 999px; font-size: 0.72rem;">
+                ${m.Scan_Count || '1'}
+              </span>
+            </td>
+            <td style="text-align: center;">
+              <button class="btn-danger" style="padding: 3px 8px; font-size: 0.70rem; border-radius: 4px;" onclick="deleteMasterMachine('${m.PCName}')" title="ลบเครื่องนี้ออกจาก Master">
+                ลบ
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Window global for delete machine
+    window.deleteMasterMachine = async function(pcName) {
+      if (!confirm(`ต้องการลบเครื่อง "${pcName}" ออกจากฐานข้อมูล Master หรือไม่?\n\n(ข้อมูลเครื่องนี้จะถูกนำออกจาก Hardware_Master และ Software_Master)`)) {
+        return;
+      }
+
+      try {
+        const outDir = txtOutDir ? txtOutDir.value.trim() : 'C:\\Inventory';
+        const res = await fetch('/api/master/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'deleteMachine',
+            outDir: outDir,
+            pcName: pcName
+          })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          showToast(`ลบเครื่อง "${pcName}" สำเร็จ`, 'success');
+          await fetchMasterStatus();
+        } else {
+          showToast(`ไม่สามารถลบเครื่องได้: ${data.error || 'Unknown'}`, 'error');
+        }
+      } catch (err) {
+        showToast(`เกิดข้อผิดพลาด: ${err.message}`, 'error');
+      }
+    };
+
+    // Render Backups List
+    function renderMasterBackups() {
+      if (!masterBackupsContainer) return;
+
+      if (!currentMasterBackups || currentMasterBackups.length === 0) {
+        masterBackupsContainer.innerHTML = `
+          <div style="text-align: center; color: var(--text-muted); padding: 30px; background: var(--bg-surface-elevated); border: 1px dashed var(--border-subtle); border-radius: var(--radius-md);">
+            ยังไม่มีประวัติ Snapshot ในโฟลเดอร์นี้ กดปุ่ม "สำรองตอนนี้" เพื่อสร้าง Snapshot แรก
+          </div>
+        `;
+        return;
+      }
+
+      masterBackupsContainer.innerHTML = currentMasterBackups.map(b => {
+        return `
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; color: var(--accent-emerald);">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </div>
+              <div>
+                <div style="font-weight: 600; font-size: 0.84rem; color: var(--text-main);">${b.name}</div>
+                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">
+                  ขนาด: <b>${b.size}</b> &bull; วันที่สร้าง: <b>${b.lastModified}</b>
+                </div>
+              </div>
+            </div>
+            <button class="btn-secondary" style="padding: 5px 12px; font-size: 0.75rem;" onclick="openMasterFolder()">
+              เปิดโฟลเดอร์
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.openMasterFolder = async function() {
+      try {
+        const outDir = txtOutDir ? txtOutDir.value.trim() : 'C:\\Inventory';
+        await fetch('/api/open-folder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folder: outDir })
+        });
+      } catch (err) {}
+    };
+
+    // Directory Search & Filter Listeners
+    if (txtMasterSearch) {
+      txtMasterSearch.addEventListener('input', (e) => {
+        masterSearchQuery = e.target.value;
+        renderMasterMachines();
+      });
+    }
+
+    document.querySelectorAll('[data-mfilter]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-mfilter]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        masterCurrentFilter = btn.getAttribute('data-mfilter');
+        renderMasterMachines();
+      });
+    });
+
+    // Master File Action Handlers
+    async function executeMasterAction(actionType, extraParams = {}) {
+      const outDir = txtOutDir ? txtOutDir.value.trim() : 'C:\\Inventory';
+      try {
+        const res = await fetch('/api/master/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: actionType,
+            outDir: outDir,
+            ...extraParams
+          })
+        });
+        const data = await res.json();
+        return data;
+      } catch (err) {
+        return { status: 'error', error: err.message };
+      }
+    }
+
+    if (btnRefreshMaster) {
+      btnRefreshMaster.addEventListener('click', async () => {
+        btnRefreshMaster.disabled = true;
+        await fetchMasterStatus();
+        btnRefreshMaster.disabled = false;
+        showToast('รีเฟรชข้อมูล Master เรียบร้อย', 'info');
+      });
+    }
+
+    // Open File Buttons
+    if (btnOpenHwMasterFile) {
+      btnOpenHwMasterFile.addEventListener('click', async () => {
+        const res = await executeMasterAction('openFile', { fileType: 'hw' });
+        if (res.status === 'error') showToast(res.error, 'error');
+      });
+    }
+    if (btnQuickOpenHw) {
+      btnQuickOpenHw.addEventListener('click', async () => {
+        const res = await executeMasterAction('openFile', { fileType: 'hw' });
+        if (res.status === 'error') showToast(res.error, 'error');
+      });
+    }
+
+    if (btnOpenSwMasterFile) {
+      btnOpenSwMasterFile.addEventListener('click', async () => {
+        const res = await executeMasterAction('openFile', { fileType: 'sw' });
+        if (res.status === 'error') showToast(res.error, 'error');
+      });
+    }
+    if (btnQuickOpenSw) {
+      btnQuickOpenSw.addEventListener('click', async () => {
+        const res = await executeMasterAction('openFile', { fileType: 'sw' });
+        if (res.status === 'error') showToast(res.error, 'error');
+      });
+    }
+
+    if (btnOpenSwSumMasterFile) {
+      btnOpenSwSumMasterFile.addEventListener('click', async () => {
+        const res = await executeMasterAction('openFile', { fileType: 'swSum' });
+        if (res.status === 'error') showToast(res.error, 'error');
+      });
+    }
+
+    // Backup Buttons
+    async function handleBackupTrigger() {
+      const res = await executeMasterAction('backupMaster');
+      if (res.status === 'success') {
+        showToast(`สร้าง Snapshot สำรองสำเร็จ (${res.backupsCreated.length} ไฟล์)`, 'success');
+        await fetchMasterStatus();
+      } else {
+        showToast(`ไม่สามารถสร้าง Snapshot ได้: ${res.error || 'Unknown'}`, 'error');
+      }
+    }
+
+    if (btnBackupAllMaster) btnBackupAllMaster.addEventListener('click', handleBackupTrigger);
+    if (btnBackupHwMaster) btnBackupHwMaster.addEventListener('click', handleBackupTrigger);
+    if (btnCreateBackupNow) btnCreateBackupNow.addEventListener('click', handleBackupTrigger);
+
+    // Reset Master DB
+    if (btnResetMasterDb) {
+      btnResetMasterDb.addEventListener('click', async () => {
+        if (!confirm('⚠️ คำเตือน: คุณต้องการล้างฐานข้อมูล Master ทั้งหมดใช่หรือไม่?\n\n- ระบบจะทำการ Snapshot สำรองไฟล์เก่าไว้ให้อัตโนมัติก่อนล้าง\n- ไฟล์ Hardware_Master และ Software_Master จะถูกรีเซ็ตใหม่')) {
+          return;
+        }
+
+        const res = await executeMasterAction('resetMaster');
+        if (res.status === 'success') {
+          showToast('รีเซ็ตฐานข้อมูล Master สำเร็จ (สร้างไฟล์สำรองไว้แล้ว)', 'success');
+          await fetchMasterStatus();
+        } else {
+          showToast(`ไม่สามารถรีเซ็ตได้: ${res.error || 'Unknown'}`, 'error');
+        }
+      });
+    }
+
+    // Refresh Master status when output directory changes
+    if (txtOutDir) {
+      txtOutDir.addEventListener('change', () => {
+        fetchMasterStatus();
+      });
+    }
+
+    
     let consecutivePollErrors = 0;
     let currentPollingInterval = 2000;
     pollTimer = null;
@@ -2645,6 +3443,7 @@
         if (data.isCompleted) {
           if (isScanning) {
             resetScanUI();
+            fetchMasterStatus();
             showToast('การสแกนเสร็จสมบูรณ์เรียบร้อยแล้ว!', 'success');
           }
           allScannedPCs.forEach(pc => {
@@ -2671,6 +3470,7 @@
 
     // Start background status polling immediately on page load
     startPolling();
+    fetchMasterStatus();
     document.documentElement.setAttribute('data-js-loaded', 'true');
   </script>
 </body>
