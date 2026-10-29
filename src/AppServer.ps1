@@ -274,6 +274,7 @@ function Update-ScanProgress() {
                             Disks        = if ($live.Disks) { [string]$live.Disks } else { '-' }
                             GPU          = if ($live.GPU) { [string]$live.GPU } else { '-' }
                             OS           = if ($live.OS) { [string]$live.OS } else { '-' }
+                            OSBuild      = if ($live.OSBuild) { [string]$live.OSBuild } else { '-' }
                             IP           = if ($live.IP) { [string]$live.IP } else { '-' }
                             Last_Boot    = if ($live.Last_Boot) { [string]$live.Last_Boot } else { '-' }
                             Uptime       = if ($live.Uptime) { [string]$live.Uptime } else { '-' }
@@ -365,6 +366,7 @@ function Update-ScanProgress() {
                         RAM_GB       = ''
                         Disk_C_Free  = ''
                         OS           = '...'
+                        OSBuild      = '...'
                         IP           = '...'
                         Last_Boot    = ''
                         Uptime       = ''
@@ -421,6 +423,7 @@ function Update-ScanProgress() {
                                     RAM_GB       = if ($row.RAM_GB) { $row.RAM_GB } else { '-' }
                                     Disk_C_Free  = if ($row.Disk_C_Free) { $row.Disk_C_Free } else { '-' }
                                     OS           = if ($row.OS) { $row.OS } else { '-' }
+                                    OSBuild      = if ($row.OSBuild) { $row.OSBuild } else { '-' }
                                     IP           = if ($row.IP) { $row.IP } else { '-' }
                                     Last_Boot    = if ($row.Last_Boot) { $row.Last_Boot } else { '-' }
                                     Uptime       = if ($row.Uptime) { $row.Uptime } else { '-' }
