@@ -293,16 +293,44 @@ if ($pcs.Count -eq 0) {
 if (-not $SkipHardware) {
     Write-Host '[STEP:2] Hardware Scan (WMI/CIM)...' -ForegroundColor Cyan
     Write-Host '--- Hardware scan ---'
+
+    # Pre-load Master Database to track Fail_Count & preserve previous license/specs
+    $masterDict = [ordered]@{}
+    if (Test-Path -LiteralPath $MasterFile) {
+        try {
+            $oldMaster = Import-Csv -LiteralPath $MasterFile -Encoding UTF8
+            foreach ($row in $oldMaster) {
+                if ($row.PCName) {
+                    $masterDict[$row.PCName.ToUpper()] = $row
+                }
+            }
+        } catch {
+            Write-Warning "Could not parse existing Master file: $($_.Exception.Message)"
+        }
+    }
+
     $i = 0
     $hw = foreach ($pc in $pcs) {
         $i++
         Write-Progress -Activity 'Hardware scan' -Status "$pc ($i/$($pcs.Count))" -PercentComplete (10 + [math]::Round(55 * $i / $pcs.Count))
 
+        $key = $pc.ToUpper()
+        $prevFailCount = 0
+        $prevLicense = '-'
+        if ($masterDict.Contains($key)) {
+            $mRow = $masterDict[$key]
+            if ($mRow.Fail_Count) { [int]::TryParse($mRow.Fail_Count, [ref]$prevFailCount) | Out-Null }
+            if ($mRow.Win_License -and $mRow.Win_License -ne '-') { $prevLicense = $mRow.Win_License }
+        }
+
         if (-not (Test-PCConnection $pc)) {
             $ad = Get-ADInfo $pc
+            $newFail = $prevFailCount + 1
             $itemOffline = [pscustomobject]@{
                 PCName       = $pc
                 Status       = 'Offline'
+                Fail_Count   = $newFail
+                Win_License  = $prevLicense
                 User         = '-'
                 Maker        = '-'
                 Model        = '-'
@@ -369,9 +397,9 @@ if (-not $SkipHardware) {
                     $lastBootStr = $bootDt.ToString('yyyy-MM-dd HH:mm')
                     $diff = (Get-Date) - $bootDt
                     if ($diff.TotalDays -ge 1) {
-                        $uptimeStr = "$([math]::Floor($diff.TotalDays)) วัน $([int]$diff.Hours) ชม."
+                        $uptimeStr = "$([math]::Floor($diff.TotalDays))d $([int]$diff.Hours)h"
                     } else {
-                        $uptimeStr = "$([int]$diff.Hours) ชม. $([int]$diff.Minutes) นาที"
+                        $uptimeStr = "$([int]$diff.Hours)h $([int]$diff.Minutes)m"
                     }
                 } catch {}
             }
@@ -391,9 +419,45 @@ if (-not $SkipHardware) {
 
             $ad = Get-ADInfo $pc
 
+            # Query Windows License Channel & Activation Status
+            $winLic = if ($isLocal) {
+                Get-CimInstance SoftwareLicensingProduct -Filter "ApplicationID = '55c92734-d682-4d71-983e-d6ec3f16059f' and PartialProductKey is not null" -ErrorAction SilentlyContinue | Select-Object -First 1
+            } else {
+                $licCim = New-CimSession -ComputerName $pc -SessionOption (New-CimSessionOption -Protocol Dcom) -OperationTimeoutSec 10 -ErrorAction SilentlyContinue
+                if ($licCim) {
+                    $lObj = Get-CimInstance SoftwareLicensingProduct -CimSession $licCim -Filter "ApplicationID = '55c92734-d682-4d71-983e-d6ec3f16059f' and PartialProductKey is not null" -ErrorAction SilentlyContinue | Select-Object -First 1
+                    Remove-CimSession $licCim -ErrorAction SilentlyContinue
+                    $lObj
+                } else { $null }
+            }
+
+            $winLicenseStr = '-'
+            if ($winLic) {
+                $rawChan = if ($winLic.ProductKeyChannel) { $winLic.ProductKeyChannel } else { [string]$winLic.Description }
+                $chan = if ($rawChan -match '(?i)OEM') {
+                    'OEM'
+                } elseif ($rawChan -match '(?i)VOLUME_KMS|Volume:GVLK|KMS') {
+                    'Volume (KMS)'
+                } elseif ($rawChan -match '(?i)VOLUME_MAK|MAK') {
+                    'Volume (MAK)'
+                } elseif ($rawChan -match '(?i)Volume') {
+                    'Volume'
+                } elseif ($rawChan -match '(?i)RETAIL') {
+                    'Retail'
+                } else {
+                    'OEM/Retail'
+                }
+                $actStatus = if ($winLic.LicenseStatus -eq 1) { 'Activated' } elseif ($winLic.LicenseStatus -eq 0) { 'Unlicensed' } else { 'Grace' }
+                $winLicenseStr = "$chan ($actStatus)"
+            } elseif ($prevLicense -ne '-') {
+                $winLicenseStr = $prevLicense
+            }
+
             $itemOk = [pscustomobject]@{
                 PCName       = $cs.Name
                 Status       = 'OK'
+                Fail_Count   = 0
+                Win_License  = $winLicenseStr
                 User         = $cs.UserName
                 Maker        = $cs.Manufacturer
                 Model        = $cs.Model
@@ -421,9 +485,12 @@ if (-not $SkipHardware) {
         }
         catch {
             $ad = Get-ADInfo $pc
+            $newFail = $prevFailCount + 1
             $itemErr = [pscustomobject]@{
                 PCName       = $pc
                 Status       = "Error: $($_.Exception.Message)"
+                Fail_Count   = $newFail
+                Win_License  = $prevLicense
                 User         = '-'
                 Maker        = '-'
                 Model        = '-'
@@ -454,21 +521,7 @@ if (-not $SkipHardware) {
 
     # --- Master Database Synchronization ---
     if ($MasterMode) {
-        $masterDict = [ordered]@{}
-        if (Test-Path -LiteralPath $MasterFile) {
-            try {
-                $oldMaster = Import-Csv -LiteralPath $MasterFile -Encoding UTF8
-                foreach ($row in $oldMaster) {
-                    if ($row.PCName) {
-                        $masterDict[$row.PCName.ToUpper()] = $row
-                    }
-                }
-            } catch {
-                Write-Warning "Could not parse existing Master file: $($_.Exception.Message)"
-            }
-        }
-
-        # Merge newly scanned records
+        # Merge newly scanned records into $masterDict
         foreach ($r in $hw) {
             $key = $r.PCName.ToUpper()
             if ($r.Status -eq 'OK') {
@@ -479,10 +532,12 @@ if (-not $SkipHardware) {
                     $r.Scan_Count = $prevCount + 1
                     $r.First_Seen = if ($old.First_Seen -and $old.First_Seen -ne '-') { $old.First_Seen } else { (Get-Date -Format 'yyyy-MM-dd HH:mm') }
                     $r.Last_Scan  = Get-Date -Format 'yyyy-MM-dd HH:mm'
+                    $r.Fail_Count = 0
                 } else {
                     $r.Scan_Count = 1
                     $r.First_Seen = Get-Date -Format 'yyyy-MM-dd HH:mm'
                     $r.Last_Scan  = Get-Date -Format 'yyyy-MM-dd HH:mm'
+                    $r.Fail_Count = 0
                 }
                 $masterDict[$key] = $r
             } else {
@@ -493,9 +548,12 @@ if (-not $SkipHardware) {
                     if ($old.Status -eq 'OK' -or ($old.CPU -and $old.CPU -ne '-')) {
                         $old.Status = "Offline (Was OK)"
                         $old.Last_Scan = Get-Date -Format 'yyyy-MM-dd HH:mm'
+                        $old.Fail_Count = $r.Fail_Count
+                        if ($old.Win_License -and $old.Win_License -ne '-') { $r.Win_License = $old.Win_License }
                     } else {
                         $old.Status = $r.Status
                         $old.Last_Scan = Get-Date -Format 'yyyy-MM-dd HH:mm'
+                        $old.Fail_Count = $r.Fail_Count
                     }
                 } else {
                     $masterDict[$key] = $r

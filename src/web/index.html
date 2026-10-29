@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="th" class="light">
+<html lang="en" class="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,7 +14,7 @@
         b.style = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:12px 20px;z-index:999999;font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 15px rgba(0,0,0,0.5);';
         if (document.body) { document.body.appendChild(b); } else { document.documentElement.appendChild(b); }
       }
-      b.innerHTML = '<span>⚠️ ข้อผิดพลาดในสคริปต์: ' + (e.message || 'Unknown') + ' (บรรทัดที่ ' + e.lineno + ')</span><button onclick="this.parentElement.remove()" style="background:transparent;border:none;color:#fff;cursor:pointer;font-size:16px;">✖</button>';
+      b.innerHTML = '<span>⚠️ Script Error: ' + (e.message || 'Unknown') + ' (Line ' + e.lineno + ')</span><button onclick="this.parentElement.remove()" style="background:transparent;border:none;color:#fff;cursor:pointer;font-size:16px;">✖</button>';
     });
   </script>
   <style>
@@ -41,14 +41,14 @@
     }
 
     html.light {
-      /* Enterprise High-Contrast Light Theme Variables (WCAG AAA/AA) */
-      --bg-base: #f8fafc;
-      --bg-surface: #ffffff;
-      --bg-surface-elevated: #f1f5f9;
-      --bg-input: #ffffff;
-      --border-subtle: #cbd5e1;
+      /* Eye-Comfort Soft Slate Light Theme Variables (Anti-Glare / No Pure White #ffffff) */
+      --bg-base: #dce3ec;
+      --bg-surface: #e8eef5;
+      --bg-surface-elevated: #dfe7f0;
+      --bg-input: #f0f4f8;
+      --border-subtle: #c5d1e0;
       --border-focus: #0284c7;
-      --text-main: #0f172a;
+      --text-main: #1e293b;
       --text-secondary: #334155;
       --text-muted: #64748b;
       --accent-primary: #0284c7;
@@ -56,9 +56,9 @@
       --accent-emerald: #059669;
       --accent-amber: #d97706;
       --accent-rose: #e11d48;
-      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07);
-      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1);
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.08);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.12);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -80,10 +80,10 @@
     ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.6); }
 
-    /* Top Navigation Header (52px fixed height) */
+    /* Top Navigation Header */
     header {
-      height: 52px;
-      min-height: 52px;
+      height: 50px;
+      min-height: 50px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -144,67 +144,40 @@
       gap: 4px;
     }
 
-    /* Consolidated Header Action Bar (No duplicate buttons) */
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .btn-action-nav {
-      background: var(--bg-surface-elevated);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-secondary);
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
+    /* Live Auto-Scan Countdown Banner */
+    .top-schedule-banner {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      transition: all 0.2s;
-    }
-    .btn-action-nav:hover {
-      background: var(--bg-surface);
-      border-color: var(--accent-primary);
-      color: var(--accent-primary);
-    }
-    .btn-action-nav:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      border-color: var(--border-subtle);
-      color: var(--text-muted);
-    }
-
-    .nav-badge {
-      background: var(--accent-primary);
-      color: #fff;
-      font-size: 0.68rem;
-      padding: 1px 5px;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.10);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: var(--accent-emerald);
+      padding: 4px 12px;
       border-radius: 999px;
-      font-weight: 700;
+      font-size: 0.75rem;
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+    .sched-pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
+      animation: pulse-ring 1.3s infinite;
+    }
+    .sched-label {
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .sched-countdown {
+      font-family: monospace;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      font-size: 0.82rem;
     }
 
-    .btn-icon-nav {
-      background: var(--bg-surface-elevated);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-secondary);
-      width: 32px;
-      height: 32px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .btn-icon-nav:hover {
-      border-color: var(--accent-primary);
-      color: var(--accent-primary);
-    }
-
-    /* Workspace Layout (Optimized for 1366x768 to Full HD) */
+    /* Workspace Layout */
     .workspace-layout {
       flex: 1;
       display: flex;
@@ -212,7 +185,55 @@
       position: relative;
     }
 
-    /* Collapsible Compact Sidebar (300px) */
+    /* Pinned Window-Edge Handle Tabs */
+    .edge-handle-tab {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 52px;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 45;
+      box-shadow: var(--shadow-sm);
+      transition: left 0.25s ease, right 0.25s ease, background 0.15s, width 0.15s;
+    }
+    .edge-handle-tab:hover {
+      background: var(--accent-primary);
+      color: #fff;
+      border-color: var(--accent-primary);
+      width: 20px;
+    }
+    .edge-handle-tab.edge-left {
+      left: 300px;
+      border-left: none;
+      border-radius: 0 6px 6px 0;
+    }
+    .workspace-layout.sidebar-left-collapsed .edge-handle-tab.edge-left {
+      left: 0;
+    }
+    .workspace-layout.sidebar-left-collapsed .edge-handle-tab.edge-left .edge-icon {
+      transform: rotate(180deg);
+    }
+
+    .edge-handle-tab.edge-right {
+      right: 260px;
+      border-right: none;
+      border-radius: 6px 0 0 6px;
+    }
+    .workspace-layout.sidebar-right-collapsed .edge-handle-tab.edge-right {
+      right: 0;
+    }
+    .workspace-layout.sidebar-right-collapsed .edge-handle-tab.edge-right .edge-icon {
+      transform: rotate(180deg);
+    }
+
+    /* Collapsible Compact Sidebar (Left 300px) */
     .sidebar-compact {
       width: 300px;
       min-width: 300px;
@@ -223,7 +244,7 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      transition: width 0.25s ease, min-width 0.25s ease, margin 0.25s ease;
+      transition: width 0.25s ease, min-width 0.25s ease;
       z-index: 20;
     }
     .sidebar-compact.collapsed {
@@ -263,7 +284,7 @@
       gap: 8px;
     }
 
-    /* Accordion Sections - flex-shrink: 0 prevents any squishing/overlapping */
+    /* Accordion Sections */
     .accordion-section {
       flex-shrink: 0;
       border: 1px solid var(--border-subtle);
@@ -284,15 +305,9 @@
       color: var(--text-secondary);
       user-select: none;
     }
-    .accordion-header:hover {
-      color: var(--accent-primary);
-    }
-    .accordion-header .chevron {
-      transition: transform 0.2s;
-    }
-    .accordion-section.active .accordion-header .chevron {
-      transform: rotate(180deg);
-    }
+    .accordion-header:hover { color: var(--accent-primary); }
+    .accordion-header .chevron { transition: transform 0.2s; }
+    .accordion-section.active .accordion-header .chevron { transform: rotate(180deg); }
     .accordion-content {
       flex-shrink: 0;
       padding: 10px 12px;
@@ -301,9 +316,7 @@
       gap: 8px;
       border-top: 1px solid var(--border-subtle);
     }
-    .accordion-section.active .accordion-content {
-      display: flex;
-    }
+    .accordion-section.active .accordion-content { display: flex; }
 
     /* Compact Radio Cards */
     .compact-radio-card {
@@ -349,58 +362,45 @@
       box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
     }
 
-    .input-group-row {
-      display: flex;
-      gap: 6px;
-    }
+    .input-group-row { display: flex; gap: 6px; }
     .btn-browse {
       background: var(--bg-surface-elevated);
       border: 1px solid var(--border-subtle);
       color: var(--text-secondary);
       padding: 6px 10px;
-      font-size: 0.75rem;
+      font-size: 0.74rem;
       font-weight: 600;
       border-radius: 6px;
       cursor: pointer;
       white-space: nowrap;
-      transition: all 0.15s;
     }
     .btn-browse:hover {
       border-color: var(--accent-primary);
       color: var(--accent-primary);
     }
 
-    /* Preset Buttons */
     .preset-chip {
       background: var(--bg-surface-elevated);
       border: 1px solid var(--border-subtle);
-      color: var(--text-muted);
       border-radius: 4px;
-      padding: 3px 8px;
+      padding: 2px 8px;
       font-size: 0.70rem;
+      color: var(--text-secondary);
       cursor: pointer;
-      transition: all 0.15s;
+      font-weight: 600;
     }
     .preset-chip:hover {
-      background: var(--bg-surface);
       border-color: var(--accent-primary);
       color: var(--accent-primary);
     }
 
-    /* Toggle rows */
+    /* Switch Compact */
     .toggle-compact-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 4px 0;
     }
-    .toggle-text {
-      font-size: 0.76rem;
-      font-weight: 600;
-      color: var(--text-secondary);
-    }
-
-    /* Switch */
+    .toggle-text { font-size: 0.76rem; font-weight: 600; color: var(--text-main); }
     .switch-compact {
       position: relative;
       display: inline-block;
@@ -409,32 +409,24 @@
     }
     .switch-compact input { opacity: 0; width: 0; height: 0; }
     .switch-slider {
-      position: absolute;
-      cursor: pointer;
+      position: absolute; cursor: pointer;
       top: 0; left: 0; right: 0; bottom: 0;
       background-color: var(--border-subtle);
+      border-radius: 18px;
       transition: .2s;
-      border-radius: 20px;
     }
     .switch-slider:before {
-      position: absolute;
-      content: "";
-      height: 14px;
-      width: 14px;
-      left: 2px;
-      bottom: 2px;
-      background-color: #fff;
-      transition: .2s;
+      position: absolute; content: "";
+      height: 12px; width: 12px;
+      left: 3px; bottom: 3px;
+      background-color: white;
       border-radius: 50%;
+      transition: .2s;
     }
-    input:checked + .switch-slider {
-      background-color: var(--accent-primary);
-    }
-    input:checked + .switch-slider:before {
-      transform: translateX(14px);
-    }
+    input:checked + .switch-slider { background-color: var(--accent-primary); }
+    input:checked + .switch-slider:before { transform: translateX(14px); }
 
-    /* Sticky Bottom Actions inside Sidebar */
+    /* Sticky Bottom Actions inside Left Sidebar */
     .sidebar-footer-actions {
       flex-shrink: 0;
       padding: 10px 12px;
@@ -486,9 +478,7 @@
       gap: 6px;
       transition: all 0.2s;
     }
-    .btn-cancel-scan:disabled {
-      display: none;
-    }
+    .btn-cancel-scan:disabled { display: none; }
 
     .btn-retry-offline {
       background: rgba(245, 158, 11, 0.15);
@@ -504,8 +494,104 @@
       justify-content: center;
       gap: 6px;
     }
-    .btn-retry-offline:hover {
-      background: rgba(245, 158, 11, 0.25);
+    .btn-retry-offline:hover { background: rgba(245, 158, 11, 0.25); }
+
+    /* Collapsible Right Utility Sidebar (260px) */
+    .sidebar-right-compact {
+      width: 260px;
+      min-width: 260px;
+      height: 100%;
+      min-height: 0;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: width 0.25s ease, min-width 0.25s ease;
+      z-index: 20;
+    }
+    .sidebar-right-compact.collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      overflow: hidden;
+      border-left: none;
+      visibility: hidden;
+    }
+
+    .sidebar-right-body {
+      flex: 1 1 0%;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .util-card {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .util-card-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .util-card-desc {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    .btn-util-action {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      transition: all 0.2s;
+      width: 100%;
+    }
+    .btn-util-action:hover {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+      background: rgba(2, 132, 199, 0.06);
+    }
+    .btn-util-action.primary {
+      background: rgba(2, 132, 199, 0.1);
+      border-color: rgba(2, 132, 199, 0.35);
+      color: var(--accent-primary);
+    }
+    .btn-util-action:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      border-color: var(--border-subtle);
+      color: var(--text-muted);
+    }
+
+    .nav-badge {
+      background: var(--accent-primary);
+      color: #fff;
+      font-size: 0.68rem;
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-weight: 700;
+      margin-left: auto;
     }
 
     /* Main Workspace Center */
@@ -517,21 +603,10 @@
       background: var(--bg-base);
       padding: 10px 14px;
       gap: 10px;
+      min-width: 0;
     }
 
     /* Top Horizontal Stepper & KPI Bar */
-    .top-stepper-kpi-bar {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      padding: 10px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      box-shadow: var(--shadow-sm);
-    }
-
-    /* Top Stepper & Real-time KPI Bar */
     .top-stepper-kpi-bar {
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
@@ -566,118 +641,46 @@
     .kpi-card.offline { border-left-color: var(--accent-amber); }
     .kpi-card.error { border-left-color: var(--accent-rose); }
 
-    .kpi-meta .kpi-label { font-size: 0.70rem; color: var(--text-muted); font-weight: 600; }
+    .kpi-meta .kpi-label { font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
     .kpi-meta .kpi-value { font-size: 1.25rem; font-weight: 800; color: var(--text-main); line-height: 1.1; margin-top: 2px; }
     .kpi-card.total .kpi-value { color: var(--accent-primary); }
     .kpi-card.ok .kpi-value { color: var(--accent-emerald); }
     .kpi-card.offline .kpi-value { color: var(--accent-amber); }
     .kpi-card.error .kpi-value { color: var(--accent-rose); }
 
-    /* Connected Step Progress Bar */
-    .connected-progress-container {
+    /* WOW Glassmorphic Command HUD Card */
+    .command-hud-card {
       background: var(--bg-surface-elevated);
       border: 1px solid var(--border-subtle);
       border-radius: 8px;
-      padding: 8px 14px 10px 14px;
+      padding: 8px 12px;
       display: flex;
-      flex-direction: column;
-      gap: 8px;
+      align-items: center;
+      gap: 16px;
       transition: border-color 0.3s, background-color 0.3s;
     }
-    .connected-progress-container.completed-glow {
+    .command-hud-card.completed-glow {
       border-color: rgba(16, 185, 129, 0.45);
       background: rgba(16, 185, 129, 0.04);
     }
 
-    .connected-progress-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-    .progress-status-badge {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      overflow: hidden;
+    .hud-pipeline-zone {
+      flex: 1;
+      position: relative;
       min-width: 0;
     }
-    .status-indicator-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--text-muted);
-      flex-shrink: 0;
-      transition: all 0.25s;
-    }
-    .status-indicator-dot.scanning {
-      background: var(--accent-primary);
-      box-shadow: 0 0 8px rgba(2, 132, 199, 0.7);
-      animation: pulse-ring 1.3s infinite;
-    }
-    .status-indicator-dot.completed {
-      background: var(--accent-emerald);
-      box-shadow: 0 0 8px rgba(16, 185, 129, 0.7);
-    }
 
-    .status-phase-title {
-      font-size: 0.78rem;
-      font-weight: 700;
-      color: var(--text-main);
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .status-sep {
-      color: var(--border-subtle);
-      font-size: 0.70rem;
-    }
-    .status-activity-detail {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .progress-metrics-badge {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-shrink: 0;
-    }
-    .metric-time-wrap {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      font-family: monospace;
-      font-weight: 600;
-    }
-    .metric-percent {
-      font-size: 1.15rem;
-      font-weight: 800;
-      color: var(--accent-primary);
-      line-height: 1;
-      min-width: 44px;
-      text-align: right;
-    }
-    .metric-percent.completed {
-      color: var(--accent-emerald);
-    }
-
-    /* Connected Stepper Horizontal Track Wrap */
-    .connected-stepper-track-wrap {
+    .hud-track-wrap {
       position: relative;
       width: 100%;
-      padding: 4px 0 2px 0;
+      padding: 2px 0;
     }
 
     .stepper-line-bg {
       position: absolute;
-      top: 16px;
-      left: 50px;
-      right: 50px;
+      top: 15px;
+      left: 40px;
+      right: 40px;
       height: 4px;
       background: var(--border-subtle);
       border-radius: 999px;
@@ -686,18 +689,18 @@
 
     .stepper-line-fill {
       position: absolute;
-      top: 16px;
-      left: 50px;
+      top: 15px;
+      left: 40px;
       height: 4px;
-      max-width: calc(100% - 100px);
-      background: linear-gradient(90deg, var(--accent-primary), var(--accent-emerald));
+      max-width: calc(100% - 80px);
+      background: linear-gradient(90deg, #0284c7, #06b6d4, #10b981);
       border-radius: 999px;
       z-index: 2;
       transition: width 0.35s ease;
     }
     .stepper-line-fill.completed {
       background: var(--accent-emerald);
-      max-width: calc(100% - 100px);
+      max-width: calc(100% - 80px);
     }
 
     .stepper-node-list {
@@ -712,44 +715,40 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: 130px;
+      width: 110px;
       text-align: center;
       cursor: default;
     }
 
     .node-circle {
-      width: 26px;
+      min-width: 28px;
       height: 26px;
-      border-radius: 50%;
+      padding: 0 6px;
+      border-radius: 999px;
       background: var(--bg-surface);
       border: 2px solid var(--border-subtle);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.72rem;
-      font-weight: 700;
+      font-size: 0.68rem;
+      font-weight: 800;
       color: var(--text-muted);
       transition: all 0.25s ease;
       box-shadow: var(--shadow-sm);
     }
-    .node-circle .node-check {
-      display: none;
-    }
-    .node-circle .node-num {
-      display: block;
-      line-height: 1;
-    }
+    .node-circle .node-check { display: none; }
+    .node-circle .node-badge-text { display: block; line-height: 1; }
 
     .node-label {
       display: flex;
       flex-direction: column;
       align-items: center;
-      margin-top: 4px;
+      margin-top: 3px;
       overflow: hidden;
       width: 100%;
     }
     .node-title {
-      font-size: 0.72rem;
+      font-size: 0.70rem;
       font-weight: 700;
       color: var(--text-muted);
       line-height: 1.2;
@@ -759,7 +758,7 @@
       transition: color 0.25s;
     }
     .node-subtitle {
-      font-size: 0.63rem;
+      font-size: 0.62rem;
       color: var(--text-muted);
       opacity: 0.8;
       line-height: 1.2;
@@ -788,13 +787,8 @@
       color: #fff;
       box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
     }
-    .stepper-node.completed .node-circle .node-num {
-      display: none;
-    }
-    .stepper-node.completed .node-circle .node-check {
-      display: block;
-      stroke: #fff;
-    }
+    .stepper-node.completed .node-circle .node-badge-text { display: none; }
+    .stepper-node.completed .node-circle .node-check { display: block; stroke: #fff; }
     .stepper-node.completed .node-title {
       color: var(--accent-emerald);
       font-weight: 700;
@@ -810,15 +804,105 @@
       opacity: 0.5;
     }
 
-    @keyframes pulse-ring {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.08); }
+    /* Right Telemetry Cockpit Zone */
+    .hud-telemetry-zone {
+      width: 210px;
+      min-width: 210px;
+      flex-shrink: 0;
+    }
+    .telemetry-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 6px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      box-shadow: var(--shadow-sm);
+    }
+    .telemetry-row-main {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .telemetry-metric {
+      display: flex;
+      flex-direction: column;
+    }
+    .telemetry-lbl {
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .telemetry-val.mono {
+      font-family: monospace;
+      font-size: 0.88rem;
+      font-weight: 800;
+      color: var(--text-main);
+      line-height: 1.1;
+      margin-top: 1px;
+    }
+    .telemetry-val.percent {
+      font-size: 1.20rem;
+      font-weight: 900;
+      color: var(--accent-primary);
+      line-height: 1;
+      text-align: right;
+    }
+    .telemetry-val.percent.completed { color: var(--accent-emerald); }
+    .telemetry-divider {
+      width: 1px;
+      height: 24px;
+      background: var(--border-subtle);
+    }
+    .telemetry-row-sub {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.66rem;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 3px;
+    }
+    .telemetry-phase {
+      font-weight: 700;
+      color: var(--accent-primary);
+      flex-shrink: 0;
+    }
+    .telemetry-ticker {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    /* Live Data Grid (Full-Width 100%) */
+    .status-indicator-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      display: inline-block;
+    }
+    .status-indicator-dot.scanning {
+      background: var(--accent-primary);
+      box-shadow: 0 0 6px rgba(2, 132, 199, 0.8);
+      animation: pulse-ring 1.3s infinite;
+    }
+    .status-indicator-dot.completed {
+      background: var(--accent-emerald);
+      box-shadow: 0 0 6px rgba(16, 185, 129, 0.8);
+    }
+
+    /* Live Data Grid (Auto-Width Columns) */
     .table-section {
       flex: 1;
-      min-height: 180px;
+      min-height: 0;
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
       border-radius: 8px;
@@ -830,12 +914,13 @@
 
     .table-toolbar {
       padding: 8px 12px;
+      background: var(--bg-surface-elevated);
       border-bottom: 1px solid var(--border-subtle);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      background: var(--bg-surface-elevated);
+      gap: 12px;
+      flex-shrink: 0;
     }
 
     .table-title-wrap {
@@ -854,49 +939,48 @@
     }
 
     .search-table-input {
-      width: 220px;
-      background: var(--bg-surface);
+      background: var(--bg-input);
       border: 1px solid var(--border-subtle);
       border-radius: 6px;
       color: var(--text-main);
-      padding: 4px 8px 4px 28px;
-      font-size: 0.76rem;
+      padding: 5px 8px 5px 26px;
+      font-size: 0.74rem;
+      width: 190px;
       outline: none;
     }
     .search-table-input:focus {
       border-color: var(--accent-primary);
+      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
     }
 
     .filter-btn-pill {
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
-      color: var(--text-muted);
-      padding: 3px 8px;
-      font-size: 0.72rem;
-      border-radius: 4px;
-      cursor: pointer;
+      color: var(--text-secondary);
+      font-size: 0.70rem;
       font-weight: 600;
-      transition: all 0.15s;
+      padding: 3px 8px;
+      border-radius: 999px;
+      cursor: pointer;
     }
     .filter-btn-pill.active {
       background: var(--accent-primary);
-      color: #fff;
       border-color: var(--accent-primary);
+      color: #fff;
     }
 
     .btn-maximize {
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
       color: var(--text-secondary);
-      padding: 4px 8px;
-      font-size: 0.74rem;
+      font-size: 0.70rem;
       font-weight: 600;
+      padding: 3px 8px;
       border-radius: 6px;
       cursor: pointer;
-      display: inline-flex;
+      display: flex;
       align-items: center;
       gap: 4px;
-      transition: all 0.15s;
     }
     .btn-maximize:hover {
       border-color: var(--accent-primary);
@@ -905,82 +989,113 @@
 
     .table-scroll-wrap {
       flex: 1;
-      overflow-y: auto;
-      overflow-x: auto;
+      overflow: auto;
+      background: var(--bg-surface);
     }
 
-    table.live-grid {
+    .live-grid {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.78rem;
-      white-space: nowrap;
-    }
-    table.live-grid th {
-      background: var(--bg-surface-elevated);
-      padding: 8px 12px;
-      text-align: left;
-      font-weight: 700;
-      color: var(--text-secondary);
-      position: sticky;
-      top: 0;
-      border-bottom: 1px solid var(--border-subtle);
-      z-index: 10;
-    }
-    table.live-grid td {
-      padding: 6px 12px;
-      border-bottom: 1px solid var(--border-subtle);
-      color: var(--text-main);
-    }
-    table.live-grid tr:hover td {
-      background: rgba(2, 132, 199, 0.05);
+      table-layout: auto;
+      font-size: 0.76rem;
     }
 
-    /* High-contrast Status Badges */
+    .live-grid thead th {
+      position: sticky;
+      top: 0;
+      background: var(--bg-surface-elevated);
+      color: var(--text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      letter-spacing: 0.4px;
+      padding: 7px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      white-space: nowrap;
+      z-index: 5;
+    }
+
+    .live-grid tbody tr {
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background-color 0.1s;
+    }
+    .live-grid tbody tr:hover {
+      background-color: rgba(2, 132, 199, 0.06);
+    }
+
+    .live-grid tbody td {
+      padding: 6px 12px;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    .pc-name-bold {
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    /* Badges */
     .status-badge {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 0.70rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 0.68rem;
       font-weight: 700;
-      border: 1px solid transparent;
     }
-    .status-badge.ok {
-      background: #d1fae5;
-      color: #047857;
-      border-color: #a7f3d0;
+    .status-badge.ok { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .status-badge.offline { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .status-badge.scanning { background: rgba(2, 132, 199, 0.15); color: var(--accent-primary); border: 1px solid rgba(2, 132, 199, 0.3); animation: pulse-ring 1.3s infinite; }
+    .status-badge.error { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); border: 1px solid rgba(244, 63, 94, 0.3); }
+
+    .badge-fail-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 18px;
+      padding: 0 4px;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 700;
     }
-    .status-badge.offline {
-      background: #fef3c7;
-      color: #b45309;
-      border-color: #fde68a;
+    .badge-fail-count.zero {
+      background: var(--bg-surface-elevated);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
     }
-    .status-badge.error {
-      background: #ffe4e6;
-      color: #be123c;
-      border-color: #fecdd3;
-    }
-    .status-badge.scanning {
-      background: #dbeafe;
-      color: #1d4ed8;
-      border-color: #bfdbfe;
-      animation: pulse-badge 1.5s infinite;
+    .badge-fail-count.warning {
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--accent-rose);
+      border: 1px solid rgba(244, 63, 94, 0.4);
     }
 
-    html.dark .status-badge.ok { background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: rgba(16, 185, 129, 0.4); }
-    html.dark .status-badge.offline { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border-color: rgba(245, 158, 11, 0.4); }
-    html.dark .status-badge.error { background: rgba(244, 63, 94, 0.2); color: #fb7185; border-color: rgba(244, 63, 94, 0.4); }
-    html.dark .status-badge.scanning { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); }
-
-    @keyframes pulse-badge {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
+    .license-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface-elevated);
+      color: var(--text-secondary);
+    }
+    .license-badge.activated {
+      border-color: rgba(16, 185, 129, 0.35);
+      background: rgba(16, 185, 129, 0.08);
+      color: var(--accent-emerald);
+    }
+    .license-badge.unlicensed {
+      border-color: rgba(244, 63, 94, 0.35);
+      background: rgba(244, 63, 94, 0.08);
+      color: var(--accent-rose);
     }
 
-    /* Collapsible Bottom Dual-Tab Log Drawer */
+    /* Bottom Dual-Tab Log Drawer */
     .log-drawer {
-      height: 140px;
+      height: 180px;
       min-height: 38px;
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
@@ -988,52 +1103,52 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      box-shadow: var(--shadow-sm);
       transition: height 0.25s ease;
+      box-shadow: var(--shadow-sm);
     }
-    .log-drawer.collapsed {
-      height: 38px !important;
-    }
+    .log-drawer.collapsed { height: 38px !important; }
 
     .log-drawer-header {
-      height: 36px;
+      height: 38px;
       padding: 0 12px;
+      background: var(--bg-surface-elevated);
       border-bottom: 1px solid var(--border-subtle);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: var(--bg-surface-elevated);
-      cursor: pointer;
+      flex-shrink: 0;
     }
 
-    .log-tabs {
+    .log-tabs-wrap {
       display: flex;
-      gap: 6px;
       align-items: center;
+      gap: 4px;
     }
+
     .log-tab-btn {
       background: transparent;
       border: none;
-      padding: 6px 12px;
-      font-size: 0.76rem;
-      font-weight: 700;
+      padding: 6px 10px;
+      font-size: 0.74rem;
+      font-weight: 600;
       color: var(--text-muted);
       cursor: pointer;
       display: flex;
       align-items: center;
       gap: 6px;
       border-radius: 4px;
-      transition: all 0.15s;
     }
+    .log-tab-btn:hover { color: var(--text-main); }
     .log-tab-btn.active {
       background: var(--bg-surface);
       color: var(--accent-primary);
+      font-weight: 700;
       box-shadow: var(--shadow-sm);
     }
 
     .tab-badge {
-      font-size: 0.68rem;
-      padding: 1px 6px;
+      font-size: 0.65rem;
+      padding: 1px 5px;
       border-radius: 999px;
       background: var(--border-subtle);
       color: var(--text-secondary);
@@ -1042,12 +1157,6 @@
     .log-tab-btn.active .tab-badge {
       background: rgba(2, 132, 199, 0.15);
       color: var(--accent-primary);
-    }
-
-    .log-drawer-actions {
-      display: flex;
-      align-items: center;
-      gap: 6px;
     }
 
     .log-content-body {
@@ -1075,15 +1184,15 @@
 
     /* Maximize Mode for Workspace */
     .workspace-layout.maximized .sidebar-compact,
+    .workspace-layout.maximized .sidebar-right-compact,
     .workspace-layout.maximized .top-stepper-kpi-bar,
-    .workspace-layout.maximized .log-drawer {
+    .workspace-layout.maximized .log-drawer,
+    .workspace-layout.maximized .edge-handle-tab {
       display: none !important;
     }
-    .workspace-layout.maximized .table-section {
-      height: 100%;
-    }
+    .workspace-layout.maximized .table-section { height: 100%; }
 
-    /* Modal Styles */
+    /* Modals */
     .modal-backdrop {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -1103,7 +1212,7 @@
       border-radius: 12px;
       box-shadow: var(--shadow-lg);
       width: 100%;
-      max-width: 960px;
+      max-width: 900px;
       max-height: 85vh;
       display: flex;
       flex-direction: column;
@@ -1128,127 +1237,155 @@
     }
 
     .modal-body {
-      padding: 14px 18px;
+      padding: 18px;
       overflow-y: auto;
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 16px;
     }
 
     .modal-footer {
-      padding: 10px 18px;
+      padding: 12px 18px;
       border-top: 1px solid var(--border-subtle);
       background: var(--bg-surface-elevated);
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
+      gap: 8px;
     }
 
-    /* Toast */
+    .btn-secondary {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 7px 14px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-secondary:hover {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+
+    .btn-primary {
+      background: var(--accent-primary);
+      border: none;
+      color: #fff;
+      padding: 7px 16px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-primary:hover { filter: brightness(1.1); }
+
+    .btn-icon-nav {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-icon-nav:hover {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+
+    /* Toasts */
     .toast-container {
       position: fixed;
-      bottom: 16px;
-      right: 16px;
-      z-index: 9999;
+      bottom: 20px;
+      right: 20px;
+      z-index: 300;
       display: flex;
       flex-direction: column;
       gap: 8px;
       pointer-events: none;
     }
     .toast {
-      pointer-events: auto;
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
-      box-shadow: var(--shadow-lg);
-      padding: 8px 14px;
-      border-radius: 6px;
+      color: var(--text-main);
+      padding: 10px 14px;
+      border-radius: 8px;
       font-size: 0.78rem;
       font-weight: 600;
+      box-shadow: var(--shadow-lg);
       display: flex;
       align-items: center;
       gap: 8px;
-      animation: slideInToast 0.2s ease-out;
-      border-left: 4px solid var(--accent-primary);
+      pointer-events: auto;
+      animation: slide-in 0.2s ease-out;
     }
-    .toast.success { border-left-color: var(--accent-emerald); }
-    .toast.warning { border-left-color: var(--accent-amber); }
-    .toast.error { border-left-color: var(--accent-rose); }
+    .toast.success { border-left: 4px solid var(--accent-emerald); }
+    .toast.info { border-left: 4px solid var(--accent-primary); }
+    .toast.warning { border-left: 4px solid var(--accent-amber); }
+    .toast.error { border-left: 4px solid var(--accent-rose); }
 
-    @keyframes slideInToast {
+    @keyframes slide-in {
       from { transform: translateX(100%); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
     }
-
-    /* In-App Browser Styles */
-    .fs-drives-row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
-    .fs-drive-badge { background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; cursor: pointer; display: flex; align-items: center; gap: 4px; }
-    .fs-drive-badge.active { border-color: var(--accent-primary); background: rgba(2, 132, 199, 0.1); font-weight: 700; color: var(--accent-primary); }
-    .fs-path-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
-    .fs-list-container { flex: 1; min-height: 250px; max-height: 380px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: 6px; background: var(--bg-input); }
-    .fs-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid var(--border-subtle); cursor: pointer; font-size: 0.76rem; }
-    .fs-item:hover { background: var(--bg-surface-elevated); }
-    .fs-item.selected { background: rgba(2, 132, 199, 0.15); border-color: var(--accent-primary); font-weight: 600; }
+    @keyframes pulse-ring {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
   </style>
 </head>
 <body>
 
-  <!-- Top Header Navigation -->
+  <!-- Top Navigation Header -->
   <header>
     <div class="brand-group">
       <div class="brand-badge">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       </div>
       <div class="brand-title">
-        FTI PC Inventory Tool
-        <span class="version-tag">v2.1 Enterprise</span>
+        <span>FTI PC Inventory Tool</span>
+        <span class="version-tag">v2.2 Enterprise</span>
       </div>
-      <div id="adminBadge" class="admin-pill">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        <span>Admin Active</span>
+      <div class="admin-pill" id="adminPill">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>Checking Admin...</span>
       </div>
     </div>
 
-    <!-- Consolidated Header Action Bar (No bottom dock needed) -->
-    <div class="header-actions">
-      <button class="btn-action-nav" id="btnOpenMasterHub" title="ศูนย์จัดการฐานข้อมูล Master Files">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-        คลังข้อมูล Master
-        <span class="nav-badge" id="navMasterCount">0</span>
-      </button>
-
-      <button class="btn-action-nav" id="btnOpenScheduler" title="ตั้งเวลาสแกนอัตโนมัติ">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        ตั้งเวลาสแกน
-      </button>
-
-      <button class="btn-action-nav" id="btnOpenFolder" title="เปิดโฟลเดอร์ผลลัพธ์การสแกน">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        เปิดโฟลเดอร์
-      </button>
-
-      <button class="btn-action-nav" id="btnOpenHtmlReport" disabled title="ดูรายงานสรุปผลซอฟต์แวร์แบบ HTML">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-        รายงาน HTML
-      </button>
-
-      <button class="btn-icon-nav" id="themeToggle" title="สลับธีม สว่าง / มืด">
-        <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-      </button>
+    <!-- Live Auto-Scan Countdown Banner in Top Header -->
+    <div class="header-right-zone">
+      <div class="top-schedule-banner" id="topScheduleBanner" style="display: none;" title="Auto-scan schedule is active">
+        <span class="sched-pulse-dot"></span>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span class="sched-label">Next Auto-Scan:</span>
+        <span class="sched-countdown" id="topSchedCountdown">--:--:--</span>
+      </div>
     </div>
   </header>
 
   <!-- Main Workspace -->
   <div class="workspace-layout" id="workspaceLayout">
 
-    <!-- Collapsible Compact Sidebar (300px) -->
+    <!-- Pinned Left Window-Edge Handle Tab -->
+    <button class="edge-handle-tab edge-left" id="btnEdgeLeft" title="Toggle Scan Settings Sidebar">
+      <svg class="edge-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+
+    <!-- Collapsible Compact Sidebar (Left 300px) -->
     <aside class="sidebar-compact" id="sidebarCompact">
       <div class="sidebar-header">
         <div class="sidebar-header-title">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-          ตั้งค่าการสแกน
+          Scan Settings
         </div>
-        <button class="btn-icon-nav" id="btnToggleSidebar" style="width:26px; height:26px;" title="ซ่อนแถบตั้งค่า">
+        <button class="btn-icon-nav" id="btnToggleSidebar" style="width:26px; height:26px;" title="Collapse Scan Settings">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
       </div>
@@ -1257,35 +1394,35 @@
         <!-- Section 1: Target Scope & Server Exclusion -->
         <div class="accordion-section active">
           <div class="accordion-header" onclick="toggleAccordion(this)">
-            <span>1. เป้าหมาย & การกรอง Server</span>
+            <span>1. Targets & Server Filtering</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div class="accordion-content">
             <div style="display: flex; flex-direction: column; gap: 6px;">
               <label class="compact-radio-card active" id="lblSourceLocal">
                 <input type="radio" name="source" value="localhost" checked id="rbLocal">
-                <span>เครื่องนี้ (Localhost)</span>
+                <span>This Computer (Localhost)</span>
               </label>
 
               <label class="compact-radio-card" id="lblSourceAD">
                 <input type="radio" name="source" value="ad" id="rbAD">
-                <span>Active Directory (ทั้งองค์กร)</span>
+                <span>Active Directory (Entire Domain)</span>
               </label>
 
               <div id="boxAdDays" style="display: none; padding-left: 20px;">
-                <span class="field-label">เข้าใช้โดเมนภายใน (วัน, 0=ทั้งหมด):</span>
+                <span class="field-label">Domain Logon within (Days, 0=All):</span>
                 <input type="number" id="numDays" value="30" min="0" max="365" class="input-compact" style="width: 80px;">
               </div>
 
               <label class="compact-radio-card" id="lblSourceFile">
                 <input type="radio" name="source" value="file" id="rbFile">
-                <span>ไฟล์รายชื่อเป้าหมาย (.txt)</span>
+                <span>Target Host List File (.txt)</span>
               </label>
 
               <div id="boxListFile" style="display: none; padding-left: 20px;">
                 <div class="input-group-row">
-                  <input type="text" id="txtListFile" placeholder="เลือก pcs.txt..." class="input-compact">
-                  <button class="btn-browse" id="btnBrowseFile">เลือก...</button>
+                  <input type="text" id="txtListFile" placeholder="Select pcs.txt..." class="input-compact">
+                  <button class="btn-browse" id="btnBrowseFile">Browse...</button>
                 </div>
               </div>
             </div>
@@ -1294,14 +1431,14 @@
             <div style="margin-top: 6px; padding: 8px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 6px;">
               <label style="display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.74rem; cursor: pointer;">
                 <input type="checkbox" id="chkSkipServers" checked style="accent-color: var(--accent-primary);">
-                <span>🛡️ ข้าม Server & Remote อัตโนมัติ</span>
+                <span>🛡️ Auto-Exclude Servers & Remote Hosts</span>
               </label>
               
               <div style="margin-top: 6px;">
-                <span class="field-label">ไฟล์รายชื่อ Server ที่ต้องการยกเว้น (.txt):</span>
+                <span class="field-label">Exclusion Host List File (.txt):</span>
                 <div class="input-group-row">
-                  <input type="text" id="txtExcludeServerFile" placeholder="เลือก servers_skip.txt..." class="input-compact">
-                  <button class="btn-browse" id="btnBrowseExcludeServer">เลือก...</button>
+                  <input type="text" id="txtExcludeServerFile" placeholder="Select servers_skip.txt..." class="input-compact">
+                  <button class="btn-browse" id="btnBrowseExcludeServer">Browse...</button>
                 </div>
               </div>
             </div>
@@ -1311,20 +1448,20 @@
         <!-- Section 2: Storage & Output Directory -->
         <div class="accordion-section active">
           <div class="accordion-header" onclick="toggleAccordion(this)">
-            <span>2. โหมดบันทึก & ผลลัพธ์</span>
+            <span>2. Storage & Output Mode</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div class="accordion-content">
             <label style="display: flex; align-items: center; gap: 6px; font-size: 0.76rem; font-weight: 600; cursor: pointer;">
               <input type="checkbox" id="chkMasterDb" checked style="accent-color: var(--accent-primary);">
-              <span>อัปเดตสะสมเข้า Master Database</span>
+              <span>Accumulate into Master Database</span>
             </label>
 
             <div>
-              <span class="field-label">โฟลเดอร์ผลลัพธ์ (Output):</span>
+              <span class="field-label">Output Directory:</span>
               <div class="input-group-row">
                 <input type="text" id="txtOutDir" value="C:\Inventory" class="input-compact">
-                <button class="btn-browse" id="btnBrowseFolder">เลือก...</button>
+                <button class="btn-browse" id="btnBrowseFolder">Browse...</button>
               </div>
               <div style="display: flex; gap: 4px; margin-top: 4px;">
                 <button type="button" class="preset-chip" onclick="setOutDirPreset('C:\\Inventory')">C:\Inv</button>
@@ -1335,7 +1472,7 @@
 
             <label style="display: flex; align-items: center; gap: 6px; font-size: 0.74rem; cursor: pointer;">
               <input type="checkbox" id="chkAutoHtml" checked style="accent-color: var(--accent-primary);">
-              <span>เปิดรายงาน HTML อัตโนมัติเมื่อเสร็จ</span>
+              <span>Auto-open HTML report upon completion</span>
             </label>
           </div>
         </div>
@@ -1343,12 +1480,12 @@
         <!-- Section 3: Performance & Scope -->
         <div class="accordion-section">
           <div class="accordion-header" onclick="toggleAccordion(this)">
-            <span>3. ขอบเขตสแกน & ความเร็ว</span>
+            <span>3. Scan Scope & Performance</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div class="accordion-content">
             <div class="toggle-compact-row">
-              <span class="toggle-text">สแกนฮาร์ดแวร์ (CPU, RAM, Disks)</span>
+              <span class="toggle-text">Scan Hardware (CPU, RAM, Disks)</span>
               <label class="switch-compact">
                 <input type="checkbox" id="chkHw" checked>
                 <span class="switch-slider"></span>
@@ -1356,7 +1493,7 @@
             </div>
 
             <div class="toggle-compact-row">
-              <span class="toggle-text">สแกนโปรแกรมซอฟต์แวร์</span>
+              <span class="toggle-text">Scan Installed Software</span>
               <label class="switch-compact">
                 <input type="checkbox" id="chkSw" checked>
                 <span class="switch-slider"></span>
@@ -1365,25 +1502,25 @@
 
             <div id="swSubBox" style="display: flex; flex-direction: column; gap: 6px; padding: 6px 8px; background: var(--bg-surface-elevated); border-radius: 6px;">
               <div>
-                <span class="field-label">กรองชื่อโปรแกรม (ใส่ * ได้):</span>
+                <span class="field-label">Filter Software Name (* wildcards):</span>
                 <input type="text" id="txtNameFilter" value="*" class="input-compact">
               </div>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;">
                 <input type="checkbox" id="chkUser" style="accent-color: var(--accent-primary);">
-                <span>รวมโปรแกรมเฉพาะ User</span>
+                <span>Include user-specific installations</span>
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;">
                 <input type="checkbox" id="chkHidden" style="accent-color: var(--accent-primary);">
-                <span>รวม System & Windows Update</span>
+                <span>Include System components & Windows Updates</span>
               </label>
             </div>
 
             <div>
-              <span class="field-label">โหมดความเร็ว (Presets):</span>
+              <span class="field-label">Performance Presets:</span>
               <div style="display: flex; gap: 4px;">
-                <button type="button" class="preset-chip" onclick="setPerfPreset(10, 30)">🛡️ ปลอดภัย</button>
-                <button type="button" class="preset-chip" onclick="setPerfPreset(20, 30)">⚖️ สมดุล</button>
-                <button type="button" class="preset-chip" onclick="setPerfPreset(40, 15)">🚀 เร็วสูง</button>
+                <button type="button" class="preset-chip" onclick="setPerfPreset(10, 30)">🛡️ Safe</button>
+                <button type="button" class="preset-chip" onclick="setPerfPreset(20, 30)">⚖️ Balanced</button>
+                <button type="button" class="preset-chip" onclick="setPerfPreset(40, 15)">🚀 High Speed</button>
               </div>
               <input type="hidden" id="numThrottle" value="20">
             </div>
@@ -1395,17 +1532,17 @@
       <div class="sidebar-footer-actions">
         <button class="btn-retry-offline" id="btnRetryOffline">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-          สแกนซ้ำเครื่อง Offline (<span id="badgeOfflineCount">0</span>)
+          Retry Offline Hosts (<span id="badgeOfflineCount">0</span>)
         </button>
 
         <button class="btn-scan-main" id="btnStartScan">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          เริ่มการสแกนทันที
+          Start Network Scan
         </button>
 
         <button class="btn-cancel-scan" id="btnCancelScan" disabled>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
-          ยกเลิกการสแกน
+          Cancel Scan
         </button>
       </div>
     </aside>
@@ -1419,138 +1556,140 @@
         <div class="kpi-row">
           <div class="kpi-card total">
             <div class="kpi-meta">
-              <div class="kpi-label">เป้าหมายทั้งหมด</div>
+              <div class="kpi-label">TOTAL TARGETS</div>
               <div class="kpi-value" id="statTotal">0</div>
             </div>
           </div>
 
           <div class="kpi-card ok">
             <div class="kpi-meta">
-              <div class="kpi-label">สแกนสำเร็จ (OK)</div>
+              <div class="kpi-label">SCAN SUCCESS (OK)</div>
               <div class="kpi-value" id="statOk">0</div>
             </div>
           </div>
 
           <div class="kpi-card offline">
             <div class="kpi-meta">
-              <div class="kpi-label">ออฟไลน์ (Offline)</div>
+              <div class="kpi-label">OFFLINE HOSTS</div>
               <div class="kpi-value" id="statOffline">0</div>
             </div>
           </div>
 
           <div class="kpi-card error">
             <div class="kpi-meta">
-              <div class="kpi-label">ข้อผิดพลาด (Error)</div>
+              <div class="kpi-label">ERRORS & FAILED</div>
               <div class="kpi-value" id="statError">0</div>
             </div>
           </div>
         </div>
 
-        <!-- Connected Step Progress Bar Container -->
-        <div class="connected-progress-container" id="connectedProgressContainer">
-          <!-- Status & Metrics Header Row -->
-          <div class="connected-progress-header">
-            <div class="progress-status-badge">
-              <span class="status-indicator-dot" id="statusIndicatorDot"></span>
-              <span class="status-phase-title" id="statusPhaseTitle">พร้อมสำหรับการสแกน</span>
-              <span class="status-sep">|</span>
-              <span class="status-activity-detail" id="scanCurrentMsg">กรุณาเลือกเป้าหมายแล้วกดเริ่มการสแกน</span>
-            </div>
-            <div class="progress-metrics-badge">
-              <span class="metric-time-wrap">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span id="scanElapsed">00:00</span>
-              </span>
-              <span class="metric-percent" id="progressPctText">0%</span>
+        <!-- WOW Glassmorphic Command HUD -->
+        <div class="command-hud-card" id="connectedProgressContainer">
+          <!-- Left/Center Milestone Pipeline (START -> 1 -> 2 -> FINAL) -->
+          <div class="hud-pipeline-zone">
+            <div class="hud-track-wrap">
+              <div class="stepper-line-bg"></div>
+              <div class="stepper-line-fill" id="progressBarFill" style="width: 0%;"></div>
+
+              <div class="stepper-node-list">
+                <!-- Milestone START -->
+                <div class="stepper-node active" id="step1Item">
+                  <div class="node-circle" id="step1Circle">
+                    <span class="node-badge-text">START</span>
+                    <svg class="node-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <div class="node-label">
+                    <span class="node-title">Target Discovery</span>
+                    <span class="node-subtitle">AD & Exclusions</span>
+                  </div>
+                </div>
+
+                <!-- Milestone 1 -->
+                <div class="stepper-node" id="step2Item">
+                  <div class="node-circle" id="step2Circle">
+                    <span class="node-badge-text">1</span>
+                    <svg class="node-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <div class="node-label">
+                    <span class="node-title">1. Hardware Scan</span>
+                    <span class="node-subtitle">WMI / CIM & License</span>
+                  </div>
+                </div>
+
+                <!-- Milestone 2 -->
+                <div class="stepper-node" id="step3Item">
+                  <div class="node-circle" id="step3Circle">
+                    <span class="node-badge-text">2</span>
+                    <svg class="node-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <div class="node-label">
+                    <span class="node-title">2. Software Scan</span>
+                    <span class="node-subtitle">WinRM & DCOM</span>
+                  </div>
+                </div>
+
+                <!-- Milestone FINAL -->
+                <div class="stepper-node" id="step4Item">
+                  <div class="node-circle" id="step4Circle">
+                    <span class="node-badge-text">FINAL</span>
+                    <svg class="node-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                  </div>
+                  <div class="node-label">
+                    <span class="node-title">Final: Summary</span>
+                    <span class="node-subtitle">Master DB & Reports</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- Connected Track & Step Nodes -->
-          <div class="connected-stepper-track-wrap">
-            <div class="stepper-line-bg"></div>
-            <div class="stepper-line-fill" id="progressBarFill" style="width: 0%;"></div>
-
-            <div class="stepper-node-list">
-              <!-- Step 1 -->
-              <div class="stepper-node active" id="step1Item">
-                <div class="node-circle" id="step1Circle">
-                  <span class="node-num" id="step1Num">1</span>
-                  <svg class="node-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          <!-- Right Telemetry Cockpit HUD -->
+          <div class="hud-telemetry-zone">
+            <div class="telemetry-box">
+              <div class="telemetry-row-main">
+                <div class="telemetry-metric">
+                  <span class="telemetry-lbl">
+                    <span class="status-indicator-dot" id="statusIndicatorDot"></span>
+                    SCAN TIME
+                  </span>
+                  <span class="telemetry-val mono" id="scanElapsed">00:00</span>
                 </div>
-                <div class="node-label">
-                  <span class="node-title">1. เตรียมเป้าหมาย</span>
-                  <span class="node-subtitle">กรองเครื่อง & Server</span>
-                </div>
-              </div>
-
-              <!-- Step 2 -->
-              <div class="stepper-node" id="step2Item">
-                <div class="node-circle" id="step2Circle">
-                  <span class="node-num" id="step2Num">2</span>
-                  <svg class="node-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-                <div class="node-label">
-                  <span class="node-title">2. สแกนฮาร์ดแวร์</span>
-                  <span class="node-subtitle">WMI / CIM</span>
+                <div class="telemetry-divider"></div>
+                <div class="telemetry-metric">
+                  <span class="telemetry-lbl">PROGRESS</span>
+                  <span class="telemetry-val percent" id="progressPctText">0%</span>
                 </div>
               </div>
-
-              <!-- Step 3 -->
-              <div class="stepper-node" id="step3Item">
-                <div class="node-circle" id="step3Circle">
-                  <span class="node-num" id="step3Num">3</span>
-                  <svg class="node-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-                <div class="node-label">
-                  <span class="node-title">3. สแกนซอฟต์แวร์</span>
-                  <span class="node-subtitle">WinRM / DCOM</span>
-                </div>
-              </div>
-
-              <!-- Step 4 -->
-              <div class="stepper-node" id="step4Item">
-                <div class="node-circle" id="step4Circle">
-                  <span class="node-num" id="step4Num">4</span>
-                  <svg class="node-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-                <div class="node-label">
-                  <span class="node-title">4. สรุป & สร้างไฟล์</span>
-                  <span class="node-subtitle">Master CSV & Report</span>
-                </div>
+              <div class="telemetry-row-sub">
+                <span class="telemetry-phase" id="statusPhaseTitle">Ready</span>
+                <span class="telemetry-dot-sep">•</span>
+                <span class="telemetry-ticker" id="scanCurrentMsg">Ready for inventory scan</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Live Results Table (Full-Width 100%) -->
+      <!-- Live Results Table (Auto-Width Columns) -->
       <section class="table-section" id="tableSection">
         <div class="table-toolbar">
           <div class="table-title-wrap">
-            <button class="btn-icon-nav" id="btnToggleSidebarFloat" style="width:26px; height:26px; display:none;" title="แสดงแถบตั้งค่า">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
-            <span>ตารางผลการสแกนสด (Live Grid)</span>
-            <span class="nav-badge" id="lblTableTotalCount" style="background:var(--border-subtle); color:var(--text-secondary);">0 เครื่อง</span>
+            <span>Live Scan Results (Grid View)</span>
+            <span class="nav-badge" id="lblTableTotalCount" style="background:var(--border-subtle); color:var(--text-secondary);">0 Computers</span>
           </div>
 
           <div class="table-actions-wrap">
             <div style="position: relative;">
               <svg style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%); width: 13px; height: 13px; stroke: var(--text-muted); fill: none;" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input type="text" id="txtSearchTable" placeholder="ค้นหาเครื่อง, สเปก, IP, OU..." class="search-table-input">
+              <input type="text" id="txtSearchTable" placeholder="Search host, specs, user, IP, license..." class="search-table-input">
             </div>
 
             <div style="display: flex; gap: 4px;">
-              <button class="filter-btn-pill active" data-filter="all">ทั้งหมด</button>
-              <button class="filter-btn-pill" data-filter="OK">สำเร็จ (OK)</button>
-              <button class="filter-btn-pill" data-filter="Offline">ออฟไลน์</button>
-              <button class="filter-btn-pill" data-filter="Error">ผิดพลาด</button>
+              <button class="filter-btn-pill active" data-filter="all">All</button>
+              <button class="filter-btn-pill" data-filter="OK">Success (OK)</button>
+              <button class="filter-btn-pill" data-filter="Offline">Offline</button>
+              <button class="filter-btn-pill" data-filter="Error">Failed</button>
             </div>
-
-            <button class="btn-maximize" id="btnMaximizeTable" title="ขยายตารางเต็มหน้าจอ (100% Fullscreen)">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-              <span id="lblMaximizeBtn">⛶ ขยายเต็มจอ</span>
-            </button>
           </div>
         </div>
 
@@ -1558,24 +1697,21 @@
           <table class="live-grid" id="resultsTable">
             <thead>
               <tr>
-                <th>ชื่อเครื่อง (PC Name)</th>
-                <th>สถานะ</th>
-                <th>ผู้ใช้งาน</th>
-                <th>CPU / Cores</th>
+                <th>Scan Status</th>
+                <th style="text-align: center;">Failed Scans</th>
+                <th>PC Name</th>
+                <th>Windows License Types</th>
+                <th>OS</th>
+                <th>CPU</th>
                 <th>RAM</th>
-                <th>ดิสก์ C:</th>
-                <th>เปิดเครื่องล่าสุด (Uptime)</th>
-                <th>เข้า AD ล่าสุด</th>
-                <th>OU / แผนก</th>
-                <th>ระบบปฏิบัติการ (OS)</th>
-                <th>IP Address</th>
-                <th style="text-align: center;">สแกน</th>
+                <th>Disk Space</th>
+                <th>User</th>
               </tr>
             </thead>
             <tbody id="tableBody">
               <tr>
-                <td colspan="12" style="text-align: center; color: var(--text-muted); padding: 35px;">
-                  ยังไม่มีข้อมูลผลการสแกน (กด "เริ่มการสแกนทันที" ทางด้านซ้าย)
+                <td colspan="9" style="text-align: center; color: var(--text-muted); padding: 35px;">
+                  No scan results available yet. (Click "Start Network Scan" on the left)
                 </td>
               </tr>
             </tbody>
@@ -1583,75 +1719,107 @@
         </div>
       </section>
 
-      <!-- Collapsible Bottom Dual-Tab Log Drawer -->
-      <div class="log-drawer" id="logDrawer">
+      <!-- Bottom Dual-Tab Log Drawer -->
+      <section class="log-drawer collapsed" id="logDrawer">
         <div class="log-drawer-header">
-          <div class="log-tabs">
+          <div class="log-tabs-wrap">
             <button class="log-tab-btn active" id="tabBtnScan" onclick="switchLogTab('scan')">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              📡 บันทึกการสแกน (Scan Log)
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              <span>Scan Log Stream</span>
               <span class="tab-badge" id="badgeScanCount">0</span>
             </button>
-
             <button class="log-tab-btn" id="tabBtnSystem" onclick="switchLogTab('system')">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              ⚙️ บันทึกระบบหลังบ้าน (System Log)
+              <span>Backend System Log</span>
               <span class="tab-badge" id="badgeSystemCount">0</span>
             </button>
           </div>
 
           <div class="log-drawer-actions">
-            <button class="btn-browse" id="btnClearLogs" style="padding: 2px 8px; font-size: 0.70rem;">ล้างบันทึก</button>
-            <button class="btn-icon-nav" id="btnToggleLogDrawer" style="width:24px; height:24px;" title="ย่อ / ขยาย">
-              <svg id="chevronLog" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            <button class="btn-icon-nav" id="btnClearLogs" style="width:24px; height:24px;" title="Clear Active Logs">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+            <button class="btn-icon-nav" id="btnToggleLogDrawer" style="width:24px; height:24px;" title="Toggle Log Drawer">
+              <svg id="chevronLog" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform: rotate(180deg);"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
           </div>
         </div>
 
         <div class="log-content-body" id="terminalScanBody">
-          <div class="log-line"><span class="log-ts">[00:00:00]</span> พร้อมสำหรับการสแกนเครือข่าย FTI PC Inventory Tool</div>
+          <div class="log-line"><span class="log-ts">[Ready]</span> <span class="log-info">FTI PC Inventory Tool engine initialized.</span></div>
         </div>
-
         <div class="log-content-body" id="terminalSystemBody" style="display: none;">
-          <div class="log-line"><span class="log-ts">[00:00:00]</span> <span class="log-info">[INFO]</span> Backend Engine System Log initialized.</div>
+          <div class="log-line"><span class="log-ts">[System]</span> <span class="log-ok">Internal HTTP API Server active on 127.0.0.1.</span></div>
         </div>
-      </div>
-
+      </section>
     </main>
-  </div>
 
-  <!-- In-App File & Folder Browser Modal -->
-  <div class="modal-backdrop" id="fsModalBackdrop">
-    <div class="modal-window" style="max-width: 680px;">
-      <div class="modal-header">
-        <div class="modal-title">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-          <span id="fsModalTitleText">เลือกโฟลเดอร์</span>
+    <!-- Collapsible Right Utility Sidebar (260px) -->
+    <aside class="sidebar-right-compact" id="sidebarRight">
+      <div class="sidebar-header">
+        <div class="sidebar-header-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          Tools & Utilities
         </div>
-        <button class="btn-icon-nav" id="fsBtnClose" style="width:26px; height:26px;">✖</button>
+        <button class="btn-icon-nav" id="btnToggleSidebarRight" style="width:26px; height:26px;" title="Collapse Utility Panel">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
       </div>
 
-      <div class="modal-body">
-        <div class="fs-drives-row" id="fsDrivesContainer"></div>
-        <div class="fs-path-row">
-          <button class="btn-browse" id="fsBtnUpLevel">ขึ้นบน ⬆</button>
-          <input type="text" class="input-compact" id="fsCurrentPathInput" style="flex:1;">
-          <button class="btn-browse" id="fsBtnGoPath">ไป</button>
-          <button class="btn-browse" id="fsBtnNewFolder">+ โฟลเดอร์</button>
+      <div class="sidebar-right-body">
+        <!-- Appearance Theme Card -->
+        <div class="util-card">
+          <div class="util-card-label">Appearance & Display</div>
+          <button class="btn-util-action" id="themeToggle">
+            <svg id="themeIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <span id="themeToggleText">Switch to Dark Theme</span>
+          </button>
         </div>
-        <div class="fs-list-container" id="fsItemsList"></div>
-      </div>
 
-      <div class="modal-footer">
-        <div style="font-size: 0.74rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">
-          เลือก: <b id="fsSelectedPathText" style="color: var(--text-main);">-</b>
+        <!-- Master DB Hub Card -->
+        <div class="util-card">
+          <div class="util-card-label">Master Database</div>
+          <div class="util-card-desc">Cumulative repository tracking unique PCs across all scans.</div>
+          <button class="btn-util-action primary" id="btnOpenMasterHub">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            <span>Master DB Hub</span>
+            <span class="nav-badge" id="badgeMasterDbHeader">0</span>
+          </button>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn-browse" id="fsBtnCancel">ยกเลิก</button>
-          <button class="btn-action-nav" id="fsBtnSelect" style="background: var(--accent-primary); color: #fff; border-color: var(--accent-primary);">เลือกรายการนี้</button>
+
+        <!-- Automated Scheduler Card -->
+        <div class="util-card">
+          <div class="util-card-label">Automation & Scheduler</div>
+          <div class="util-card-desc">Schedule recurring network inventory scans.</div>
+          <button class="btn-util-action" id="btnOpenScheduler">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Auto-Scan Scheduler</span>
+          </button>
+        </div>
+
+        <!-- Output & Reports Card -->
+        <div class="util-card">
+          <div class="util-card-label">Outputs & Reports</div>
+          <button class="btn-util-action" id="btnOpenFolder">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span>Open Output Folder</span>
+          </button>
+          <button class="btn-util-action" id="btnOpenHtmlReport" disabled>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span>HTML Summary Report</span>
+          </button>
+          <button class="btn-util-action" id="btnMaximizeTable">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            <span id="lblMaximizeBtn">Fullscreen Data Grid</span>
+          </button>
         </div>
       </div>
-    </div>
+    </aside>
+
+    <!-- Pinned Right Window-Edge Handle Tab -->
+    <button class="edge-handle-tab edge-right" id="btnEdgeRight" title="Toggle Tools & Utilities Sidebar">
+      <svg class="edge-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
   </div>
 
   <!-- Master Database Hub Modal -->
@@ -1659,164 +1827,141 @@
     <div class="modal-window">
       <div class="modal-header">
         <div class="modal-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-          ศูนย์จัดการฐานข้อมูล Master Database (Hardware & Software)
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          Enterprise Master Database Hub
         </div>
-        <button class="btn-icon-nav" id="masterBtnClose" style="width:26px; height:26px;">✖</button>
+        <button class="btn-icon-nav" id="masterBtnClose">✖</button>
       </div>
-
       <div class="modal-body">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-          <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <b>📁 Hardware_Master.csv</b>
-              <span class="status-badge ok" id="badgeHwMasterStatus">พบไฟล์</span>
-            </div>
-            <div style="font-size: 0.74rem; color: var(--text-muted);">
-              ทั้งหมด: <b id="lblHwMasterTotal" style="color:var(--text-main);">0</b> เครื่อง &bull; ขนาด: <span id="lblHwMasterSize">-</span> &bull; แก้ไข: <span id="lblHwMasterDate">-</span>
-            </div>
-            <div style="display: flex; gap: 6px; margin-top: 4px;">
-              <button class="btn-browse" id="btnOpenHwMasterFile">เปิดไฟล์</button>
-              <button class="btn-browse" id="btnBackupHwMaster">สำรอง (Backup)</button>
+        <div style="font-size: 0.76rem; color: var(--text-muted);">
+          The Master Database stores cumulative records across all network scans, tracking first seen, last scan timestamps, hardware specs, and failure history.
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <!-- Hardware Master Card -->
+          <div class="util-card">
+            <div class="util-card-label">Hardware Master Database</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--accent-primary);" id="lblHwMasterTotal">0 Records</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);" id="lblHwMasterSize">Size: 0 KB</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); word-break: break-all;" id="lblHwMasterPath">Hardware_Master.csv</div>
+            <div style="display: flex; gap: 6px; margin-top: 6px;">
+              <button class="btn-secondary" style="flex:1;" onclick="openMasterFile('hardware')">Open File</button>
+              <button class="btn-secondary" style="flex:1;" onclick="exportMasterBackup('hardware')">Export Backup</button>
             </div>
           </div>
 
-          <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <b>📁 Software_Master.csv</b>
-              <span class="status-badge ok" id="badgeSwMasterStatus">พบไฟล์</span>
-            </div>
-            <div style="font-size: 0.74rem; color: var(--text-muted);">
-              รายการ: <b id="lblSwMasterRecords" style="color:var(--text-main);">0</b> &bull; โปรแกรมไม่ซ้ำ: <span id="lblSwMasterUnique">0</span> &bull; ขนาด: <span id="lblSwMasterSize">-</span>
-            </div>
-            <div style="display: flex; gap: 6px; margin-top: 4px;">
-              <button class="btn-browse" id="btnOpenSwMasterFile">เปิดไฟล์</button>
-              <button class="btn-browse" id="btnOpenSwSumMasterFile">สรุปโปรแกรม</button>
+          <!-- Software Master Card -->
+          <div class="util-card">
+            <div class="util-card-label">Software Master Database</div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: var(--accent-emerald);" id="lblSwMasterTotal">0 Records</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted);" id="lblSwMasterSize">Size: 0 KB</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); word-break: break-all;" id="lblSwMasterPath">Software_Master.csv</div>
+            <div style="display: flex; gap: 6px; margin-top: 6px;">
+              <button class="btn-secondary" style="flex:1;" onclick="openMasterFile('software')">Open File</button>
+              <button class="btn-secondary" style="flex:1;" onclick="exportMasterBackup('software')">Export Backup</button>
             </div>
           </div>
-        </div>
-
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
-          <input type="text" id="txtMasterSearch" placeholder="ค้นหาเครื่องใน Master..." class="input-compact" style="max-width: 250px;">
-          <span style="font-size: 0.74rem; color: var(--text-muted);" id="lblMasterFilteredCount">แสดง 0 เครื่อง</span>
-        </div>
-
-        <div style="flex: 1; max-height: 280px; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: 6px;">
-          <table class="live-grid">
-            <thead>
-              <tr>
-                <th>ชื่อเครื่อง</th>
-                <th>สถานะ</th>
-                <th>IP</th>
-                <th>OS</th>
-                <th>ผู้ใช้</th>
-                <th>เปิดเครื่อง</th>
-                <th>สแกนล่าสุด</th>
-                <th style="text-align: center;">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody id="masterMachinesBody">
-              <tr><td colspan="8" style="text-align:center; padding: 20px; color:var(--text-muted);">ไม่มีข้อมูล</td></tr>
-            </tbody>
-          </table>
         </div>
       </div>
-
       <div class="modal-footer">
-        <div style="display: flex; gap: 8px;">
-          <button class="btn-browse" id="btnCreateBackupNow">สำรอง Master ตอนนี้</button>
-          <button class="btn-browse" id="btnResetMasterDb" style="color: var(--accent-rose); border-color: rgba(244, 63, 94, 0.3);">⚠️ รีเซ็ต Master</button>
-        </div>
-        <button class="btn-browse" id="masterBtnDone">ปิดหน้าต่าง</button>
+        <button class="btn-secondary" id="masterBtnDone">Close</button>
       </div>
     </div>
   </div>
 
-  <!-- Scheduler Modal -->
+  <!-- Auto-Scan Scheduler Modal -->
   <div class="modal-backdrop" id="schedModalBackdrop">
-    <div class="modal-window" style="max-width: 580px;">
+    <div class="modal-window" style="max-width: 600px;">
       <div class="modal-header">
         <div class="modal-title">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          ตั้งเวลาสแกนอัตโนมัติ (Scheduler)
+          Automated Scan Scheduler
         </div>
-        <button class="btn-icon-nav" id="schedBtnClose" style="width:26px; height:26px;">✖</button>
+        <button class="btn-icon-nav" id="schedBtnClose">✖</button>
       </div>
-
       <div class="modal-body">
-        <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
-          <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.80rem; cursor: pointer;">
-            <input type="checkbox" id="chkInAppSched" style="accent-color: var(--accent-primary);">
-            <span>1. สแกนรอบอัตโนมัติขณะเปิดโปรแกรม (In-App Countdown)</span>
-          </label>
-          <div style="display: flex; align-items: center; gap: 8px; padding-left: 24px;">
-            <span class="field-label" style="margin:0;">วนซ้ำทุกๆ:</span>
-            <input type="number" id="txtInAppIntervalVal" value="4" min="1" max="720" class="input-compact" style="width: 70px;">
-            <select id="selInAppIntervalUnit" class="input-compact" style="width: 80px;">
-              <option value="h" selected>ชั่วโมง</option>
-              <option value="m">นาที</option>
-            </select>
+        <div class="util-card">
+          <div class="util-card-label">In-App Background Timer</div>
+          <div class="util-card-desc">Automatically executes scans in the background while this application window remains open.</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
+            <span>Enable In-App Schedule</span>
+            <label class="switch-compact">
+              <input type="checkbox" id="chkInAppSched">
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+          <div style="margin-top: 8px;">
+            <span class="field-label">Repeat Interval (Minutes):</span>
+            <input type="number" id="numInAppInterval" value="240" min="5" max="1440" class="input-compact" style="width: 120px;">
           </div>
         </div>
 
-        <div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <b style="font-size: 0.80rem;">2. Windows Task Scheduler (รันอัตโนมัติแม้ปิดโปรแกรม)</b>
-            <span class="status-badge" id="badgeWinTaskStatus">ตรวจสอบ...</span>
-          </div>
-          <div style="display: flex; gap: 12px; font-size: 0.76rem;">
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-              <input type="radio" name="winTaskMode" id="radWinTaskDaily" checked>
-              <span>ทุกวัน (Daily)</span>
-            </label>
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-              <input type="radio" name="winTaskMode" id="radWinTaskInterval">
-              <span>วนซ้ำ (Interval)</span>
-            </label>
-          </div>
-          <div id="rowWinTaskDaily" style="display: flex; align-items: center; gap: 8px;">
-            <span class="field-label" style="margin:0;">เวลาที่เริ่ม:</span>
-            <input type="time" id="timeWinTask" value="02:00" class="input-compact" style="width: 110px;">
-          </div>
-          <div id="rowWinTaskInterval" style="display: none; align-items: center; gap: 8px;">
-            <span class="field-label" style="margin:0;">ทุกๆ:</span>
-            <input type="number" id="txtWinTaskIntervalVal" value="15" min="1" class="input-compact" style="width: 70px;">
-            <select id="selWinTaskIntervalUnit" class="input-compact" style="width: 80px;">
-              <option value="m" selected>นาที</option>
-              <option value="h">ชั่วโมง</option>
+        <div class="util-card">
+          <div class="util-card-label">Windows Task Scheduler (Enterprise)</div>
+          <div class="util-card-desc">Registers a native Windows Scheduled Task to scan even when the UI is closed.</div>
+          <div style="margin-top: 8px;">
+            <span class="field-label">Schedule Mode:</span>
+            <select id="selWinTaskMode" class="input-compact" style="width: 160px;">
+              <option value="daily">Daily Fixed Time</option>
+              <option value="interval">Repeating Interval</option>
             </select>
           </div>
-          <div style="display: flex; gap: 6px; margin-top: 6px;">
-            <button class="btn-action-nav" id="btnRegisterWinTask" style="background: var(--accent-primary); color: #fff; border-color: var(--accent-primary);">ลงทะเบียน Task</button>
-            <button class="btn-browse" id="btnUnregisterWinTask">ยกเลิก Task</button>
-            <button class="btn-browse" id="btnTestRunWinTask">ทดสอบรัน</button>
+          <div style="margin-top: 8px;" id="boxWinTaskDaily">
+            <span class="field-label">Daily Time (24h format HH:mm):</span>
+            <input type="time" id="timeWinTaskDaily" value="02:00" class="input-compact" style="width: 120px;">
           </div>
+          <div style="margin-top: 8px; display: none;" id="boxWinTaskInterval">
+            <span class="field-label">Repeat Interval (Minutes):</span>
+            <input type="number" id="numWinTaskInterval" value="60" min="5" max="1440" class="input-compact" style="width: 120px;">
+          </div>
+          <button class="btn-secondary" style="margin-top: 10px;" id="btnRegisterWinTask">Register / Update Windows Task</button>
         </div>
       </div>
-
       <div class="modal-footer">
-        <div></div>
-        <button class="btn-browse" id="schedBtnDone">เสร็จสิ้น</button>
+        <button class="btn-primary" id="schedBtnSave">Save & Apply</button>
+        <button class="btn-secondary" id="schedBtnCancel">Close</button>
       </div>
     </div>
   </div>
 
-  <!-- Cancel Confirmation Modal -->
+  <!-- In-App File/Folder Browser Modal -->
+  <div class="modal-backdrop" id="fsModalBackdrop">
+    <div class="modal-window" style="max-width: 680px;">
+      <div class="modal-header">
+        <div class="modal-title" id="fsModalTitleText">Browse Folder</div>
+        <button class="btn-icon-nav" id="fsBtnClose">✖</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button class="btn-secondary" id="fsBtnUpLevel">⬆ Up</button>
+          <input type="text" id="fsCurrentPathInput" class="input-compact" style="flex:1;">
+          <button class="btn-secondary" id="fsBtnGoPath">Go</button>
+        </div>
+        <div id="fsDrivesContainer" style="display: flex; gap: 4px; overflow-x: auto; padding: 4px 0;"></div>
+        <div id="fsItemsList" style="border: 1px solid var(--border-subtle); border-radius: 6px; height: 260px; overflow-y: auto; background: var(--bg-surface-elevated);"></div>
+        <div style="font-size: 0.72rem; color: var(--text-muted);" id="fsSelectedPathText">No selection</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="fsBtnCancel">Cancel</button>
+        <button class="btn-primary" id="fsBtnSelect">Select</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Cancel Modal -->
   <div class="modal-backdrop" id="modalConfirmCancel">
     <div class="modal-window" style="max-width: 420px;">
       <div class="modal-header">
-        <div class="modal-title" style="color: var(--accent-rose);">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          ยืนยันการยกเลิกการสแกน
+        <div class="modal-title" style="color: #dc2626;">Confirm Cancellation</div>
+      </div>
+      <div class="modal-body">
+        <div style="font-size: 0.82rem; line-height: 1.5;">
+          Are you sure you want to stop the ongoing scan? Partially collected data will be preserved in output files.
         </div>
       </div>
-      <div class="modal-body" style="font-size: 0.82rem; line-height: 1.5;">
-        คุณต้องการหยุดการสแกนคอมพิวเตอร์ที่กำลังดำเนินอยู่ใช่หรือไม่?<br>
-        <span style="color: var(--text-muted); font-size: 0.74rem;">(ข้อมูลเครื่องที่สแกนเสร็จไปแล้วจะยังคงถูกบันทึกไว้ตามปกติ)</span>
-      </div>
       <div class="modal-footer">
-        <button class="btn-browse" id="btnConfirmCancelNo">ดำเนินการต่อ</button>
-        <button class="btn-browse" id="btnConfirmCancelYes" style="background: #dc2626; color: #fff; border-color: #dc2626;">หยุดการสแกน</button>
+        <button class="btn-secondary" id="btnDismissCancelModal">Keep Scanning</button>
+        <button class="btn-primary" style="background:#dc2626;" id="btnConfirmCancel">Cancel Scan</button>
       </div>
     </div>
   </div>
@@ -1825,41 +1970,35 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <script>
-    // State
+    // State Variables
     let isScanning = false;
-    let pollTimer = null;
+    let scanFinishedHandled = false;
     let allScannedPCs = [];
     let currentFilter = 'all';
     let searchQuery = '';
     let currentLogTab = 'scan';
+    let isLogCollapsed = true;
     let isTableMaximized = false;
-    let isSidebarCollapsed = false;
-    let isLogCollapsed = false;
+    let isLeftCollapsed = false;
+    let isRightCollapsed = false;
+    let pollTimer = null;
+    let currentPollingInterval = 2000;
 
-    // Elements
-    const rbLocal = document.getElementById('rbLocal');
-    const rbAD = document.getElementById('rbAD');
-    const rbFile = document.getElementById('rbFile');
-    const boxAdDays = document.getElementById('boxAdDays');
-    const boxListFile = document.getElementById('boxListFile');
-    const lblSourceLocal = document.getElementById('lblSourceLocal');
-    const lblSourceAD = document.getElementById('lblSourceAD');
-    const lblSourceFile = document.getElementById('lblSourceFile');
-    const txtListFile = document.getElementById('txtListFile');
-    const txtExcludeServerFile = document.getElementById('txtExcludeServerFile');
-    const txtOutDir = document.getElementById('txtOutDir');
-    const chkHw = document.getElementById('chkHw');
-    const chkSw = document.getElementById('chkSw');
-    const swSubBox = document.getElementById('swSubBox');
-    const chkSkipServers = document.getElementById('chkSkipServers');
-    const chkMasterDb = document.getElementById('chkMasterDb');
-    const chkAutoHtml = document.getElementById('chkAutoHtml');
+    // DOM Elements
+    const adminPill = document.getElementById('adminPill');
+    const topScheduleBanner = document.getElementById('topScheduleBanner');
+    const topSchedCountdown = document.getElementById('topSchedCountdown');
+    const workspaceLayout = document.getElementById('workspaceLayout');
+    const sidebarCompact = document.getElementById('sidebarCompact');
+    const sidebarRight = document.getElementById('sidebarRight');
+    const btnEdgeLeft = document.getElementById('btnEdgeLeft');
+    const btnEdgeRight = document.getElementById('btnEdgeRight');
+    const btnToggleSidebar = document.getElementById('btnToggleSidebar');
+    const btnToggleSidebarRight = document.getElementById('btnToggleSidebarRight');
     const btnStartScan = document.getElementById('btnStartScan');
     const btnCancelScan = document.getElementById('btnCancelScan');
     const btnRetryOffline = document.getElementById('btnRetryOffline');
     const badgeOfflineCount = document.getElementById('badgeOfflineCount');
-
-    // KPI & Stepper elements
     const statTotal = document.getElementById('statTotal');
     const statOk = document.getElementById('statOk');
     const statOffline = document.getElementById('statOffline');
@@ -1868,54 +2007,80 @@
     const progressPctText = document.getElementById('progressPctText');
     const scanElapsed = document.getElementById('scanElapsed');
     const scanCurrentMsg = document.getElementById('scanCurrentMsg');
+    const statusPhaseTitle = document.getElementById('statusPhaseTitle');
+    const statusIndicatorDot = document.getElementById('statusIndicatorDot');
+    const connectedProgressContainer = document.getElementById('connectedProgressContainer');
     const tableBody = document.getElementById('tableBody');
-    const txtSearchTable = document.getElementById('txtSearchTable');
     const lblTableTotalCount = document.getElementById('lblTableTotalCount');
-    const navMasterCount = document.getElementById('navMasterCount');
-
-    // Log Drawer elements
+    const txtSearchTable = document.getElementById('txtSearchTable');
     const logDrawer = document.getElementById('logDrawer');
+    const btnToggleLogDrawer = document.getElementById('btnToggleLogDrawer');
+    const chevronLog = document.getElementById('chevronLog');
     const terminalScanBody = document.getElementById('terminalScanBody');
     const terminalSystemBody = document.getElementById('terminalSystemBody');
     const badgeScanCount = document.getElementById('badgeScanCount');
     const badgeSystemCount = document.getElementById('badgeSystemCount');
     const btnClearLogs = document.getElementById('btnClearLogs');
-    const btnToggleLogDrawer = document.getElementById('btnToggleLogDrawer');
-    const chevronLog = document.getElementById('chevronLog');
-
-    // Layout elements
-    const workspaceLayout = document.getElementById('workspaceLayout');
-    const sidebarCompact = document.getElementById('sidebarCompact');
-    const btnToggleSidebar = document.getElementById('btnToggleSidebar');
-    const btnToggleSidebarFloat = document.getElementById('btnToggleSidebarFloat');
     const btnMaximizeTable = document.getElementById('btnMaximizeTable');
     const lblMaximizeBtn = document.getElementById('lblMaximizeBtn');
-
-    // Theme Switch
     const themeToggle = document.getElementById('themeToggle');
-    const savedTheme = localStorage.getItem('fti_theme') || 'light';
-    if (savedTheme === 'dark') {
-      document.documentElement.classList.remove('light');
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.documentElement.classList.add('light');
-    }
+    const themeIcon = document.getElementById('themeIcon');
+    const themeToggleText = document.getElementById('themeToggleText');
+    const btnOpenMasterHub = document.getElementById('btnOpenMasterHub');
+    const badgeMasterDbHeader = document.getElementById('badgeMasterDbHeader');
+    const btnOpenScheduler = document.getElementById('btnOpenScheduler');
+    const btnOpenFolder = document.getElementById('btnOpenFolder');
+    const btnOpenHtmlReport = document.getElementById('btnOpenHtmlReport');
 
-    themeToggle.addEventListener('click', () => {
-      const isDark = document.documentElement.classList.contains('dark');
-      if (isDark) {
-        document.documentElement.classList.remove('dark');
+    // Settings Form Elements
+    const rbLocal = document.getElementById('rbLocal');
+    const rbAD = document.getElementById('rbAD');
+    const rbFile = document.getElementById('rbFile');
+    const lblSourceLocal = document.getElementById('lblSourceLocal');
+    const lblSourceAD = document.getElementById('lblSourceAD');
+    const lblSourceFile = document.getElementById('lblSourceFile');
+    const boxAdDays = document.getElementById('boxAdDays');
+    const boxListFile = document.getElementById('boxListFile');
+    const txtListFile = document.getElementById('txtListFile');
+    const btnBrowseFile = document.getElementById('btnBrowseFile');
+    const chkSkipServers = document.getElementById('chkSkipServers');
+    const txtExcludeServerFile = document.getElementById('txtExcludeServerFile');
+    const btnBrowseExcludeServer = document.getElementById('btnBrowseExcludeServer');
+    const chkMasterDb = document.getElementById('chkMasterDb');
+    const txtOutDir = document.getElementById('txtOutDir');
+    const btnBrowseFolder = document.getElementById('btnBrowseFolder');
+    const chkAutoHtml = document.getElementById('chkAutoHtml');
+    const chkHw = document.getElementById('chkHw');
+    const chkSw = document.getElementById('chkSw');
+    const swSubBox = document.getElementById('swSubBox');
+
+    // Theme Management
+    function initTheme() {
+      const saved = localStorage.getItem('fti_theme') || 'light';
+      applyTheme(saved);
+    }
+    function applyTheme(t) {
+      if (t === 'light') {
         document.documentElement.classList.add('light');
-        localStorage.setItem('fti_theme', 'light');
+        if (themeToggleText) themeToggleText.innerText = 'Switch to Dark Theme';
+        if (themeIcon) {
+          themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+        }
       } else {
         document.documentElement.classList.remove('light');
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('fti_theme', 'dark');
+        if (themeToggleText) themeToggleText.innerText = 'Switch to Light Theme';
+        if (themeIcon) {
+          themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+        }
       }
+      localStorage.setItem('fti_theme', t);
+    }
+    themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.classList.contains('light') ? 'light' : 'dark';
+      applyTheme(current === 'light' ? 'dark' : 'light');
     });
 
-    // Accordion handler
+    // Accordion Toggle
     window.toggleAccordion = function(headerEl) {
       const section = headerEl.parentElement;
       section.classList.toggle('active');
@@ -1924,14 +2089,14 @@
     // Preset Output Directory
     window.setOutDirPreset = function(path) {
       txtOutDir.value = path;
-      showToast('เลือกโฟลเดอร์ผลลัพธ์: ' + path, 'info');
+      showToast('Output directory set to: ' + path, 'info');
     };
 
     // Preset Performance
     window.setPerfPreset = function(throttle, days) {
       document.getElementById('numThrottle').value = throttle;
       document.getElementById('numDays').value = days;
-      showToast(`ตั้งค่าความเร็ว: Throttle ${throttle}, Days ${days}`, 'info');
+      showToast(`Preset applied: Throttle ${throttle}, Active Days ${days}`, 'info');
     };
 
     // Source Selection
@@ -1949,26 +2114,35 @@
     chkSw.addEventListener('change', () => {
       swSubBox.style.opacity = chkSw.checked ? '1' : '0.4';
       swSubBox.style.pointerEvents = chkSw.checked ? 'auto' : 'none';
-      updateStepperUI(0, '');
+      updateStepperUI(0, '', false);
     });
 
-    // Sidebar Toggle
-    function setSidebarCollapsed(collapsed) {
-      isSidebarCollapsed = collapsed;
+    // Dual Sidebar Collapse & Edge Handles
+    function setLeftSidebar(collapsed) {
+      isLeftCollapsed = collapsed;
       sidebarCompact.classList.toggle('collapsed', collapsed);
-      btnToggleSidebarFloat.style.display = collapsed ? 'inline-flex' : 'none';
+      workspaceLayout.classList.toggle('sidebar-left-collapsed', collapsed);
     }
-    btnToggleSidebar.addEventListener('click', () => setSidebarCollapsed(true));
-    btnToggleSidebarFloat.addEventListener('click', () => setSidebarCollapsed(false));
+
+    function setRightSidebar(collapsed) {
+      isRightCollapsed = collapsed;
+      sidebarRight.classList.toggle('collapsed', collapsed);
+      workspaceLayout.classList.toggle('sidebar-right-collapsed', collapsed);
+    }
+
+    btnEdgeLeft.addEventListener('click', () => setLeftSidebar(!isLeftCollapsed));
+    btnEdgeRight.addEventListener('click', () => setRightSidebar(!isRightCollapsed));
+    btnToggleSidebar.addEventListener('click', () => setLeftSidebar(true));
+    btnToggleSidebarRight.addEventListener('click', () => setRightSidebar(true));
 
     // Maximize Table Mode
     btnMaximizeTable.addEventListener('click', () => {
       isTableMaximized = !isTableMaximized;
       workspaceLayout.classList.toggle('maximized', isTableMaximized);
       if (isTableMaximized) {
-        lblMaximizeBtn.innerText = '⛶ ย่อตารางกลับ';
+        lblMaximizeBtn.innerText = 'Restore Grid View';
       } else {
-        lblMaximizeBtn.innerText = '⛶ ขยายเต็มจอ';
+        lblMaximizeBtn.innerText = 'Fullscreen Data Grid';
       }
     });
 
@@ -2022,22 +2196,19 @@
       badge.innerText = count;
     }
 
-    // Multi-Step Progress Tracker (Connected Stepper UI)
+    // Multi-Step Progress Tracker (WOW Command HUD)
     function updateStepperUI(currentStep, stepText, isCompleted) {
       const s1 = document.getElementById('step1Item');
       const s2 = document.getElementById('step2Item');
       const s3 = document.getElementById('step3Item');
       const s4 = document.getElementById('step4Item');
-      const statusTitle = document.getElementById('statusPhaseTitle');
-      const statusDot = document.getElementById('statusIndicatorDot');
-      const container = document.getElementById('connectedProgressContainer');
       const swScanEnabled = chkSw.checked;
 
       const nodes = [s1, s2, s3, s4];
       nodes.forEach(n => {
         if (!n) return;
         n.className = 'stepper-node';
-        const num = n.querySelector('.node-num');
+        const num = n.querySelector('.node-badge-text');
         const check = n.querySelector('.node-check');
         if (num) num.style.display = 'block';
         if (check) check.style.display = 'none';
@@ -2051,111 +2222,111 @@
         nodes.forEach(n => {
           if (!n) return;
           n.className = 'stepper-node completed';
-          const num = n.querySelector('.node-num');
+          const num = n.querySelector('.node-badge-text');
           const check = n.querySelector('.node-check');
           if (num) num.style.display = 'none';
           if (check) check.style.display = 'block';
         });
-        if (statusDot) {
-          statusDot.className = 'status-indicator-dot completed';
+        if (statusIndicatorDot) {
+          statusIndicatorDot.className = 'status-indicator-dot completed';
         }
-        if (statusTitle) {
-          statusTitle.innerText = '✓ การสแกนเสร็จสมบูรณ์ (100%)';
-          statusTitle.style.color = 'var(--accent-emerald)';
+        if (statusPhaseTitle) {
+          statusPhaseTitle.innerText = 'Completed';
+          statusPhaseTitle.style.color = 'var(--accent-emerald)';
         }
-        if (container) {
-          container.classList.add('completed-glow');
+        if (connectedProgressContainer) {
+          connectedProgressContainer.classList.add('completed-glow');
         }
         if (progressPctText) {
           progressPctText.innerText = '100%';
           progressPctText.classList.add('completed');
         }
         if (progressBarFill) {
-          progressBarFill.style.width = 'calc(100% - 100px)';
+          progressBarFill.style.width = 'calc(100% - 80px)';
           progressBarFill.classList.add('completed');
         }
         return;
       }
 
-      if (container) container.classList.remove('completed-glow');
+      if (connectedProgressContainer) connectedProgressContainer.classList.remove('completed-glow');
       if (progressPctText) progressPctText.classList.remove('completed');
       if (progressBarFill) progressBarFill.classList.remove('completed');
 
-      if (statusDot) {
-        statusDot.className = isScanning ? 'status-indicator-dot scanning' : 'status-indicator-dot';
+      if (statusIndicatorDot) {
+        statusIndicatorDot.className = isScanning ? 'status-indicator-dot scanning' : 'status-indicator-dot';
       }
 
       if (currentStep === 1) {
         if (s1) s1.classList.add('active');
-        if (statusTitle) {
-          statusTitle.innerText = 'ขั้นตอนที่ 1: เตรียมเป้าหมาย & กรอง Server';
-          statusTitle.style.color = 'var(--text-main)';
+        if (statusPhaseTitle) {
+          statusPhaseTitle.innerText = 'Phase 1: Discovery';
+          statusPhaseTitle.style.color = 'var(--accent-primary)';
         }
       } else if (currentStep === 2) {
         if (s1) {
           s1.classList.add('completed');
-          const num = s1.querySelector('.node-num');
+          const num = s1.querySelector('.node-badge-text');
           const check = s1.querySelector('.node-check');
           if (num) num.style.display = 'none';
           if (check) check.style.display = 'block';
         }
         if (s2) s2.classList.add('active');
-        if (statusTitle) {
-          statusTitle.innerText = 'ขั้นตอนที่ 2: กำลังสแกนฮาร์ดแวร์ (WMI/CIM)';
-          statusTitle.style.color = 'var(--accent-primary)';
+        if (statusPhaseTitle) {
+          statusPhaseTitle.innerText = 'Phase 2: Hardware';
+          statusPhaseTitle.style.color = 'var(--accent-primary)';
         }
       } else if (currentStep === 3) {
         [s1, s2].forEach(s => {
           if (!s) return;
           s.classList.add('completed');
-          const num = s.querySelector('.node-num');
+          const num = s.querySelector('.node-badge-text');
           const check = s.querySelector('.node-check');
           if (num) num.style.display = 'none';
           if (check) check.style.display = 'block';
         });
         if (swScanEnabled) {
           if (s3) s3.classList.add('active');
-          if (statusTitle) {
-            statusTitle.innerText = 'ขั้นตอนที่ 3: กำลังสแกนซอฟต์แวร์ (WinRM/DCOM)';
-            statusTitle.style.color = 'var(--accent-primary)';
+          if (statusPhaseTitle) {
+            statusPhaseTitle.innerText = 'Phase 3: Software';
+            statusPhaseTitle.style.color = 'var(--accent-primary)';
           }
         } else {
           if (s3) s3.classList.add('skipped');
-          if (statusTitle) {
-            statusTitle.innerText = 'ขั้นตอนที่ 3: ข้ามสแกนซอฟต์แวร์ตามตั้งค่า';
-            statusTitle.style.color = 'var(--text-muted)';
+          if (statusPhaseTitle) {
+            statusPhaseTitle.innerText = 'Phase 3: Skipped';
+            statusPhaseTitle.style.color = 'var(--text-muted)';
           }
         }
       } else if (currentStep === 4) {
         [s1, s2].forEach(s => {
           if (!s) return;
           s.classList.add('completed');
-          const num = s.querySelector('.node-num');
+          const num = s.querySelector('.node-badge-text');
           const check = s.querySelector('.node-check');
           if (num) num.style.display = 'none';
           if (check) check.style.display = 'block';
         });
         if (swScanEnabled && s3) {
           s3.classList.add('completed');
-          const num = s3.querySelector('.node-num');
+          const num = s3.querySelector('.node-badge-text');
           const check = s3.querySelector('.node-check');
           if (num) num.style.display = 'none';
           if (check) check.style.display = 'block';
         }
         if (s4) s4.classList.add('active');
-        if (statusTitle) {
-          statusTitle.innerText = 'ขั้นตอนที่ 4: สรุปข้อมูล & สร้างเอกสารรายงาน';
-          statusTitle.style.color = 'var(--accent-primary)';
+        if (statusPhaseTitle) {
+          statusPhaseTitle.innerText = 'Phase 4: Finalizing';
+          statusPhaseTitle.style.color = 'var(--accent-primary)';
         }
       } else {
-        if (statusTitle) {
-          statusTitle.innerText = 'พร้อมสำหรับการสแกน';
-          statusTitle.style.color = 'var(--text-main)';
+        if (statusPhaseTitle) {
+          statusPhaseTitle.innerText = 'Ready';
+          statusPhaseTitle.style.color = 'var(--text-main)';
         }
       }
     }
 
-    // Live Grid Table Rendering
+    // Live Grid Table Rendering (9 Columns Auto-Sized)
     function renderTable() {
       const q = searchQuery.toLowerCase();
       const filtered = allScannedPCs.filter(pc => {
@@ -2169,16 +2340,17 @@
           (pc.User && pc.User.toLowerCase().includes(q)) ||
           (pc.CPU && pc.CPU.toLowerCase().includes(q)) ||
           (pc.OS && pc.OS.toLowerCase().includes(q)) ||
+          (pc.Win_License && pc.Win_License.toLowerCase().includes(q)) ||
           (pc.IP && pc.IP.toLowerCase().includes(q)) ||
           (pc.AD_OU && pc.AD_OU.toLowerCase().includes(q));
 
         return matchesFilter && matchesSearch;
       });
 
-      lblTableTotalCount.innerText = `${filtered.length} เครื่อง`;
+      lblTableTotalCount.innerText = `${filtered.length} Computers`;
 
       if (filtered.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--text-muted); padding: 35px;">${allScannedPCs.length === 0 ? 'ยังไม่มีข้อมูลผลการสแกน (กด "เริ่มการสแกนทันที" ทางด้านซ้าย)' : 'ไม่พบข้อมูลที่ตรงกับการค้นหา'}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 35px;">${allScannedPCs.length === 0 ? 'No scan results available yet. (Click "Start Network Scan" on the left)' : 'No matching records found.'}</td></tr>`;
         return;
       }
 
@@ -2187,6 +2359,14 @@
         if (pc.Status && pc.Status.includes('Offline')) badgeClass = 'offline';
         else if (pc.Status === 'Scanning') badgeClass = 'scanning';
         else if (pc.Status && pc.Status.startsWith('Error')) badgeClass = 'error';
+
+        const failCount = parseInt(pc.Fail_Count) || 0;
+        const failClass = failCount > 0 ? 'warning' : 'zero';
+
+        let licClass = 'activated';
+        const licText = pc.Win_License || '-';
+        if (licText.includes('Unlicensed') || licText.includes('Grace')) licClass = 'unlicensed';
+        else if (licText === '-') licClass = '';
 
         let diskHtml = pc.Disk_C_Free || '-';
         if (pc.Disk_C_Free && pc.Disk_C_Free.includes('%')) {
@@ -2198,18 +2378,15 @@
 
         return `
           <tr>
-            <td style="font-weight: 700; color: var(--text-main);">${pc.PCName || '-'}</td>
             <td><span class="status-badge ${badgeClass}">${pc.Status || 'OK'}</span></td>
-            <td>${pc.User || '-'}</td>
+            <td style="text-align: center;"><span class="badge-fail-count ${failClass}">${failCount}</span></td>
+            <td><span class="pc-name-bold">${pc.PCName || '-'}</span></td>
+            <td><span class="license-badge ${licClass}">${licText}</span></td>
+            <td>${pc.OS || '-'}</td>
             <td>${pc.CPU || '-'}</td>
             <td>${pc.RAM_GB ? pc.RAM_GB + ' GB' : '-'}</td>
             <td>${diskHtml}</td>
-            <td>${pc.Last_Boot ? pc.Last_Boot + ' <small style="color:var(--text-muted)">(' + (pc.Uptime || '-') + ')</small>' : '-'}</td>
-            <td>${pc.AD_LastLogon || '-'}</td>
-            <td>${pc.AD_OU || '-'}</td>
-            <td>${pc.OS || '-'}</td>
-            <td>${pc.IP || '-'}</td>
-            <td style="text-align: center;"><span class="nav-badge">${pc.Scan_Count || '1'}</span></td>
+            <td>${pc.User || '-'}</td>
           </tr>
         `;
       }).join('');
@@ -2249,7 +2426,7 @@
     function openFsBrowser(mode, initialPath, targetInput) {
       fsMode = mode;
       fsTargetInputElement = targetInput;
-      fsModalTitleText.innerText = (mode === 'folder') ? 'เลือกโฟลเดอร์ (Folder Browser)' : 'เลือกไฟล์รายชื่อเครื่อง (.txt)';
+      fsModalTitleText.innerText = (mode === 'folder') ? 'Select Directory (Folder Browser)' : 'Select Host List File (.txt)';
       const start = initialPath && initialPath.trim() ? initialPath.trim() : 'C:\\';
       fsModalBackdrop.classList.add('active');
       loadFsPath(start);
@@ -2257,115 +2434,120 @@
     function closeFsBrowser() { fsModalBackdrop.classList.remove('active'); }
 
     async function loadFsPath(path) {
-      fsItemsList.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted);">⏳ กำลังโหลดรายการ...</div>';
+      fsItemsList.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted);">⏳ Loading directory contents...</div>';
       try {
-        const res = await fetch(`/api/fs/list?path=${encodeURIComponent(path || '')}&mode=${fsMode}`);
+        const res = await fetch(`/api/fs/browse?mode=${fsMode}&path=${encodeURIComponent(path)}`);
         const data = await res.json();
-        if (data.error && (!data.items || data.items.length === 0)) {
-          fsItemsList.innerHTML = `<div style="padding:20px; text-align:center; color:var(--accent-rose);">❌ ${data.error}</div>`;
-          return;
-        }
+        fsCurrentPathInput.value = data.currentPath || path;
+        fsSelectedPath = data.currentPath || path;
+        fsSelectedPathText.innerText = 'Selected: ' + fsSelectedPath;
 
-        fsCurrentPathInput.value = data.current;
-        fsSelectedPath = (fsMode === 'folder') ? data.current : '';
-        fsSelectedPathText.innerText = fsSelectedPath || '(เลือกไฟล์เพื่อยืนยัน)';
-
-        if (data.drives) {
-          fsDrivesContainer.innerHTML = data.drives.map(d => `
-            <div class="fs-drive-badge ${data.current.toUpperCase().startsWith(d.name.toUpperCase()) ? 'active' : ''}" onclick="loadFsPath('${d.root.replace(/\\/g, '\\\\')}')">
-              💽 ${d.name}
-            </div>
-          `).join('');
-        }
-
-        if (!data.items || data.items.length === 0) {
-          fsItemsList.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted);">📂 โฟลเดอร์ว่างเปล่า</div>';
-          return;
-        }
-
-        fsItemsList.innerHTML = data.items.map(item => {
-          const isF = (item.type === 'folder');
-          const icon = isF ? '📁' : '📄';
-          return `
-            <div class="fs-item" data-path="${item.fullPath}" data-type="${item.type}">
-              <div>${icon} <span>${item.name}</span></div>
-              <div style="font-size:0.70rem; color:var(--text-muted);">${item.lastModified}</div>
-            </div>
-          `;
-        }).join('');
-
-        fsItemsList.querySelectorAll('.fs-item').forEach(el => {
-          el.addEventListener('click', () => {
-            fsItemsList.querySelectorAll('.fs-item').forEach(i => i.classList.remove('selected'));
-            el.classList.add('selected');
-            fsSelectedPath = el.getAttribute('data-path');
-            fsSelectedPathText.innerText = fsSelectedPath;
+        fsDrivesContainer.innerHTML = '';
+        if (data.drives && data.drives.length > 0) {
+          data.drives.forEach(d => {
+            const btn = document.createElement('button');
+            btn.className = 'preset-chip';
+            btn.innerText = d;
+            btn.onclick = () => loadFsPath(d);
+            fsDrivesContainer.appendChild(btn);
           });
-          el.addEventListener('dblclick', () => {
-            if (el.getAttribute('data-type') === 'folder') {
-              loadFsPath(el.getAttribute('data-path'));
-            } else if (fsMode === 'file') {
-              confirmSelection();
-            }
-          });
-        });
+        }
 
+        fsItemsList.innerHTML = '';
+        if (data.items && data.items.length > 0) {
+          data.items.forEach(item => {
+            const row = document.createElement('div');
+            row.style = 'padding:6px 10px; cursor:pointer; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--border-subtle); font-size:0.76rem;';
+            row.innerHTML = `<span style="font-size:14px;">${item.isDir ? '📁' : '📄'}</span><span style="font-weight:${item.isDir ? '700' : '500'};">${item.name}</span>`;
+            row.onclick = () => {
+              if (item.isDir) {
+                loadFsPath(item.path);
+              } else {
+                fsSelectedPath = item.path;
+                fsSelectedPathText.innerText = 'Selected: ' + fsSelectedPath;
+                Array.from(fsItemsList.children).forEach(c => c.style.background = 'transparent');
+                row.style.background = 'rgba(2, 132, 199, 0.12)';
+              }
+            };
+            fsItemsList.appendChild(row);
+          });
+        } else {
+          fsItemsList.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted);">Empty folder</div>';
+        }
       } catch (err) {
-        fsItemsList.innerHTML = `<div style="padding:20px; text-align:center; color:var(--accent-rose);">❌ โหลดล้มเหลว: ${err.message}</div>`;
+        fsItemsList.innerHTML = `<div style="padding:20px; text-align:center; color:var(--accent-rose);">Error: ${err.message}</div>`;
       }
     }
 
-    function confirmSelection() {
-      const sel = fsSelectedPath || fsCurrentPathInput.value;
-      if (fsTargetInputElement && sel) {
-        fsTargetInputElement.value = sel;
-      }
-      closeFsBrowser();
-    }
-
-    fsBtnClose.addEventListener('click', closeFsBrowser);
-    fsBtnCancel.addEventListener('click', closeFsBrowser);
-    fsBtnSelect.addEventListener('click', confirmSelection);
     fsBtnUpLevel.addEventListener('click', () => {
-      const cur = fsCurrentPathInput.value;
-      const parts = cur.replace(/\\$/, '').split('\\');
-      if (parts.length > 1) {
-        parts.pop();
-        const parent = parts.join('\\') + (parts.length === 1 ? '\\' : '');
+      let p = fsCurrentPathInput.value.trim().replace(/[\\/]+$/, '');
+      const idx = Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/'));
+      if (idx >= 0) {
+        let parent = p.substring(0, idx);
+        if (parent.endsWith(':')) parent += '\\';
+        if (!parent) parent = 'C:\\';
         loadFsPath(parent);
       }
     });
-    fsBtnGoPath.addEventListener('click', () => loadFsPath(fsCurrentPathInput.value.trim()));
 
-    // Browse Button Listeners
-    document.getElementById('btnBrowseFile').addEventListener('click', () => openFsBrowser('file', txtListFile.value, txtListFile));
-    document.getElementById('btnBrowseExcludeServer').addEventListener('click', () => openFsBrowser('file', txtExcludeServerFile.value, txtExcludeServerFile));
-    document.getElementById('btnBrowseFolder').addEventListener('click', () => openFsBrowser('folder', txtOutDir.value, txtOutDir));
+    fsBtnGoPath.addEventListener('click', () => {
+      const p = fsCurrentPathInput.value.trim();
+      if (p) loadFsPath(p);
+    });
 
-    document.getElementById('btnOpenFolder').addEventListener('click', async () => {
+    fsBtnClose.addEventListener('click', closeFsBrowser);
+    fsBtnCancel.addEventListener('click', closeFsBrowser);
+    fsBtnSelect.addEventListener('click', () => {
+      if (fsSelectedPath && fsTargetInputElement) {
+        fsTargetInputElement.value = fsSelectedPath;
+        showToast('Path selected: ' + fsSelectedPath, 'success');
+      }
+      closeFsBrowser();
+    });
+
+    btnBrowseFolder.addEventListener('click', () => openFsBrowser('folder', txtOutDir.value, txtOutDir));
+    btnBrowseFile.addEventListener('click', () => openFsBrowser('file', txtListFile.value, txtListFile));
+    btnBrowseExcludeServer.addEventListener('click', () => openFsBrowser('file', txtExcludeServerFile.value, txtExcludeServerFile));
+
+    // Open Output Directory in Windows Explorer
+    btnOpenFolder.addEventListener('click', async () => {
+      const outDir = txtOutDir.value.trim() || 'C:\\Inventory';
       try {
         await fetch('/api/open-folder', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ folder: txtOutDir.value })
+          body: JSON.stringify({ path: outDir })
         });
-      } catch(e) {}
+        showToast('Opening folder: ' + outDir, 'info');
+      } catch (err) {
+        showToast('Could not open folder: ' + err.message, 'error');
+      }
     });
 
-    const btnOpenHtmlReport = document.getElementById('btnOpenHtmlReport');
+    // Open HTML Report
     btnOpenHtmlReport.addEventListener('click', async () => {
-      try { await fetch('/api/open-report', { method: 'POST' }); } catch(e) {}
+      try {
+        const res = await fetch('/api/open-report', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          showToast('Opened HTML Software Report.', 'success');
+        } else {
+          showToast(data.message || 'Report file not ready yet.', 'warning');
+        }
+      } catch (err) {
+        showToast('Failed to open HTML report: ' + err.message, 'error');
+      }
     });
 
     // Start Scan & Retry Actions
     async function startScan(isRetryOffline = false) {
       if (isScanning) return;
       if (!chkHw.checked && !chkSw.checked) {
-        showToast('กรุณาเลือกอย่างน้อย 1 อย่าง: ฮาร์ดแวร์ หรือ ซอฟต์แวร์', 'warning');
+        showToast('Please select at least one scan scope: Hardware or Software', 'warning');
         return;
       }
       if (!isRetryOffline && rbFile.checked && !txtListFile.value.trim()) {
-        showToast('กรุณาระบุไฟล์รายชื่อเป้าหมาย (.txt)', 'warning');
+        showToast('Please specify a valid target list file (.txt)', 'warning');
         return;
       }
 
@@ -2374,14 +2556,14 @@
       btnStartScan.disabled = true;
       btnCancelScan.disabled = false;
       if (btnRetryOffline) btnRetryOffline.disabled = true;
-      scanCurrentMsg.innerText = isRetryOffline ? 'กำลังเชื่อมต่อเครื่อง Offline ใน Master...' : 'กำลังเตรียมรายชื่อเป้าหมาย...';
+      scanCurrentMsg.innerText = isRetryOffline ? 'Connecting to offline hosts from Master DB...' : 'Discovering target hosts...';
 
       if (!isRetryOffline) {
         allScannedPCs = [];
         renderTable();
       }
 
-      updateStepperUI(1, 'Target Discovery');
+      updateStepperUI(1, 'Target Discovery', false);
 
       const payload = {
         source: rbLocal.checked ? 'localhost' : (rbAD.checked ? 'ad' : 'file'),
@@ -2407,20 +2589,19 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const resp = await res.json();
-        if (resp.error) {
-          showToast(resp.error, 'error');
-          isScanning = false;
-          btnStartScan.disabled = false;
-          btnCancelScan.disabled = true;
-          return;
+        const data = await res.json();
+        if (data.status === 'started') {
+          showToast(isRetryOffline ? 'Offline retry scan started...' : 'Network scan started...', 'info');
+          setPollingSpeed(500);
+        } else {
+          throw new Error(data.error || 'Failed to start scan');
         }
-        setPollingSpeed(500);
       } catch (err) {
-        showToast('เกิดข้อผิดพลาดในการเริ่มสแกน: ' + err.message, 'error');
         isScanning = false;
         btnStartScan.disabled = false;
         btnCancelScan.disabled = true;
+        if (btnRetryOffline) btnRetryOffline.disabled = false;
+        showToast('Error starting scan: ' + err.message, 'error');
       }
     }
 
@@ -2432,26 +2613,26 @@
     btnCancelScan.addEventListener('click', () => {
       if (isScanning) modalConfirmCancel.classList.add('active');
     });
-    document.getElementById('btnConfirmCancelNo').addEventListener('click', () => modalConfirmCancel.classList.remove('active'));
-    document.getElementById('btnConfirmCancelYes').addEventListener('click', async () => {
+    document.getElementById('btnDismissCancelModal').addEventListener('click', () => {
       modalConfirmCancel.classList.remove('active');
-      btnCancelScan.disabled = true;
+    });
+    document.getElementById('btnConfirmCancel').addEventListener('click', async () => {
+      modalConfirmCancel.classList.remove('active');
       try {
         await fetch('/api/cancel', { method: 'POST' });
-        appendLogLine(terminalScanBody, badgeScanCount, '[Cancelled] ผู้ใช้สั่งหยุดการสแกน', 'log-warn');
-      } catch(e) {}
+        showToast('Cancelling scan in progress...', 'warning');
+      } catch (err) {
+        showToast('Cancel request failed: ' + err.message, 'error');
+      }
     });
 
-    // Adaptive Polling Loop (500ms when scanning, 2000ms when idle)
-    let currentPollingInterval = 2000;
+    // Dynamic Polling Controller
     function setPollingSpeed(intervalMs) {
-      if (currentPollingInterval === intervalMs && pollTimer) return;
+      if (currentPollingInterval === intervalMs) return;
       currentPollingInterval = intervalMs;
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(pollTick, currentPollingInterval);
     }
-
-    let scanFinishedHandled = false;
 
     async function pollTick() {
       try {
@@ -2460,6 +2641,36 @@
 
         const serverIsScanning = !!data.isScanning;
         const serverIsCompleted = !!data.isCompleted;
+
+        // Admin badge sync
+        if (data.isAdmin !== undefined && adminPill) {
+          adminPill.innerHTML = data.isAdmin ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> <span>Administrator</span>' : '<span>Standard User</span>';
+          adminPill.style.color = data.isAdmin ? 'var(--accent-emerald)' : 'var(--text-muted)';
+        }
+
+        // Live Auto-Scan Countdown in Top Header
+        let hasActiveSchedule = false;
+        if (data.inAppSchedule && data.inAppSchedule.enabled && data.inAppSchedule.countdownSec !== null) {
+          hasActiveSchedule = true;
+          const sec = Math.max(0, data.inAppSchedule.countdownSec);
+          const hh = String(Math.floor(sec / 3600)).padStart(2, '0');
+          const mm = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
+          const ss = String(sec % 60).padStart(2, '0');
+          topSchedCountdown.innerText = `${hh}:${mm}:${ss}`;
+          topScheduleBanner.title = `In-App schedule active. Next scan: ${data.inAppSchedule.nextRunAt || '-'}`;
+        } else if (data.winTaskInfo && data.winTaskInfo.registered) {
+          hasActiveSchedule = true;
+          if (data.winTaskInfo.mode === 'interval') {
+            topSchedCountdown.innerText = `Every ${data.winTaskInfo.intervalMinutes}m`;
+          } else {
+            topSchedCountdown.innerText = `Daily at ${data.winTaskInfo.time}`;
+          }
+          topScheduleBanner.title = `Windows Scheduled Task active: State ${data.winTaskInfo.state}`;
+        }
+
+        if (topScheduleBanner) {
+          topScheduleBanner.style.display = hasActiveSchedule ? 'inline-flex' : 'none';
+        }
 
         // Scanning State Sync
         if (serverIsScanning) {
@@ -2492,11 +2703,10 @@
         // Progress Fill
         const pct = Math.min(100, Math.max(0, data.percent || 0));
         if (serverIsCompleted || data.scanStep >= 5) {
-          progressBarFill.style.width = 'calc(100% - 100px)';
+          progressBarFill.style.width = 'calc(100% - 80px)';
           progressPctText.innerText = '100%';
         } else {
-          // Connected bar fill spans across 4 nodes
-          progressBarFill.style.width = `calc((100% - 100px) * ${pct / 100})`;
+          progressBarFill.style.width = `calc((100% - 80px) * ${pct / 100})`;
           progressPctText.innerText = Math.round(pct) + '%';
         }
         if (data.elapsed) scanElapsed.innerText = data.elapsed;
@@ -2544,7 +2754,7 @@
           btnOpenHtmlReport.disabled = false;
         }
 
-        // Completion Handling (runs exactly once upon completion)
+        // Completion Handling (runs exactly once upon scan finish)
         if (serverIsCompleted || (isScanning && !serverIsScanning)) {
           if (!scanFinishedHandled) {
             scanFinishedHandled = true;
@@ -2554,7 +2764,7 @@
             if (btnRetryOffline) btnRetryOffline.disabled = false;
             updateStepperUI(5, 'Completed', true);
             fetchMasterStatus();
-            showToast('การสแกนเสร็จสมบูรณ์เรียบร้อยแล้ว!', 'success');
+            showToast('Network inventory scan completed successfully!', 'success');
           }
         }
 
@@ -2563,7 +2773,7 @@
 
     // Master Hub Modal & API Logic
     const masterModalBackdrop = document.getElementById('masterModalBackdrop');
-    document.getElementById('btnOpenMasterHub').addEventListener('click', () => {
+    btnOpenMasterHub.addEventListener('click', () => {
       masterModalBackdrop.classList.add('active');
       fetchMasterStatus();
     });
@@ -2576,165 +2786,139 @@
         const res = await fetch(`/api/master/status?outDir=${encodeURIComponent(outDir)}`);
         const data = await res.json();
         if (data.hwMaster && data.hwMaster.exists) {
-          document.getElementById('lblHwMasterTotal').innerText = data.hwMaster.total || 0;
-          document.getElementById('lblHwMasterSize').innerText = data.hwMaster.size || '-';
-          document.getElementById('lblHwMasterDate').innerText = data.hwMaster.lastModified || '-';
-          navMasterCount.innerText = data.hwMaster.total || 0;
+          document.getElementById('lblHwMasterTotal').innerText = `${data.hwMaster.total || 0} Records`;
+          document.getElementById('lblHwMasterSize').innerText = `Size: ${data.hwMaster.size || '-'}`;
+          document.getElementById('lblHwMasterPath').innerText = data.hwMaster.path;
+          badgeMasterDbHeader.innerText = data.hwMaster.total || 0;
+        } else {
+          document.getElementById('lblHwMasterTotal').innerText = '0 Records';
+          document.getElementById('lblHwMasterSize').innerText = 'File not generated yet';
         }
+
         if (data.swMaster && data.swMaster.exists) {
-          document.getElementById('lblSwMasterRecords').innerText = data.swMaster.totalRecords || 0;
-          document.getElementById('lblSwMasterUnique').innerText = data.swMaster.uniqueApps || 0;
-          document.getElementById('lblSwMasterSize').innerText = data.swMaster.size || '-';
+          document.getElementById('lblSwMasterTotal').innerText = `${data.swMaster.total || 0} Records`;
+          document.getElementById('lblSwMasterSize').innerText = `Size: ${data.swMaster.size || '-'}`;
+          document.getElementById('lblSwMasterPath').innerText = data.swMaster.path;
+        } else {
+          document.getElementById('lblSwMasterTotal').innerText = '0 Records';
+          document.getElementById('lblSwMasterSize').innerText = 'File not generated yet';
         }
-        if (data.machines) {
-          renderMasterMachines(data.machines);
-        }
-      } catch(e) {}
+      } catch (err) {}
     }
 
-    function renderMasterMachines(machines) {
-      const body = document.getElementById('masterMachinesBody');
-      if (!machines || machines.length === 0) {
-        body.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 20px; color:var(--text-muted);">ไม่มีข้อมูลเครื่องในฐานข้อมูล Master</td></tr>';
-        return;
-      }
-      document.getElementById('lblMasterFilteredCount').innerText = `แสดง ${machines.length} เครื่อง`;
-      body.innerHTML = machines.map(m => `
-        <tr>
-          <td style="font-weight:700;">${m.PCName || '-'}</td>
-          <td><span class="status-badge ${m.Status === 'Offline' ? 'offline' : (m.Status === 'Error' ? 'error' : 'ok')}">${m.Status || 'OK'}</span></td>
-          <td>${m.IP || '-'}</td>
-          <td>${m.OS || '-'}</td>
-          <td>${m.User || '-'}</td>
-          <td><small style="color:var(--text-muted);">${m.Last_Boot || '-'}</small></td>
-          <td><small style="color:var(--text-muted);">${m.Last_Scan || '-'}</small></td>
-          <td style="text-align:center;">
-            <button class="btn-browse" style="color:var(--accent-rose); padding:2px 6px; font-size:0.70rem;" onclick="deleteMasterMachine('${m.PCName}')">ลบ</button>
-          </td>
-        </tr>
-      `).join('');
-    }
-
-    window.deleteMasterMachine = async function(pcName) {
-      if (!confirm(`ต้องการลบเครื่อง "${pcName}" ออกจาก Master Database ใช่หรือไม่?`)) return;
+    window.openMasterFile = async function(type) {
+      const outDir = txtOutDir.value.trim() || 'C:\\Inventory';
       try {
-        await fetch('/api/master/action', {
+        await fetch('/api/master/open', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'deleteMachine', outDir: txtOutDir.value.trim(), pcName: pcName })
+          body: JSON.stringify({ type, outDir })
         });
-        showToast(`ลบเครื่อง ${pcName} สำเร็จ`, 'success');
-        fetchMasterStatus();
-      } catch(e) {}
+        showToast('Opening ' + type + ' master file in default spreadsheet app...', 'info');
+      } catch (e) {
+        showToast('Error opening file: ' + e.message, 'error');
+      }
     };
 
-    document.getElementById('btnOpenHwMasterFile').addEventListener('click', () => fetch('/api/master/action', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'openFile', outDir:txtOutDir.value.trim(), fileType:'hw'}) }));
-    document.getElementById('btnOpenSwMasterFile').addEventListener('click', () => fetch('/api/master/action', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'openFile', outDir:txtOutDir.value.trim(), fileType:'sw'}) }));
-    document.getElementById('btnOpenSwSumMasterFile').addEventListener('click', () => fetch('/api/master/action', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'openFile', outDir:txtOutDir.value.trim(), fileType:'swSum'}) }));
-    document.getElementById('btnCreateBackupNow').addEventListener('click', async () => {
+    window.exportMasterBackup = async function(type) {
+      const outDir = txtOutDir.value.trim() || 'C:\\Inventory';
       try {
-        await fetch('/api/master/action', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'backupMaster', outDir:txtOutDir.value.trim()}) });
-        showToast('สำรองฐานข้อมูล Master สำเร็จ', 'success');
-        fetchMasterStatus();
-      } catch(e) {}
-    });
+        const res = await fetch('/api/master/backup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type, outDir })
+        });
+        const data = await res.json();
+        if (data.backupPath) {
+          showToast('Standalone backup created: ' + data.backupPath, 'success');
+        } else {
+          showToast(data.message || 'File not ready for backup', 'warning');
+        }
+      } catch (e) {
+        showToast('Backup failed: ' + e.message, 'error');
+      }
+    };
 
-    document.getElementById('btnResetMasterDb').addEventListener('click', async () => {
-      if (!confirm('คำเตือน: คุณต้องการล้างฐานข้อมูล Master ทั้งหมดใช่หรือไม่? (ระบบจะสำรอง Snapshot ไว้ให้อัตโนมัติ)')) return;
-      try {
-        await fetch('/api/master/action', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'resetMaster', outDir:txtOutDir.value.trim()}) });
-        showToast('รีเซ็ตฐานข้อมูล Master สำเร็จ', 'success');
-        fetchMasterStatus();
-      } catch(e) {}
-    });
-
-    // Scheduler Modal
+    // Auto-Scan Scheduler Modal Logic
     const schedModalBackdrop = document.getElementById('schedModalBackdrop');
-    document.getElementById('btnOpenScheduler').addEventListener('click', () => {
+    btnOpenScheduler.addEventListener('click', () => {
       schedModalBackdrop.classList.add('active');
-      fetchScheduleStatus();
+      fetchScheduleInfo();
     });
     document.getElementById('schedBtnClose').addEventListener('click', () => schedModalBackdrop.classList.remove('active'));
-    document.getElementById('schedBtnDone').addEventListener('click', () => schedModalBackdrop.classList.remove('active'));
+    document.getElementById('schedBtnCancel').addEventListener('click', () => schedModalBackdrop.classList.remove('active'));
 
-    async function fetchScheduleStatus() {
+    const selWinTaskMode = document.getElementById('selWinTaskMode');
+    const boxWinTaskDaily = document.getElementById('boxWinTaskDaily');
+    const boxWinTaskInterval = document.getElementById('boxWinTaskInterval');
+    selWinTaskMode.addEventListener('change', () => {
+      boxWinTaskDaily.style.display = (selWinTaskMode.value === 'daily') ? 'block' : 'none';
+      boxWinTaskInterval.style.display = (selWinTaskMode.value === 'interval') ? 'block' : 'none';
+    });
+
+    async function fetchScheduleInfo() {
       try {
         const res = await fetch('/api/schedule');
         const data = await res.json();
         if (data.inAppSchedule) {
           document.getElementById('chkInAppSched').checked = !!data.inAppSchedule.enabled;
+          document.getElementById('numInAppInterval').value = data.inAppSchedule.intervalMinutes || 240;
         }
-        if (data.winTaskInfo) {
-          const isReg = data.winTaskInfo.registered;
-          const badge = document.getElementById('badgeWinTaskStatus');
-          badge.innerText = isReg ? `พร้อม (${data.winTaskInfo.state})` : 'ยังไม่ลงทะเบียน';
-          badge.className = isReg ? 'status-badge ok' : 'status-badge offline';
-          document.getElementById('btnUnregisterWinTask').disabled = !isReg;
-          document.getElementById('btnTestRunWinTask').disabled = !isReg;
+        if (data.winTaskInfo && data.winTaskInfo.registered) {
+          selWinTaskMode.value = data.winTaskInfo.mode || 'daily';
+          selWinTaskMode.dispatchEvent(new Event('change'));
+          if (data.winTaskInfo.time) document.getElementById('timeWinTaskDaily').value = data.winTaskInfo.time;
+          if (data.winTaskInfo.intervalMinutes) document.getElementById('numWinTaskInterval').value = data.winTaskInfo.intervalMinutes;
         }
-      } catch(e) {}
+      } catch (err) {}
     }
 
-    document.getElementById('chkInAppSched').addEventListener('change', async () => {
-      const val = parseInt(document.getElementById('txtInAppIntervalVal').value) || 4;
-      const unit = document.getElementById('selInAppIntervalUnit').value;
-      const mins = unit === 'h' ? val * 60 : val;
+    document.getElementById('schedBtnSave').addEventListener('click', async () => {
+      const enabled = document.getElementById('chkInAppSched').checked;
+      const intervalMinutes = parseInt(document.getElementById('numInAppInterval').value) || 240;
       try {
-        await fetch('/api/schedule', {
+        const res = await fetch('/api/schedule', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'updateInApp', enabled: document.getElementById('chkInAppSched').checked, intervalMinutes: mins })
+          body: JSON.stringify({ action: 'updateInApp', enabled, intervalMinutes })
         });
-        showToast(document.getElementById('chkInAppSched').checked ? 'เปิด In-App Scheduler สำเร็จ' : 'ปิด In-App Scheduler', 'info');
-      } catch(e) {}
+        const data = await res.json();
+        showToast('In-App scheduler settings updated.', 'success');
+        schedModalBackdrop.classList.remove('active');
+        pollTick();
+      } catch (e) {
+        showToast('Failed to save schedule: ' + e.message, 'error');
+      }
     });
 
     document.getElementById('btnRegisterWinTask').addEventListener('click', async () => {
+      const mode = selWinTaskMode.value;
+      const time = document.getElementById('timeWinTaskDaily').value;
+      const intervalMinutes = parseInt(document.getElementById('numWinTaskInterval').value) || 60;
       try {
-        const isInterval = document.getElementById('radWinTaskInterval').checked;
-        const val = parseInt(document.getElementById('txtWinTaskIntervalVal').value) || 15;
-        const unit = document.getElementById('selWinTaskIntervalUnit').value;
-        const mins = unit === 'h' ? val * 60 : val;
-        await fetch('/api/schedule', {
+        const res = await fetch('/api/schedule', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'registerWinTask',
-            mode: isInterval ? 'interval' : 'daily',
-            time: document.getElementById('timeWinTask').value || '02:00',
-            intervalMinutes: mins
-          })
+          body: JSON.stringify({ action: 'registerWinTask', mode, time, intervalMinutes })
         });
-        showToast('ลงทะเบียน Windows Task Scheduler สำเร็จ!', 'success');
-        fetchScheduleStatus();
-      } catch(e) {}
+        const data = await res.json();
+        showToast(data.message || 'Windows Scheduled Task registered successfully!', 'success');
+        fetchScheduleInfo();
+        pollTick();
+      } catch (e) {
+        showToast('Failed to register Windows Task: ' + e.message, 'error');
+      }
     });
 
-    document.getElementById('btnUnregisterWinTask').addEventListener('click', async () => {
-      if (!confirm('ต้องการยกเลิกงานใน Windows Task Scheduler ใช่หรือไม่?')) return;
-      try {
-        await fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'unregisterWinTask'}) });
-        showToast('ยกเลิก Windows Task Scheduler สำเร็จ', 'info');
-        fetchScheduleStatus();
-      } catch(e) {}
+    // Startup Initialization
+    window.addEventListener('DOMContentLoaded', () => {
+      initTheme();
+      updateSourceUI();
+      fetchMasterStatus();
+      pollTick();
+      pollTimer = setInterval(pollTick, currentPollingInterval);
+      document.body.setAttribute('data-js-loaded', 'true');
     });
-
-    document.getElementById('btnTestRunWinTask').addEventListener('click', async () => {
-      try {
-        await fetch('/api/schedule', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'testRunWinTask'}) });
-        showToast('สั่งรันงาน Task Scheduler เรียบร้อย', 'info');
-      } catch(e) {}
-    });
-
-    // Window exit beacon
-    window.addEventListener('beforeunload', () => {
-      try { navigator.sendBeacon('/api/exit'); } catch(e) {}
-    });
-
-    // Startup
-    setPollingSpeed(2000);
-    fetchMasterStatus();
-    document.documentElement.setAttribute('data-js-loaded', 'true');
   </script>
 </body>
 </html>

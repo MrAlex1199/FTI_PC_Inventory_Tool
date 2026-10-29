@@ -261,6 +261,8 @@ function Update-ScanProgress() {
                         $pcItem = @{
                             PCName       = [string]$live.PCName
                             Status       = [string]$live.Status
+                            Fail_Count   = if ($live.Fail_Count) { [string]$live.Fail_Count } else { '0' }
+                            Win_License  = if ($live.Win_License) { [string]$live.Win_License } else { '-' }
                             User         = if ($live.User) { [string]$live.User } else { '-' }
                             Maker        = if ($live.Maker) { [string]$live.Maker } else { '-' }
                             Model        = if ($live.Model) { [string]$live.Model } else { '-' }
@@ -410,6 +412,8 @@ function Update-ScanProgress() {
                                 $script:scannedPCs.Add(@{
                                     PCName       = $row.PCName
                                     Status       = if ($row.Status) { $row.Status } else { 'OK' }
+                                    Fail_Count   = if ($row.Fail_Count) { $row.Fail_Count } else { '0' }
+                                    Win_License  = if ($row.Win_License) { $row.Win_License } else { '-' }
                                     User         = if ($row.User) { $row.User } else { '-' }
                                     Maker        = if ($row.Maker) { $row.Maker } else { '-' }
                                     Model        = if ($row.Model) { $row.Model } else { '-' }
