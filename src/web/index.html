@@ -998,6 +998,7 @@
       border-collapse: collapse;
       table-layout: auto;
       font-size: 0.76rem;
+      border: 1px solid var(--border-subtle);
     }
 
     .live-grid thead th {
@@ -1009,24 +1010,38 @@
       text-transform: uppercase;
       font-size: 0.68rem;
       letter-spacing: 0.4px;
-      padding: 7px 12px;
-      border-bottom: 1px solid var(--border-subtle);
+      padding: 8px 10px;
+      border-right: 1px solid var(--border-subtle);
+      border-bottom: 2px solid var(--border-subtle);
       white-space: nowrap;
       z-index: 5;
+    }
+    .live-grid thead th:last-child {
+      border-right: none;
     }
 
     .live-grid tbody tr {
       border-bottom: 1px solid var(--border-subtle);
-      transition: background-color 0.1s;
+      transition: background-color 0.12s ease;
+    }
+    .live-grid tbody tr:nth-child(even) {
+      background-color: rgba(0, 0, 0, 0.025);
+    }
+    html.dark .live-grid tbody tr:nth-child(even) {
+      background-color: rgba(255, 255, 255, 0.02);
     }
     .live-grid tbody tr:hover {
-      background-color: rgba(2, 132, 199, 0.06);
+      background-color: rgba(2, 132, 199, 0.09) !important;
     }
 
     .live-grid tbody td {
-      padding: 6px 12px;
+      padding: 6px 10px;
       white-space: nowrap;
       vertical-align: middle;
+      border-right: 1px solid var(--border-subtle);
+    }
+    .live-grid tbody td:last-child {
+      border-right: none;
     }
 
     .pc-name-bold {
@@ -1697,15 +1712,15 @@
           <table class="live-grid" id="resultsTable">
             <thead>
               <tr>
-                <th>Scan Status</th>
-                <th style="text-align: center;">Failed Scans</th>
-                <th>PC Name</th>
-                <th>Windows License Types</th>
-                <th>OS</th>
-                <th>CPU</th>
-                <th>RAM</th>
-                <th>Disk Space</th>
-                <th>User</th>
+                <th title="Scan Status (OK, Offline, Scanning, Error)">Status</th>
+                <th style="text-align: center;" title="Consecutive Failed Scans Count">Fails</th>
+                <th title="Host / Computer Name">PC Name</th>
+                <th title="Windows OS License Channel & Activation Status">Win License</th>
+                <th title="Operating System Version & Build">OS</th>
+                <th title="Processor Name & Core Count">CPU</th>
+                <th title="Total Physical Memory (GB)">RAM</th>
+                <th title="System Drive C: Free Space">Disk</th>
+                <th title="Currently Logged-on User">User</th>
               </tr>
             </thead>
             <tbody id="tableBody">
