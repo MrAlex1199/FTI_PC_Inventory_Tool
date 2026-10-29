@@ -242,7 +242,7 @@ Write-Host '[6/7] Applying Authenticode Digital Signature (SHA256)...' -Foregrou
 $cert = $null
 if (-not $SkipSign) {
     try {
-        $certSubject = "CN=FTI Enterprise Tools"
+        $certSubject = "CN=Function International (FTI)"
         $cert = Get-ChildItem -Path Cert:\CurrentUser\My -ErrorAction SilentlyContinue | Where-Object { $_.Subject -eq $certSubject } | Select-Object -First 1
 
         if (-not $cert) {
@@ -295,7 +295,7 @@ $installBat = @"
 @echo off
 title Install FTI Enterprise Security Certificate
 echo ========================================================
-echo   FTI Enterprise Tools - Certificate Installer
+echo   Function International (FTI) - Certificate Installer
 echo ========================================================
 echo.
 echo Installing security certificate to Trusted Root Certification Authorities...

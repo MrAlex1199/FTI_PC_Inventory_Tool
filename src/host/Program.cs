@@ -5,11 +5,11 @@ using System.Reflection;
 using System.Text;
 
 [assembly: AssemblyTitle("FTI PC Inventory Tool")]
-[assembly: AssemblyDescription("Federation of Thai Industries - Enterprise PC Hardware and Software Inventory Scanner")]
+[assembly: AssemblyDescription("Function International - Enterprise PC Hardware and Software Inventory Scanner")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("Federation of Thai Industries (FTI)")]
+[assembly: AssemblyCompany("Function International (FTI)")]
 [assembly: AssemblyProduct("FTI PC Inventory Tool")]
-[assembly: AssemblyCopyright("Copyright © Federation of Thai Industries 2026")]
+[assembly: AssemblyCopyright("Copyright © Function International 2026")]
 [assembly: AssemblyTrademark("FTI")]
 [assembly: AssemblyCulture("")]
 [assembly: AssemblyVersion("2.5.0.0")]

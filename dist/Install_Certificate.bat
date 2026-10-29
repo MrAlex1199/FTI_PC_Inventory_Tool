@@ -1,7 +1,7 @@
 @echo off
 title Install FTI Enterprise Security Certificate
 echo ========================================================
-echo   FTI Enterprise Tools - Certificate Installer
+echo   Function International (FTI) - Certificate Installer
 echo ========================================================
 echo.
 echo Installing security certificate to Trusted Root Certification Authorities...
