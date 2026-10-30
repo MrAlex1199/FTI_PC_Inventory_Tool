@@ -22,3 +22,8 @@ fti_inventory_web_profile/
 Thumbs.db
 Desktop.ini
 $RECYCLE.BIN/
+
+# Local scratch scripts
+scratch/
+*.bak
+
