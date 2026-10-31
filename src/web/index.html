@@ -746,6 +746,20 @@
 
     }
 
+    .preset-chip.active {
+
+      background: var(--accent-primary) !important;
+
+      border-color: var(--accent-primary) !important;
+
+      color: #ffffff !important;
+
+      font-weight: 700 !important;
+
+      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+
+    }
+
     /* Switch Compact */
 
     .toggle-compact-row {
@@ -3223,13 +3237,13 @@
 
               <span class="field-label">Performance Presets:</span>
 
-              <div style="display: flex; gap: 4px;">
+              <div style="display: flex; gap: 4px;" id="boxPerfPresets">
 
-                <button type="button" class="preset-chip" onclick="setPerfPreset(10, 30)">🛡️ Safe</button>
+                <button type="button" class="preset-chip" id="btnPerfSafe" onclick="setPerfPreset(10, 30, 'Safe')">🛡️ Safe</button>
 
-                <button type="button" class="preset-chip" onclick="setPerfPreset(20, 30)">⚖️ Balanced</button>
+                <button type="button" class="preset-chip active" id="btnPerfBalanced" onclick="setPerfPreset(20, 30, 'Balanced')">⚖️ Balanced</button>
 
-                <button type="button" class="preset-chip" onclick="setPerfPreset(40, 15)">🚀 High Speed</button>
+                <button type="button" class="preset-chip" id="btnPerfHigh" onclick="setPerfPreset(40, 15, 'High Speed')">🚀 High Speed</button>
 
               </div>
 
@@ -4242,13 +4256,40 @@
 
     // Preset Performance
 
-    window.setPerfPreset = function(throttle, days) {
+    window.setPerfPreset = function(throttle, days, labelName) {
 
-      document.getElementById('numThrottle').value = throttle;
+      const numThrottle = document.getElementById('numThrottle');
 
-      document.getElementById('numDays').value = days;
+      const numDays = document.getElementById('numDays');
 
-      showToast(`Preset applied: Throttle ${throttle}, Active Days ${days}`, 'info');
+      const hudThrottle = document.getElementById('hudThrottleInfo');
+
+      const boxPresets = document.getElementById('boxPerfPresets');
+
+      if (numThrottle) numThrottle.value = throttle;
+
+      if (numDays) numDays.value = days;
+
+      if (hudThrottle) {
+        hudThrottle.innerText = `Concurrency: ${throttle} threads`;
+      }
+
+      if (boxPresets) {
+        boxPresets.querySelectorAll('.preset-chip').forEach(btn => btn.classList.remove('active'));
+      }
+      if (throttle === 10) {
+        const b = document.getElementById('btnPerfSafe');
+        if (b) b.classList.add('active');
+      } else if (throttle === 40) {
+        const b = document.getElementById('btnPerfHigh');
+        if (b) b.classList.add('active');
+      } else {
+        const b = document.getElementById('btnPerfBalanced');
+        if (b) b.classList.add('active');
+      }
+
+      const presetLabel = labelName || (throttle === 10 ? 'Safe' : (throttle === 40 ? 'High Speed' : 'Balanced'));
+      showToast(`${presetLabel} preset applied (Concurrency: ${throttle} threads, Active Days: ${days})`, 'info');
 
     };
 
