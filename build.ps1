@@ -14,6 +14,7 @@
 param(
     [string]$OutputDir,
     [string]$ExeName = 'FTI_PC_Inventory.exe',
+    [string]$Version,
     [switch]$SkipSign = $false
 )
 if (-not $OutputDir) {
@@ -42,6 +43,85 @@ $tempDir = Join-Path $env:TEMP 'FTI_Inventory_Build'
 if (-not (Test-Path $tempDir)) {
     New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 }
+
+# --- Resolve and Manage Build Version (Date-based: yyyy.MM.dd.<BuildCycle>) ---
+Write-Host '      Resolving build version...' -ForegroundColor Gray
+$versionFile = Join-Path $PSScriptRoot 'version.json'
+$todayStr = (Get-Date).ToString('yyyy.MM.dd')
+$nowTimestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+
+$verData = $null
+if (Test-Path $versionFile) {
+    try {
+        $verData = Get-Content -Path $versionFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    } catch {}
+}
+
+if ($Version) {
+    # Custom version specified by user parameter
+    $appVersion = $Version.Trim().TrimStart('v')
+    $buildRevision = 1
+    if ($appVersion -match '\.(\d+)$') {
+        $buildRevision = [int]$Matches[1]
+    }
+} else {
+    $buildRevision = 1
+    if ($verData -and $verData.lastBuildDate -eq $todayStr) {
+        $buildRevision = [int]$verData.buildRevision + 1
+    }
+    $appVersion = "$todayStr.$buildRevision"
+}
+
+$displayVersion = "v$appVersion Enterprise"
+$verObj = [pscustomobject]@{
+    version        = $appVersion
+    displayVersion = $displayVersion
+    lastBuildDate  = $todayStr
+    buildRevision  = $buildRevision
+    buildTimestamp = $nowTimestamp
+}
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$verJsonContent = $verObj | ConvertTo-Json -Depth 4
+[System.IO.File]::WriteAllText($versionFile, $verJsonContent, $utf8NoBom)
+Write-Host "      Build Version: $displayVersion ($nowTimestamp)" -ForegroundColor Green
+
+# Update Web UI Title & Version Tag in src/web/index.html
+$htmlContentRaw = [System.IO.File]::ReadAllText($srcHtml, [System.Text.Encoding]::UTF8)
+$htmlContentRaw = [System.Text.RegularExpressions.Regex]::Replace(
+    $htmlContentRaw,
+    '<title>.*?</title>',
+    "<title>FTI PC Inventory Tool - v$appVersion</title>"
+)
+$htmlContentRaw = [System.Text.RegularExpressions.Regex]::Replace(
+    $htmlContentRaw,
+    '<span class="version-tag[^"]*".*?</span>',
+    "<span class=""version-tag has-tooltip"" data-tooltip=""Build: $nowTimestamp"" id=""appVersionTag"">$displayVersion</span>"
+)
+[System.IO.File]::WriteAllText($srcHtml, $htmlContentRaw, $utf8NoBom)
+
+# Update Assembly Version Attributes in src/host/Program.cs
+$csContentRaw = [System.IO.File]::ReadAllText($srcCs, [System.Text.Encoding]::UTF8)
+$csContentRaw = [System.Text.RegularExpressions.Regex]::Replace(
+    $csContentRaw,
+    '\[assembly:\s*AssemblyVersion\(".*?"\)\]',
+    "[assembly: AssemblyVersion(""$appVersion"")]"
+)
+$csContentRaw = [System.Text.RegularExpressions.Regex]::Replace(
+    $csContentRaw,
+    '\[assembly:\s*AssemblyFileVersion\(".*?"\)\]',
+    "[assembly: AssemblyFileVersion(""$appVersion"")]"
+)
+if ($csContentRaw -match '\[assembly:\s*AssemblyInformationalVersion\(".*?"\)\]') {
+    $csContentRaw = [System.Text.RegularExpressions.Regex]::Replace(
+        $csContentRaw,
+        '\[assembly:\s*AssemblyInformationalVersion\(".*?"\)\]',
+        "[assembly: AssemblyInformationalVersion(""$displayVersion ($nowTimestamp)"")]"
+    )
+} else {
+    $csContentRaw = $csContentRaw -replace '(\[assembly:\s*AssemblyFileVersion\(.*?\);?\])', "`$1`r`n[assembly: AssemblyInformationalVersion(`"$displayVersion ($nowTimestamp)`")]"
+}
+[System.IO.File]::WriteAllText($srcCs, $csContentRaw, $utf8NoBom)
+
 
 # 2. Locate C# Compiler (csc.exe)
 Write-Host '[1/7] Locating .NET C# Compiler (csc.exe)...' -ForegroundColor Yellow
@@ -190,6 +270,8 @@ $paramBlock
 # ==============================================================================
 # FTI PC Inventory Tool (Enterprise Standalone Web App Engine)
 # ==============================================================================
+`$AppVersion = '$displayVersion'
+`$BuildTimestamp = '$nowTimestamp'
 `$CoreScriptBase64 = '$coreB64'
 `$CoreScript = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String(`$CoreScriptBase64)).TrimStart([char]0xFEFF)
 
@@ -338,9 +420,9 @@ try {
 
 Write-Host ''
 Write-Host '===================================================' -ForegroundColor Green
-Write-Host '  ENTERPRISE BUILD COMPLETED SUCCESSFULLY!          ' -ForegroundColor Green
+Write-Host "  ENTERPRISE BUILD COMPLETED: $displayVersion" -ForegroundColor Green
 Write-Host '===================================================' -ForegroundColor Green
-Write-Host "1. Primary Executable: $finalTargetExe" -ForegroundColor White
+Write-Host "1. Primary Executable: $finalTargetExe (v$appVersion)" -ForegroundColor White
 if (Test-Path $certExportPath) {
     Write-Host "2. Public Certificate: $certExportPath" -ForegroundColor White
 }

@@ -141,7 +141,8 @@ function Write-SystemLog([string]$level, [string]$message) {
 }
 
 Write-Host "APP_PORT=$port"
-Write-SystemLog "INFO" "FTI Backend Engine started on http://127.0.0.1:$port (Admin=$isAdmin)"
+$verLabel = if ($AppVersion) { "$AppVersion" } else { "Enterprise" }
+Write-SystemLog "INFO" "FTI Backend Engine ($verLabel) started on http://127.0.0.1:$port (Admin=$isAdmin)"
 
 $script:lastInfoIndex   = 0
 $script:lastWarnIndex   = 0

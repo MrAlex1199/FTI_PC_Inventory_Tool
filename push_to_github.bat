@@ -20,6 +20,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "& {
     Copy-Item (Join-Path `$srcRoot '.gitignore') `$staging -Force -ErrorAction SilentlyContinue
     Copy-Item (Join-Path `$srcRoot 'README.md') `$staging -Force -ErrorAction SilentlyContinue
     Copy-Item (Join-Path `$srcRoot 'build.ps1') `$staging -Force -ErrorAction SilentlyContinue
+    Copy-Item (Join-Path `$srcRoot 'version.json') `$staging -Force -ErrorAction SilentlyContinue
     Copy-Item (Join-Path `$srcRoot 'run.bat') `$staging -Force -ErrorAction SilentlyContinue
     Copy-Item (Join-Path `$srcRoot 'Get-PCInventory_*.md') `$staging -Force -ErrorAction SilentlyContinue
     Copy-Item (Join-Path `$srcRoot 'src') `$staging -Recurse -Force -ErrorAction SilentlyContinue
