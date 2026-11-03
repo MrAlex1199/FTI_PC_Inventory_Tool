@@ -8,7 +8,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>FTI PC Inventory Tool - v2026.10.31.2</title>
+  <title>FTI PC Inventory Tool - v2026.11.03.1</title>
 
   <script>
 
@@ -1184,59 +1184,7 @@
 
     }
 
-    /* KPI Summary Row (4 Stat Cards 25% each) */
-
-    .kpi-row {
-
-      display: grid;
-
-      grid-template-columns: repeat(4, 1fr);
-
-      gap: 8px;
-
-      align-items: center;
-
-    }
-
-    .kpi-card {
-
-      background: var(--bg-surface-elevated);
-
-      border: 1px solid var(--border-subtle);
-
-      border-radius: 6px;
-
-      padding: 6px 12px;
-
-      display: flex;
-
-      align-items: center;
-
-      justify-content: space-between;
-
-      border-left: 4px solid var(--border-subtle);
-
-    }
-
-    .kpi-card.total { border-left-color: var(--accent-primary); }
-
-    .kpi-card.ok { border-left-color: var(--accent-emerald); }
-
-    .kpi-card.offline { border-left-color: var(--accent-amber); }
-
-    .kpi-card.error { border-left-color: var(--accent-rose); }
-
-    .kpi-meta .kpi-label { font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
-
-    .kpi-meta .kpi-value { font-size: 1.25rem; font-weight: 800; color: var(--text-main); line-height: 1.1; margin-top: 2px; }
-
-    .kpi-card.total .kpi-value { color: var(--accent-primary); }
-
-    .kpi-card.ok .kpi-value { color: var(--accent-emerald); }
-
-    .kpi-card.offline .kpi-value { color: var(--accent-amber); }
-
-    .kpi-card.error .kpi-value { color: var(--accent-rose); }
+    /* Unified Top Scan Strip Styles defined in Scan Strip Section */
 
     /* WOW Glassmorphic Command HUD Card */
 
@@ -2597,180 +2545,409 @@
       pointer-events: none;
     }
 
-    /* Dual-Track & Dynamic Focus HUD */
-    .hud-dual-track-card {
-      background: var(--bg-surface-elevated);
+    /* =========================================================================
+       Unified Scan Strip (~72px Height, Responsive 3-Zone Architecture)
+       ========================================================================= */
+    .scan-strip {
+      container-type: inline-size;
+      container-name: scanstrip;
+      background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
-      border-radius: 10px;
-      padding: 10px 14px;
+      border-radius: 8px;
       display: grid;
-      grid-template-columns: 1fr 240px;
-      gap: 14px;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: stretch;
+      min-height: 72px;
       box-shadow: var(--shadow-sm);
-      position: relative;
       overflow: hidden;
+      margin-bottom: 6px;
     }
-    .hud-dual-track-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0; height: 2px;
-      background: linear-gradient(90deg, var(--accent-primary), var(--accent-cyan), var(--accent-emerald));
-    }
-    .hud-stage-track {
+
+    /* Zone 1: Phase Status, Segmented Progress Bar & Sub-labels */
+    .scan-strip-progress {
+      padding: 9px 16px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
       justify-content: center;
+      gap: 6px;
+      min-width: 0;
+      overflow: hidden;
     }
-    .hud-stage-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .hud-stage-title-wrap {
+
+    .scan-strip-header {
       display: flex;
       align-items: center;
       gap: 8px;
+      min-width: 0;
+      overflow: hidden;
     }
-    .hud-phase-pill {
-      font-size: 0.70rem;
-      font-weight: 800;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: rgba(2, 132, 199, 0.15);
-      color: var(--accent-primary);
-      border: 1px solid rgba(2, 132, 199, 0.3);
+
+    .scan-status-pill {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
+      font-size: 0.73rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      color: var(--accent-primary);
+      flex-shrink: 0;
     }
-    .hud-phase-pill.sw {
-      background: rgba(16, 185, 129, 0.15);
+    .scan-status-pill.sw {
       color: var(--accent-emerald);
-      border-color: rgba(16, 185, 129, 0.3);
     }
-    .hud-phase-pill.done {
-      background: rgba(16, 185, 129, 0.2);
+    .scan-status-pill.done {
       color: var(--accent-emerald);
-      border-color: rgba(16, 185, 129, 0.4);
     }
-    .hud-stage-activity {
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--text-main);
+
+    .scan-sep {
+      color: var(--border-subtle);
+      font-weight: bold;
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    .scan-activity {
+      font-size: 0.73rem;
+      font-weight: 500;
+      color: var(--text-muted);
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-      max-width: 380px;
+      flex: 1;
+      min-width: 0;
     }
-    .hud-stage-counts {
-      font-size: 0.74rem;
-      font-weight: 700;
-      color: var(--text-secondary);
+
+    .scan-concurrency {
+      font-size: 0.67rem;
+      font-weight: 600;
+      color: var(--text-muted);
       font-family: monospace;
-    }
-    .hud-bar-container {
-      height: 8px;
-      background: var(--bg-surface);
+      flex-shrink: 0;
+      padding: 1px 6px;
+      background: var(--bg-surface-elevated);
       border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+    }
+
+    /* Segmented Bar (Hardware | Software) */
+    .scan-seg-bar {
+      height: 6px;
+      display: flex;
+      gap: 4px;
+      border-radius: 999px;
+      background: transparent;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .scan-seg {
+      flex: 1;
+      height: 100%;
+      background: var(--bg-surface-elevated);
       border-radius: 999px;
       overflow: hidden;
       position: relative;
+      transition: flex 300ms ease;
+      min-width: 0;
     }
-    .hud-bar-fill {
+
+    .scan-seg-fill {
       height: 100%;
       width: 0%;
-      background: linear-gradient(90deg, #0284c7, #06b6d4);
       border-radius: 999px;
-      transition: width 0.3s ease;
+      background: var(--accent-primary);
+      transition: width 400ms cubic-bezier(0.22, 1, 0.36, 1), background-color 300ms ease;
       position: relative;
       overflow: hidden;
     }
-    .hud-bar-fill.sw {
-      background: linear-gradient(90deg, #06b6d4, #10b981);
+
+    .scan-seg-fill.sw {
+      background: #0284c7;
     }
-    .hud-bar-fill.active::after {
+
+    .scan-seg-fill.done {
+      background: var(--accent-emerald) !important;
+    }
+
+    .scan-seg-fill.active::after {
       content: '';
       position: absolute;
       top: 0; left: 0; bottom: 0; right: 0;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
-      animation: shimmer 1.8s infinite;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+      animation: scanShimmer 1.8s infinite;
     }
-    .hud-stage-mini-badges {
+
+    @keyframes scanShimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+
+    /* Sub-bar Labels */
+    .scan-sub-labels {
       display: flex;
-      gap: 8px;
       align-items: center;
+      gap: 16px;
       font-size: 0.68rem;
+      color: var(--text-muted);
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
     }
-    .stage-mini-item {
+
+    .scan-sub-item {
       display: flex;
       align-items: center;
       gap: 5px;
-      padding: 1px 7px;
-      border-radius: 4px;
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-muted);
+      font-weight: 500;
+      transition: color 200ms ease;
+      flex-shrink: 0;
     }
-    .stage-mini-item.active {
-      border-color: var(--accent-primary);
+
+    .scan-sub-item.active {
       color: var(--accent-primary);
       font-weight: 700;
     }
-    .stage-mini-item.done {
-      border-color: rgba(16, 185, 129, 0.4);
+
+    .scan-sub-item.done {
       color: var(--accent-emerald);
       font-weight: 600;
     }
 
-    /* Overall Telemetry Cockpit Box */
-    .hud-overall-box {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      padding: 6px 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      justify-content: center;
-    }
-    .hud-overall-top {
+    /* Zone 2: Dedicated SCAN TIME & OVERALL % */
+    .scan-strip-telemetry {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 18px;
+      padding: 0 18px;
+      border-left: 1px solid var(--border-subtle);
+      background: rgba(0, 0, 0, 0.04);
+      flex-shrink: 0;
     }
-    .hud-overall-metric {
+    html.light .scan-strip-telemetry {
+      background: rgba(0, 0, 0, 0.02);
+    }
+
+    .scan-telemetry-item {
       display: flex;
       flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 64px;
     }
-    .hud-metric-lbl {
-      font-size: 0.60rem;
-      font-weight: 800;
-      letter-spacing: 0.4px;
+
+    .scan-telemetry-lbl {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
       color: var(--text-muted);
       text-transform: uppercase;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
+      line-height: 1;
+      margin-bottom: 3px;
     }
-    .hud-metric-val {
-      font-size: 0.88rem;
+
+    .scan-telemetry-val {
+      font-size: 1.15rem;
       font-weight: 800;
-      font-family: monospace;
       color: var(--text-main);
       line-height: 1.1;
-      margin-top: 1px;
+      font-variant-numeric: tabular-nums;
     }
-    .hud-metric-val.percent {
+
+    .scan-telemetry-val.percent {
       font-size: 1.25rem;
       font-weight: 900;
       color: var(--accent-primary);
-      text-align: right;
+      transition: color 300ms ease;
     }
-    .hud-metric-val.percent.done {
+
+    .scan-telemetry-val.percent.done {
       color: var(--accent-emerald);
+    }
+
+    /* Zone 3: Interactive Clickable KPI Buttons */
+    .scan-strip-kpis {
+      display: flex;
+      align-items: stretch;
+      border-left: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    .strip-kpi-btn {
+      background: transparent;
+      border: none;
+      border-right: 1px solid var(--border-subtle);
+      min-width: 80px;
+      padding: 6px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: background-color 150ms ease;
+      outline: none;
+      user-select: none;
+    }
+
+    .strip-kpi-btn:last-child {
+      border-right: none;
+    }
+
+    .strip-kpi-btn:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+    html.light .strip-kpi-btn:hover {
+      background: rgba(0, 0, 0, 0.03);
+    }
+
+    .strip-kpi-btn.active {
+      background: rgba(2, 132, 199, 0.08);
+      box-shadow: inset 0 -3px 0 var(--accent-primary);
+    }
+
+    .strip-kpi-val {
+      font-size: 1.28rem;
+      font-weight: 800;
+      color: var(--text-muted);
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+      transition: color 200ms ease;
+    }
+
+    .strip-kpi-val.has-val {
+      color: var(--text-main);
+    }
+
+    .strip-kpi-val.has-ok {
+      color: var(--accent-emerald) !important;
+    }
+
+    .strip-kpi-val.has-offline {
+      color: var(--accent-amber) !important;
+    }
+
+    .strip-kpi-val.has-error {
+      color: var(--accent-rose) !important;
+    }
+
+    .strip-kpi-lbl {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-top: 3px;
+    }
+
+    .kpi-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .kpi-dot.dot-total { background: var(--accent-primary); }
+    .kpi-dot.dot-ok { background: var(--accent-emerald); }
+    .kpi-dot.dot-offline { background: var(--accent-amber); }
+    .kpi-dot.dot-error { background: var(--accent-rose); }
+
+    /* =========================================================================
+       Responsive Container Queries (Viewport & Sidebar Resilience)
+       ========================================================================= */
+
+    /* Breakpoint 1: Compact Strip (Width <= 880px) */
+    @container (max-width: 880px) {
+      .scan-strip-progress {
+        padding: 8px 12px;
+      }
+      .scan-strip-telemetry {
+        padding: 0 10px;
+        gap: 10px;
+      }
+      .scan-telemetry-item {
+        min-width: 50px;
+      }
+      .scan-telemetry-val {
+        font-size: 1.05rem;
+      }
+      .scan-telemetry-val.percent {
+        font-size: 1.15rem;
+      }
+      .strip-kpi-btn {
+        min-width: 62px;
+        padding: 4px 8px;
+      }
+      .strip-kpi-val {
+        font-size: 1.15rem;
+      }
+      .strip-kpi-lbl {
+        font-size: 0.56rem;
+        letter-spacing: 0.3px;
+      }
+      .scan-sub-labels {
+        gap: 10px;
+      }
+    }
+
+    /* Breakpoint 2: Narrow 2-Tier Stack (Width <= 680px) */
+    @container (max-width: 680px) {
+      .scan-strip {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: auto auto;
+        min-height: auto;
+      }
+      .scan-strip-telemetry {
+        border-left: 1px solid var(--border-subtle);
+        padding: 8px 12px;
+      }
+      .scan-strip-kpis {
+        grid-column: 1 / -1;
+        border-left: none;
+        border-top: 1px solid var(--border-subtle);
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .strip-kpi-btn {
+        min-width: 0;
+        padding: 6px 4px;
+        border-right: 1px solid var(--border-subtle);
+      }
+      .strip-kpi-btn:last-child {
+        border-right: none;
+      }
+      .strip-kpi-val {
+        font-size: 1.18rem;
+      }
+    }
+
+    /* Breakpoint 3: Ultra-Narrow Screen (Width <= 480px) */
+    @container (max-width: 480px) {
+      .scan-concurrency {
+        display: none;
+      }
+      .scan-strip-telemetry {
+        gap: 8px;
+        padding: 6px 8px;
+      }
+      .scan-telemetry-item {
+        min-width: 42px;
+      }
+      .scan-telemetry-val {
+        font-size: 0.95rem;
+      }
+      .scan-telemetry-val.percent {
+        font-size: 1.05rem;
+      }
+      .scan-sub-labels {
+        font-size: 0.62rem;
+        gap: 8px;
+      }
     }
 
     /* Segmented Grid Tabs */
@@ -2941,7 +3118,7 @@
 
         <span>FTI PC Inventory Tool</span>
 
-        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-10-31 15:13:15" id="appVersionTag">v2026.10.31.2 Enterprise</span>
+        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-03 20:24:55" id="appVersionTag">v2026.11.03.1 Enterprise</span>
 
       </div>
 
@@ -3255,6 +3432,78 @@
 
         </div>
 
+        <!-- Section 4: Network Reachability & Wi-Fi Probing -->
+        <div class="accordion-section">
+          <div class="accordion-header" onclick="toggleAccordion(this)">
+            <span>4. Network & Wi-Fi Probing</span>
+            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="accordion-content">
+            <!-- 1-Click Wi-Fi vs Standard LAN Presets -->
+            <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+              <button type="button" class="preset-chip active" id="btnNetPresetLan" onclick="setNetPreset('lan')" style="flex: 1; padding: 4px 6px;">⚡ Standard LAN</button>
+              <button type="button" class="preset-chip" id="btnNetPresetWifi" onclick="setNetPreset('wifi')" style="flex: 1; padding: 4px 6px;">📶 Wi-Fi Mode</button>
+            </div>
+
+            <!-- Pinging Method Selector -->
+            <div>
+              <span class="field-label">Pinging Method:</span>
+              <select id="selPingMethod" class="input-compact" style="width: 100%;">
+                <option value="combined" selected>Combined (ICMP + TCP + UDP/ARP)</option>
+                <option value="icmp">Windows ICMP (.NET Ping)</option>
+                <option value="tcp">TCP Port Probe Only</option>
+                <option value="udptcp">Combined UDP + TCP</option>
+                <option value="arp">ARP + Ping (LAN Only)</option>
+              </select>
+            </div>
+
+            <!-- Ports to Probe -->
+            <div style="margin-top: 6px;">
+              <span class="field-label">Probe Ports (Multi-Select):</span>
+              <div id="boxPortPresets" style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px;">
+                <button type="button" class="preset-chip active" data-port="135" onclick="togglePortChip(this)">135 (RPC)</button>
+                <button type="button" class="preset-chip active" data-port="445" onclick="togglePortChip(this)">445 (SMB)</button>
+                <button type="button" class="preset-chip active" data-port="5985" onclick="togglePortChip(this)">5985 (WinRM)</button>
+                <button type="button" class="preset-chip" data-port="5986" onclick="togglePortChip(this)">5986 (HTTPS)</button>
+                <button type="button" class="preset-chip" data-port="3389" onclick="togglePortChip(this)">3389 (RDP)</button>
+                <button type="button" class="preset-chip" data-port="139" onclick="togglePortChip(this)">139 (NetBIOS)</button>
+                <button type="button" class="preset-chip" data-port="80" onclick="togglePortChip(this)">80 (HTTP)</button>
+                <button type="button" class="preset-chip" data-port="443" onclick="togglePortChip(this)">443 (HTTPS)</button>
+              </div>
+              <input type="text" id="txtCustomPorts" placeholder="Extra custom ports, e.g. 8080, 9100" class="input-compact" style="width: 100%; font-size: 0.72rem;">
+            </div>
+
+            <!-- Ping Tuning Parameters -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px;">
+              <div>
+                <span class="field-label">Timeout (ms):</span>
+                <input type="number" id="numPingTimeout" value="1000" min="200" max="10000" step="100" class="input-compact" style="width: 100%;">
+              </div>
+              <div>
+                <span class="field-label">Ping Probes:</span>
+                <input type="number" id="numPingProbes" value="2" min="1" max="10" class="input-compact" style="width: 100%;">
+              </div>
+            </div>
+
+            <div style="margin-top: 6px;">
+              <span class="field-label">Thread Delay (ms):</span>
+              <input type="number" id="numThreadDelay" value="20" min="0" max="500" step="5" class="input-compact" style="width: 100%;">
+            </div>
+
+            <!-- Checkbox Overrides -->
+            <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;">
+                <input type="checkbox" id="chkScanDeadHosts" style="accent-color: var(--accent-primary);">
+                <span>Scan dead hosts (bypass ping check)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;">
+                <input type="checkbox" id="chkSkipBroadcast" checked style="accent-color: var(--accent-primary);">
+                <span>Skip unassigned IPs (*.0 and *.255)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <!-- Sticky Sidebar Action Controls -->
@@ -3293,118 +3542,80 @@
 
     <main class="main-workspace" id="mainWorkspace">
 
-      <!-- Top Stepper & Real-time KPI Bar -->
-
-      <div class="top-stepper-kpi-bar" id="topStepperBar">
-
-        <!-- KPI 4 Cards -->
-
-        <div class="kpi-row">
-
-          <div class="kpi-card total">
-
-            <div class="kpi-meta">
-
-              <div class="kpi-label">TOTAL TARGETS</div>
-
-              <div class="kpi-value" id="statTotal">0</div>
-
-            </div>
-
+      <!-- Unified Scan Strip (~72px Height: Segmented Progress | Scan Time & Overall % | Interactive KPIs) -->
+      <div class="top-stepper-kpi-bar scan-strip" id="topStepperBar">
+        <!-- Zone 1: Phase Status, Segmented Progress Bar & Sub-labels -->
+        <div class="scan-strip-progress" id="connectedProgressContainer">
+          <div class="scan-strip-header">
+            <span class="scan-status-pill" id="hudStagePill">
+              <span class="status-indicator-dot" id="statusIndicatorDot"></span>
+              <span id="hudStageTitle">Ready</span>
+            </span>
+            <span class="scan-sep">·</span>
+            <span class="scan-activity" id="scanCurrentMsg">Ready for inventory scan</span>
+            <span class="scan-concurrency" id="hudThrottleInfo">20 threads</span>
           </div>
 
-          <div class="kpi-card ok">
-
-            <div class="kpi-meta">
-
-              <div class="kpi-label">SCAN SUCCESS (OK)</div>
-
-              <div class="kpi-value" id="statOk">0</div>
-
+          <!-- Proportional Segmented Progress Bar (Hardware | Software) -->
+          <div class="scan-seg-bar" id="hudSegBar">
+            <div class="scan-seg hw" id="hudSegHw">
+              <div class="scan-seg-fill hw" id="hudHwBarFill" style="width: 0%;"></div>
             </div>
-
+            <div class="scan-seg sw" id="hudSegSw">
+              <div class="scan-seg-fill sw" id="hudSwBarFill" style="width: 0%;"></div>
+            </div>
           </div>
 
-          <div class="kpi-card offline">
-
-            <div class="kpi-meta">
-
-              <div class="kpi-label">OFFLINE HOSTS</div>
-
-              <div class="kpi-value" id="statOffline">0</div>
-
+          <!-- Sub-bar Labels (HW & SW Progress) -->
+          <div class="scan-sub-labels">
+            <div class="scan-sub-item" id="miniStageHw">
+              <span>🖥️ Hardware:</span>
+              <span class="mono" id="miniHwDone">0/0</span>
             </div>
-
-          </div>
-
-          <div class="kpi-card error">
-
-            <div class="kpi-meta">
-
-              <div class="kpi-label">ERRORS & FAILED</div>
-
-              <div class="kpi-value" id="statError">0</div>
-
+            <div class="scan-sub-item" id="miniStageSw">
+              <span>📦 Software:</span>
+              <span class="mono" id="miniSwDone">0/0</span>
             </div>
-
+            <!-- Backwards-compat hidden elements -->
+            <div id="hudStageCounts" style="display:none;">0 / 0 PCs</div>
+            <div id="hudStageBarFill" style="display:none;"></div>
+            <div id="progressBarFill" style="display:none;"></div>
           </div>
-
         </div>
 
-        <!-- Modern Dual-Track & Dynamic Focus HUD -->
-        <div class="hud-dual-track-card" id="connectedProgressContainer">
-          <!-- Left: Stage Dynamic Focus Track -->
-          <div class="hud-stage-track">
-            <div class="hud-stage-header">
-              <div class="hud-stage-title-wrap">
-                <span class="hud-phase-pill" id="hudStagePill">
-                  <span class="status-indicator-dot" id="statusIndicatorDot"></span>
-                  <span id="hudStageTitle">PHASE 1: HARDWARE SCAN</span>
-                </span>
-                <span class="hud-stage-activity" id="scanCurrentMsg">Ready for inventory scan</span>
-              </div>
-              <div class="hud-stage-counts" id="hudStageCounts">0 / 0 PCs</div>
-            </div>
-
-            <!-- Dynamic Active Stage Progress Bar -->
-            <div class="hud-bar-container">
-              <div class="hud-bar-fill active" id="hudStageBarFill" style="width: 0%;"></div>
-            </div>
-
-            <!-- Sub-stage pills info -->
-            <div class="hud-stage-mini-badges">
-              <div class="stage-mini-item" id="miniStageHw">
-                <span>🖥️ Hardware:</span>
-                <span id="miniHwDone">0/0</span>
-              </div>
-              <div class="stage-mini-item" id="miniStageSw">
-                <span>📦 Software:</span>
-                <span id="miniSwDone">0/0</span>
-              </div>
-              <span style="color:var(--text-muted); margin-left:auto; font-size:0.65rem;" id="hudThrottleInfo">Concurrency: 20 threads</span>
-            </div>
+        <!-- Zone 2: Dedicated SCAN TIME & OVERALL % -->
+        <div class="scan-strip-telemetry">
+          <div class="scan-telemetry-item">
+            <span class="scan-telemetry-lbl">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              Scan Time
+            </span>
+            <span class="scan-telemetry-val mono" id="scanElapsed">00:00</span>
           </div>
-
-          <!-- Right: Overall Cockpit & Telemetry Box -->
-          <div class="hud-overall-box">
-            <div class="hud-overall-top">
-              <div class="hud-overall-metric">
-                <span class="hud-metric-lbl">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  Scan Time
-                </span>
-                <span class="hud-metric-val mono" id="scanElapsed">00:00</span>
-              </div>
-              <div class="hud-overall-metric" style="align-items: flex-end;">
-                <span class="hud-metric-lbl">Overall</span>
-                <span class="hud-metric-val percent" id="progressPctText">0%</span>
-              </div>
-            </div>
-            <!-- Overall Progress Line -->
-            <div class="hud-bar-container" style="height: 5px;">
-              <div class="hud-bar-fill" id="progressBarFill" style="width: 0%;"></div>
-            </div>
+          <div class="scan-telemetry-item">
+            <span class="scan-telemetry-lbl">Overall</span>
+            <span class="scan-telemetry-val percent" id="progressPctText">0%</span>
           </div>
+        </div>
+
+        <!-- Zone 3: Interactive Clickable KPI Buttons (Filters Live Table) -->
+        <div class="scan-strip-kpis">
+          <button type="button" class="strip-kpi-btn active" data-filter="all" onclick="setTableFilter('all')" title="Filter: All Targets">
+            <span class="strip-kpi-val" id="statTotal">0</span>
+            <span class="strip-kpi-lbl"><span class="kpi-dot dot-total"></span>Targets</span>
+          </button>
+          <button type="button" class="strip-kpi-btn" data-filter="OK" onclick="setTableFilter('OK')" title="Filter: Success (OK)">
+            <span class="strip-kpi-val" id="statOk">0</span>
+            <span class="strip-kpi-lbl"><span class="kpi-dot dot-ok"></span>OK</span>
+          </button>
+          <button type="button" class="strip-kpi-btn" data-filter="Offline" onclick="setTableFilter('Offline')" title="Filter: Offline Hosts">
+            <span class="strip-kpi-val" id="statOffline">0</span>
+            <span class="strip-kpi-lbl"><span class="kpi-dot dot-offline"></span>Offline</span>
+          </button>
+          <button type="button" class="strip-kpi-btn" data-filter="Error" onclick="setTableFilter('Error')" title="Filter: Errors & Failed">
+            <span class="strip-kpi-val" id="statError">0</span>
+            <span class="strip-kpi-lbl"><span class="kpi-dot dot-error"></span>Errors</span>
+          </button>
         </div>
       </div>
 
@@ -4056,6 +4267,60 @@
 
     const topSchedCountdown = document.getElementById('topSchedCountdown');
 
+    // =========================================================================
+    // Client-Side Continuous 1-Second Auto-Scan Countdown & Sync Engine
+    // =========================================================================
+    let schedInAppEnabled = false;
+    let schedTargetEpochMs = null;
+    let schedNextRunStr = '-';
+    let schedWinTaskActive = false;
+    let schedWinTaskLabel = '';
+    let schedWinTaskTitle = '';
+    let schedCountdownInterval = null;
+
+    function renderCountdownTick() {
+      if (!topScheduleBanner || !topSchedCountdown) return;
+
+      if (schedInAppEnabled && schedTargetEpochMs) {
+        topScheduleBanner.style.display = 'inline-flex';
+        const diffMs = schedTargetEpochMs - Date.now();
+        const sec = Math.max(0, Math.floor(diffMs / 1000));
+
+        if (sec <= 0) {
+          topSchedCountdown.innerText = 'Starting...';
+          topScheduleBanner.title = `Auto-scan triggering now (scheduled: ${schedNextRunStr})`;
+        } else {
+          const hh = String(Math.floor(sec / 3600)).padStart(2, '0');
+          const mm = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
+          const ss = String(sec % 60).padStart(2, '0');
+          topSchedCountdown.innerText = `${hh}:${mm}:${ss}`;
+          topScheduleBanner.title = `In-App schedule active. Next scan: ${schedNextRunStr} (~${sec}s remaining)`;
+        }
+      } else if (schedWinTaskActive) {
+        topScheduleBanner.style.display = 'inline-flex';
+        topSchedCountdown.innerText = schedWinTaskLabel;
+        topScheduleBanner.title = schedWinTaskTitle;
+      } else {
+        topScheduleBanner.style.display = 'none';
+      }
+    }
+
+    if (!schedCountdownInterval) {
+      schedCountdownInterval = setInterval(renderCountdownTick, 1000);
+    }
+
+    // Wakeup & Instant Sync on Window Focus or Tab Visibility
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        renderCountdownTick();
+        if (typeof pollTick === 'function') pollTick();
+      }
+    });
+    window.addEventListener('focus', () => {
+      renderCountdownTick();
+      if (typeof pollTick === 'function') pollTick();
+    });
+
     const workspaceLayout = document.getElementById('workspaceLayout');
 
     const sidebarCompact = document.getElementById('sidebarCompact');
@@ -4271,7 +4536,7 @@
       if (numDays) numDays.value = days;
 
       if (hudThrottle) {
-        hudThrottle.innerText = `Concurrency: ${throttle} threads`;
+        hudThrottle.innerText = `${throttle} threads`;
       }
 
       if (boxPresets) {
@@ -4291,6 +4556,52 @@
       const presetLabel = labelName || (throttle === 10 ? 'Safe' : (throttle === 40 ? 'High Speed' : 'Balanced'));
       showToast(`${presetLabel} preset applied (Concurrency: ${throttle} threads, Active Days: ${days})`, 'info');
 
+    };
+
+    // Network & Wi-Fi Probing Presets and Port Toggles
+    window.togglePortChip = function(btn) {
+      btn.classList.toggle('active');
+    };
+
+    window.setNetPreset = function(preset) {
+      const btnLan = document.getElementById('btnNetPresetLan');
+      const btnWifi = document.getElementById('btnNetPresetWifi');
+      const selMethod = document.getElementById('selPingMethod');
+      const numTimeout = document.getElementById('numPingTimeout');
+      const numProbes = document.getElementById('numPingProbes');
+      const numDelay = document.getElementById('numThreadDelay');
+      const boxPorts = document.getElementById('boxPortPresets');
+
+      if (btnLan) btnLan.classList.toggle('active', preset === 'lan');
+      if (btnWifi) btnWifi.classList.toggle('active', preset === 'wifi');
+
+      if (preset === 'wifi') {
+        if (selMethod) selMethod.value = 'combined';
+        if (numTimeout) numTimeout.value = 1500;
+        if (numProbes) numProbes.value = 3;
+        if (numDelay) numDelay.value = 30;
+        if (boxPorts) {
+          const wifiPorts = ['135', '445', '5985', '5986', '3389', '139'];
+          boxPorts.querySelectorAll('.preset-chip').forEach(b => {
+            const p = b.getAttribute('data-port');
+            b.classList.toggle('active', wifiPorts.includes(p));
+          });
+        }
+        showToast('Wi-Fi Probing preset applied (Timeout: 1500ms, Probes: 3, Delay: 30ms, Ports: 135, 445, 5985, 5986, 3389, 139)', 'info');
+      } else {
+        if (selMethod) selMethod.value = 'combined';
+        if (numTimeout) numTimeout.value = 1000;
+        if (numProbes) numProbes.value = 2;
+        if (numDelay) numDelay.value = 20;
+        if (boxPorts) {
+          const lanPorts = ['135', '445', '5985'];
+          boxPorts.querySelectorAll('.preset-chip').forEach(b => {
+            const p = b.getAttribute('data-port');
+            b.classList.toggle('active', lanPorts.includes(p));
+          });
+        }
+        showToast('Standard LAN probing preset applied', 'info');
+      }
     };
 
     // Source Selection
@@ -4957,20 +5268,21 @@
 
     });
 
-    document.querySelectorAll('.filter-btn-pill').forEach(btn => {
-
-      btn.addEventListener('click', () => {
-
-        document.querySelectorAll('.filter-btn-pill').forEach(b => b.classList.remove('active'));
-
-        btn.classList.add('active');
-
-        currentFilter = btn.getAttribute('data-filter');
-
-        renderTable();
-
+    window.setTableFilter = function(filterVal) {
+      currentFilter = filterVal;
+      document.querySelectorAll('.filter-btn-pill').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-filter') === filterVal);
       });
+      document.querySelectorAll('.strip-kpi-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-filter') === filterVal);
+      });
+      renderTable();
+    };
 
+    document.querySelectorAll('.filter-btn-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        window.setTableFilter(btn.getAttribute('data-filter'));
+      });
     });
 
     // In-App File Browser
@@ -5397,11 +5709,33 @@
         includeHidden: document.getElementById('chkHidden').checked,
 
         throttle: parseInt(document.getElementById('numThrottle').value) || 20,
-
         outDir: txtOutDir.value.trim() || 'C:\\Inventory',
+        autoHtml: chkAutoHtml.checked,
 
-        autoHtml: chkAutoHtml.checked
-
+        // Network & Wi-Fi Probing Settings
+        pingMethod: document.getElementById('selPingMethod') ? document.getElementById('selPingMethod').value : 'combined',
+        probePorts: (() => {
+          const ports = [];
+          document.querySelectorAll('#boxPortPresets .preset-chip.active').forEach(b => {
+            const p = b.getAttribute('data-port');
+            if (p) ports.push(p);
+          });
+          const custom = (document.getElementById('txtCustomPorts') ? document.getElementById('txtCustomPorts').value : '').trim();
+          if (custom) {
+            custom.split(/[,;\s]+/).forEach(p => {
+              const num = parseInt(p.trim(), 10);
+              if (!isNaN(num) && num >= 1 && num <= 65535 && !ports.includes(String(num))) {
+                ports.push(String(num));
+              }
+            });
+          }
+          return ports.join(',') || '135,445,5985';
+        })(),
+        pingTimeoutMs: parseInt(document.getElementById('numPingTimeout') ? document.getElementById('numPingTimeout').value : '1000', 10) || 1000,
+        pingProbes: parseInt(document.getElementById('numPingProbes') ? document.getElementById('numPingProbes').value : '2', 10) || 2,
+        threadDelayMs: parseInt(document.getElementById('numThreadDelay') ? document.getElementById('numThreadDelay').value : '20', 10) || 20,
+        scanDeadHosts: document.getElementById('chkScanDeadHosts') ? document.getElementById('chkScanDeadHosts').checked : false,
+        skipBroadcast: document.getElementById('chkSkipBroadcast') ? document.getElementById('chkSkipBroadcast').checked : true
       };
 
       try {
@@ -5522,49 +5856,29 @@
 
         }
 
-        // Live Auto-Scan Countdown in Top Header
-
-        let hasActiveSchedule = false;
-
-        if (data.inAppSchedule && data.inAppSchedule.enabled && data.inAppSchedule.countdownSec !== null) {
-
-          hasActiveSchedule = true;
-
-          const sec = Math.max(0, data.inAppSchedule.countdownSec);
-
-          const hh = String(Math.floor(sec / 3600)).padStart(2, '0');
-
-          const mm = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
-
-          const ss = String(sec % 60).padStart(2, '0');
-
-          topSchedCountdown.innerText = `${hh}:${mm}:${ss}`;
-
-          topScheduleBanner.title = `In-App schedule active. Next scan: ${data.inAppSchedule.nextRunAt || '-'}`;
-
-        } else if (data.winTaskInfo && data.winTaskInfo.registered) {
-
-          hasActiveSchedule = true;
-
-          if (data.winTaskInfo.mode === 'interval') {
-
-            topSchedCountdown.innerText = `Every ${data.winTaskInfo.intervalMinutes}m`;
-
-          } else {
-
-            topSchedCountdown.innerText = `Daily at ${data.winTaskInfo.time}`;
-
+        // Live Auto-Scan Countdown in Top Header (Sync with Backend)
+        if (data.inAppSchedule && data.inAppSchedule.enabled) {
+          schedInAppEnabled = true;
+          schedWinTaskActive = false;
+          schedNextRunStr = data.inAppSchedule.nextRunAt || '-';
+          if (data.inAppSchedule.nextRunEpochMs) {
+            schedTargetEpochMs = data.inAppSchedule.nextRunEpochMs;
+          } else if (data.inAppSchedule.countdownSec !== null && data.inAppSchedule.countdownSec !== undefined) {
+            schedTargetEpochMs = Date.now() + (Math.max(0, data.inAppSchedule.countdownSec) * 1000);
           }
-
-          topScheduleBanner.title = `Windows Scheduled Task active: State ${data.winTaskInfo.state}`;
-
+        } else if (data.winTaskInfo && data.winTaskInfo.registered) {
+          schedInAppEnabled = false;
+          schedWinTaskActive = true;
+          schedWinTaskLabel = (data.winTaskInfo.mode === 'interval')
+            ? `Every ${data.winTaskInfo.intervalMinutes}m`
+            : `Daily at ${data.winTaskInfo.time}`;
+          schedWinTaskTitle = `Windows Scheduled Task active: State ${data.winTaskInfo.state}`;
+        } else {
+          schedInAppEnabled = false;
+          schedWinTaskActive = false;
+          schedTargetEpochMs = null;
         }
-
-        if (topScheduleBanner) {
-
-          topScheduleBanner.style.display = hasActiveSchedule ? 'inline-flex' : 'none';
-
-        }
+        renderCountdownTick();
 
         // Scanning State Sync
 
@@ -5594,11 +5908,12 @@
 
         }
 
-        // Stage & Dual-Track Dynamic HUD Sync
+        // Stage & Unified Scan Strip Dynamic HUD Sync
+        const hudHwBarFill = document.getElementById('hudHwBarFill');
+        const hudSwBarFill = document.getElementById('hudSwBarFill');
+        const hudSegSw = document.getElementById('hudSegSw');
         const hudStagePill = document.getElementById('hudStagePill');
         const hudStageTitle = document.getElementById('hudStageTitle');
-        const hudStageCounts = document.getElementById('hudStageCounts');
-        const hudStageBarFill = document.getElementById('hudStageBarFill');
         const miniHwDone = document.getElementById('miniHwDone');
         const miniSwDone = document.getElementById('miniSwDone');
         const miniStageHw = document.getElementById('miniStageHw');
@@ -5612,66 +5927,95 @@
         if (miniHwDone) miniHwDone.innerText = `${hwDone}/${hwTot}`;
         if (miniSwDone) miniSwDone.innerText = `${swDone}/${swTot}`;
 
+        const swEnabled = chkSw.checked || swTot > 0;
+        if (hudSegSw) hudSegSw.style.display = swEnabled ? 'block' : 'none';
+        if (miniStageSw) miniStageSw.style.display = swEnabled ? 'flex' : 'none';
+
         // Dynamic Stage Evaluation
         if (serverIsCompleted || data.scanStep >= 5) {
-          if (hudStagePill) hudStagePill.className = 'hud-phase-pill done';
-          if (hudStageTitle) hudStageTitle.innerText = 'SCAN COMPLETED';
-          if (hudStageCounts) hudStageCounts.innerText = 'All Tasks Done';
-          if (hudStageBarFill) {
-            hudStageBarFill.className = 'hud-bar-fill';
-            hudStageBarFill.style.width = '100%';
+          if (hudStagePill) hudStagePill.className = 'scan-status-pill done';
+          if (hudStageTitle) hudStageTitle.innerText = 'Completed';
+          if (hudHwBarFill) {
+            hudHwBarFill.className = 'scan-seg-fill hw done';
+            hudHwBarFill.style.width = '100%';
           }
-          if (miniStageHw) miniStageHw.className = 'stage-mini-item done';
-          if (miniStageSw) miniStageSw.className = 'stage-mini-item done';
+          if (hudSwBarFill) {
+            hudSwBarFill.className = 'scan-seg-fill sw done';
+            hudSwBarFill.style.width = '100%';
+          }
+          if (miniStageHw) miniStageHw.className = 'scan-sub-item done';
+          if (miniStageSw) miniStageSw.className = 'scan-sub-item done';
+          if (statusIndicatorDot) statusIndicatorDot.className = 'status-indicator-dot completed';
           updateStepperUI(5, 'Completed', true);
         } else if (serverIsScanning) {
-          // Check if currently in Software Scan phase
           const inSwPhase = (swTot > 0 && hwDone >= hwTot && swDone < swTot) || (data.scanStep === 3);
 
           if (inSwPhase) {
-            if (hudStagePill) hudStagePill.className = 'hud-phase-pill sw';
-            if (hudStageTitle) hudStageTitle.innerText = 'PHASE 2: SOFTWARE SCAN';
-            if (hudStageCounts) hudStageCounts.innerText = `${swDone} / ${swTot} PCs`;
-            const swPct = swTot > 0 ? Math.round((swDone / swTot) * 100) : 0;
-            if (hudStageBarFill) {
-              hudStageBarFill.className = 'hud-bar-fill sw active';
-              hudStageBarFill.style.width = `${swPct}%`;
+            if (hudStagePill) hudStagePill.className = 'scan-status-pill sw';
+            if (hudStageTitle) hudStageTitle.innerText = 'Software scan';
+            if (hudHwBarFill) {
+              hudHwBarFill.className = 'scan-seg-fill hw done';
+              hudHwBarFill.style.width = '100%';
             }
-            if (miniStageHw) miniStageHw.className = 'stage-mini-item done';
-            if (miniStageSw) miniStageSw.className = 'stage-mini-item active';
+            const swPct = swTot > 0 ? Math.round((swDone / swTot) * 100) : 0;
+            if (hudSwBarFill) {
+              hudSwBarFill.className = 'scan-seg-fill sw active';
+              hudSwBarFill.style.width = `${swPct}%`;
+            }
+            if (miniStageHw) miniStageHw.className = 'scan-sub-item done';
+            if (miniStageSw) miniStageSw.className = 'scan-sub-item active';
+            if (statusIndicatorDot) statusIndicatorDot.className = 'status-indicator-dot scanning';
             updateStepperUI(3, 'Software Inventory', false);
           } else {
-            // In Hardware Scan or Discovery phase
-            if (hudStagePill) hudStagePill.className = 'hud-phase-pill';
-            if (hudStageTitle) hudStageTitle.innerText = 'PHASE 1: HARDWARE SCAN';
-            if (hudStageCounts) hudStageCounts.innerText = `${hwDone} / ${hwTot} PCs`;
+            if (hudStagePill) hudStagePill.className = 'scan-status-pill';
+            if (hudStageTitle) hudStageTitle.innerText = 'Hardware scan';
             const hwPct = hwTot > 0 ? Math.round((hwDone / hwTot) * 100) : (data.percent || 0);
-            if (hudStageBarFill) {
-              hudStageBarFill.className = 'hud-bar-fill active';
-              hudStageBarFill.style.width = `${hwPct}%`;
+            if (hudHwBarFill) {
+              hudHwBarFill.className = 'scan-seg-fill hw active';
+              hudHwBarFill.style.width = `${hwPct}%`;
             }
-            if (miniStageHw) miniStageHw.className = 'stage-mini-item active';
-            if (miniStageSw) miniStageSw.className = 'stage-mini-item';
+            if (hudSwBarFill) {
+              hudSwBarFill.className = 'scan-seg-fill sw';
+              hudSwBarFill.style.width = '0%';
+            }
+            if (miniStageHw) miniStageHw.className = 'scan-sub-item active';
+            if (miniStageSw) miniStageSw.className = 'scan-sub-item';
+            if (statusIndicatorDot) statusIndicatorDot.className = 'status-indicator-dot scanning';
             updateStepperUI(data.scanStep || 2, data.scanStepText || 'Hardware Scan', false);
           }
         } else {
           // Idle / Ready
-          if (hudStagePill) hudStagePill.className = 'hud-phase-pill';
-          if (hudStageTitle) hudStageTitle.innerText = 'READY FOR SCAN';
-          if (hudStageCounts) hudStageCounts.innerText = '0 / 0 PCs';
-          if (hudStageBarFill) {
-            hudStageBarFill.className = 'hud-bar-fill';
-            hudStageBarFill.style.width = '0%';
+          if (hudStagePill) hudStagePill.className = 'scan-status-pill';
+          if (hudStageTitle) hudStageTitle.innerText = 'Ready';
+          if (hudHwBarFill) {
+            hudHwBarFill.className = 'scan-seg-fill hw';
+            hudHwBarFill.style.width = '0%';
           }
-          if (miniStageHw) miniStageHw.className = 'stage-mini-item';
-          if (miniStageSw) miniStageSw.className = 'stage-mini-item';
+          if (hudSwBarFill) {
+            hudSwBarFill.className = 'scan-seg-fill sw';
+            hudSwBarFill.style.width = '0%';
+          }
+          if (miniStageHw) miniStageHw.className = 'scan-sub-item';
+          if (miniStageSw) miniStageSw.className = 'scan-sub-item';
+          if (statusIndicatorDot) statusIndicatorDot.className = 'status-indicator-dot';
         }
 
-        // KPI Counters
-        statTotal.innerText = data.total || 0;
-        statOk.innerText = data.ok || 0;
-        statOffline.innerText = data.offline || 0;
-        statError.innerText = data.error || 0;
+        // Semantic KPI counters helper
+        function updateKpiVal(el, val, type) {
+          if (!el) return;
+          const num = parseInt(val) || 0;
+          el.innerText = num;
+          el.classList.toggle('has-val', num > 0);
+          if (type === 'ok') el.classList.toggle('has-ok', num > 0);
+          if (type === 'offline') el.classList.toggle('has-offline', num > 0);
+          if (type === 'error') el.classList.toggle('has-error', num > 0);
+        }
+
+        // Update KPI Counters
+        updateKpiVal(statTotal, data.total, 'total');
+        updateKpiVal(statOk, data.ok, 'ok');
+        updateKpiVal(statOffline, data.offline, 'offline');
+        updateKpiVal(statError, data.error, 'error');
 
         // Overall Telemetry Fill & Time
         const pct = Math.min(100, Math.max(0, data.percent || 0));

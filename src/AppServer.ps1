@@ -482,18 +482,50 @@ function Update-ScanProgress() {
 
                 if ($csvToLoad) {
                     try {
-                        $csvHw = Import-Csv -LiteralPath $csvToLoad -Encoding UTF8
+                        $csvHw = @(Import-Csv -LiteralPath $csvToLoad -Encoding UTF8)
                         if ($csvHw -and $csvHw.Count -gt 0) {
+                            # Snapshot live scanned PCs so live license fields are never lost on post-scan reload
+                            $liveLookup = @{}
+                            foreach ($liveRec in $script:scannedPCs) {
+                                if ($liveRec -and $liveRec.PCName) {
+                                    $liveLookup[$liveRec.PCName.ToUpper()] = $liveRec
+                                }
+                            }
                             $script:scannedPCs.Clear()
                             foreach ($row in $csvHw) {
+                                $pcKey = if ($row.PCName) { $row.PCName.ToUpper() } else { '' }
+                                $liveMatch = if ($pcKey -and $liveLookup.ContainsKey($pcKey)) { $liveLookup[$pcKey] } else { $null }
+
+                                $winLicVal = if ($row.Win_License -and $row.Win_License -ne '-') {
+                                    $row.Win_License
+                                } elseif ($liveMatch -and $liveMatch.Win_License -and $liveMatch.Win_License -ne '-') {
+                                    $liveMatch.Win_License
+                                } else { '-' }
+
+                                $offLicVal = if ($row.Office_License -and $row.Office_License -notin @('-', 'None')) {
+                                    $row.Office_License
+                                } elseif ($liveMatch -and $liveMatch.Office_License -and $liveMatch.Office_License -notin @('-', 'None')) {
+                                    $liveMatch.Office_License
+                                } elseif ($row.Office_License) {
+                                    $row.Office_License
+                                } else { '-' }
+
+                                $offDetVal = if ($row.Office_Detail -and $row.Office_Detail -notin @('-', 'No Microsoft Office installation detected')) {
+                                    $row.Office_Detail
+                                } elseif ($liveMatch -and $liveMatch.Office_Detail -and $liveMatch.Office_Detail -ne '-') {
+                                    $liveMatch.Office_Detail
+                                } elseif ($row.Office_Detail) {
+                                    $row.Office_Detail
+                                } else { '-' }
+
                                 $script:scannedPCs.Add(@{
                                     PCName         = $row.PCName
                                     Status         = if ($row.Status) { $row.Status } else { 'OK' }
                                     Status_Detail  = if ($row.Status_Detail) { $row.Status_Detail } else { '' }
                                     Fail_Count     = if ($row.Fail_Count) { $row.Fail_Count } else { '0' }
-                                    Win_License    = if ($row.Win_License) { $row.Win_License } else { '-' }
-                                    Office_License = if ($row.Office_License) { $row.Office_License } else { '-' }
-                                    Office_Detail  = if ($row.Office_Detail) { $row.Office_Detail } else { '-' }
+                                    Win_License    = $winLicVal
+                                    Office_License = $offLicVal
+                                    Office_Detail  = $offDetVal
                                     User           = if ($row.User) { $row.User } else { '-' }
                                     Maker          = if ($row.Maker) { $row.Maker } else { '-' }
                                     Model          = if ($row.Model) { $row.Model } else { '-' }
@@ -614,10 +646,25 @@ function Start-ExecutionScan([hashtable]$params) {
     [void]$script:psInstance.AddParameter('MasterMode', $isMaster)
     [void]$script:psInstance.AddParameter('RetryOfflineOnly', $isRetryOffline)
     [void]$script:psInstance.AddParameter('SkipServers', $isSkipServers)
-    if ($params.ContainsKey('excludeServerFile') -and [string]$params.excludeServerFile) {
-        [void]$script:psInstance.AddParameter('ExcludeServerFile', [string]$params.excludeServerFile)
-        Write-SystemLog 'INFO' ('Server exclusion file specified: ' + [string]$params.excludeServerFile)
-    }
+
+    # Pass Network & Wi-Fi Probing settings
+    $pingMethod = if ($params.ContainsKey('pingMethod') -and $params.pingMethod) { [string]$params.pingMethod } else { 'combined' }
+    $probePorts = if ($params.ContainsKey('probePorts') -and $params.probePorts) { [string]$params.probePorts } else { '135,445,5985' }
+    $pingTimeoutMs = if ($params.ContainsKey('pingTimeoutMs') -and [int]$params.pingTimeoutMs -ge 100) { [int]$params.pingTimeoutMs } else { 1000 }
+    $pingProbes = if ($params.ContainsKey('pingProbes') -and [int]$params.pingProbes -ge 1) { [int]$params.pingProbes } else { 2 }
+    $threadDelayMs = if ($params.ContainsKey('threadDelayMs') -and [int]$params.threadDelayMs -ge 0) { [int]$params.threadDelayMs } else { 20 }
+    $scanDeadHosts = if ($params.ContainsKey('scanDeadHosts')) { [bool]$params.scanDeadHosts } else { $false }
+    $skipBroadcast = if ($params.ContainsKey('skipBroadcast')) { [bool]$params.skipBroadcast } else { $true }
+
+    [void]$script:psInstance.AddParameter('PingMethod', $pingMethod)
+    [void]$script:psInstance.AddParameter('ProbePorts', $probePorts)
+    [void]$script:psInstance.AddParameter('PingTimeoutMs', $pingTimeoutMs)
+    [void]$script:psInstance.AddParameter('PingProbes', $pingProbes)
+    [void]$script:psInstance.AddParameter('ThreadDelayMs', $threadDelayMs)
+    [void]$script:psInstance.AddParameter('ScanDeadHosts', $scanDeadHosts)
+    [void]$script:psInstance.AddParameter('SkipBroadcast', $skipBroadcast)
+
+    Write-SystemLog 'INFO' ("Network Probing: Method=$pingMethod, Ports=$probePorts, Timeout=${pingTimeoutMs}ms, Probes=$pingProbes, Delay=${threadDelayMs}ms, DeadHosts=$scanDeadHosts")
 
     if ($params.source -eq 'localhost') {
         [void]$script:psInstance.AddParameter('ScanLocalhost', $true)
@@ -1011,14 +1058,20 @@ while ($running) {
                     $script:sentSystemLogIndex = $script:systemLogs.Count
                 }
 
-                # Calculate In-App schedule countdown
+                # Calculate In-App schedule countdown & Epoch timestamp
                 $countdownSec = 0
                 $nextRunStr = '-'
+                $nextRunEpochMs = $null
                 if ($script:inAppSchedule.enabled -and $script:inAppSchedule.nextRunAt) {
                     $diff = $script:inAppSchedule.nextRunAt - [System.DateTime]::Now
                     if ($diff.TotalSeconds -gt 0) {
                         $countdownSec = [math]::Floor($diff.TotalSeconds)
-                        $nextRunStr = $script:inAppSchedule.nextRunAt.ToString('yyyy-MM-dd HH:mm:ss')
+                    }
+                    $nextRunStr = $script:inAppSchedule.nextRunAt.ToString('yyyy-MM-dd HH:mm:ss')
+                    try {
+                        $nextRunEpochMs = [double][System.DateTimeOffset]::new($script:inAppSchedule.nextRunAt).ToUnixTimeMilliseconds()
+                    } catch {
+                        $nextRunEpochMs = [double](($script:inAppSchedule.nextRunAt.ToUniversalTime() - [System.DateTime]::new(1970, 1, 1, 0, 0, 0, [System.DateTimeKind]::Utc)).TotalMilliseconds)
                     }
                 }
 
@@ -1057,6 +1110,7 @@ while ($running) {
                         intervalMinutes = $script:inAppSchedule.intervalMinutes
                         intervalHours   = [math]::Round($script:inAppSchedule.intervalMinutes / 60, 2)
                         nextRunAt       = $nextRunStr
+                        nextRunEpochMs  = $nextRunEpochMs
                         countdownSec    = $countdownSec
                     }
                     winTaskInfo           = $winTaskInfo
@@ -1162,6 +1216,10 @@ while ($running) {
                         intervalMinutes = $script:inAppSchedule.intervalMinutes
                         intervalHours   = [math]::Round($script:inAppSchedule.intervalMinutes / 60, 2)
                         nextRunAt       = if ($script:inAppSchedule.nextRunAt) { $script:inAppSchedule.nextRunAt.ToString('yyyy-MM-dd HH:mm:ss') } else { '-' }
+                        nextRunEpochMs  = if ($script:inAppSchedule.nextRunAt) {
+                            try { [double][System.DateTimeOffset]::new($script:inAppSchedule.nextRunAt).ToUnixTimeMilliseconds() }
+                            catch { [double](($script:inAppSchedule.nextRunAt.ToUniversalTime() - [System.DateTime]::new(1970, 1, 1, 0, 0, 0, [System.DateTimeKind]::Utc)).TotalMilliseconds) }
+                        } else { $null }
                     }
                     winTaskInfo   = $winTaskInfo
                 }

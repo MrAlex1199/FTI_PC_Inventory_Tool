@@ -21,10 +21,30 @@ param(
     [string]$MasterFile,             # Custom path to Hardware Master CSV (defaults to OutDir\Hardware_Master.csv)
     [string]$SoftwareMasterFile,     # Custom path to Software Master CSV (defaults to OutDir\Software_Master.csv)
     [switch]$SkipServers = $true,    # Skip Servers, DCs, RDS, and Remote servers (PC / Notebooks only)
-    [string]$ExcludeServerFile       # Optional .txt file with hostnames/IPs to exclude from scan
+    [string]$ExcludeServerFile,      # Optional .txt file with hostnames/IPs to exclude from scan
+    [string]$PingMethod = 'combined', # Reachability method: combined, icmp, tcp, udptcp, arp
+    [string]$ProbePorts = '135,445,5985', # Target ports for TCP/UDP probing
+    [int]$PingTimeoutMs = 1000,      # Probe timeout in milliseconds
+    [int]$PingProbes = 2,            # Number of ping probes/packets to send
+    [int]$ThreadDelayMs = 20,        # Inter-host delay between starting threads in ms
+    [switch]$ScanDeadHosts,          # Bypass reachability check and attempt scan on dead hosts
+    [switch]$SkipBroadcast = $true   # Skip *.0 and *.255 unassigned/broadcast addresses
 )
 
 $Software = -not $NoSoftware
+
+# Parse and sanitize probe ports list (e.g. 135, 445, 5985, 3389)
+$script:ParsedProbePorts = @(
+    if ($ProbePorts) {
+        $ProbePorts -split '[,;\s]+' | ForEach-Object {
+            $p = 0
+            if ([int]::TryParse($_.Trim(), [ref]$p) -and $p -ge 1 -and $p -le 65535) { $p }
+        } | Select-Object -Unique
+    }
+)
+if (-not $script:ParsedProbePorts -or $script:ParsedProbePorts.Count -eq 0) {
+    $script:ParsedProbePorts = @(135, 445, 5985)
+}
 
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
 $stamp = Get-Date -Format 'yyyyMMdd_HHmm'
@@ -43,12 +63,21 @@ $fSoftMaster = $null
 $fSumMaster = $null
 
 # --- Helper: Standardized Hardware Record Schema ---
-function New-HardwareRecord([hashtable]$h) {
+function New-HardwareRecord($h) {
+    if ($null -eq $h) {
+        $h = @{}
+    } elseif ($h -isnot [System.Collections.IDictionary]) {
+        $tmp = @{}
+        foreach ($prop in $h.PSObject.Properties) {
+            $tmp[$prop.Name] = $prop.Value
+        }
+        $h = $tmp
+    }
     return [pscustomobject][ordered]@{
         PCName         = if ($h.ContainsKey('PCName') -and $h.PCName) { [string]$h.PCName } else { '-' }
         Status         = if ($h.ContainsKey('Status') -and $h.Status) { [string]$h.Status } else { 'OK' }
         Status_Detail  = if ($h.ContainsKey('Status_Detail') -and $h.Status_Detail) { [string]$h.Status_Detail } else { '' }
-        Fail_Count     = if ($h.ContainsKey('Fail_Count') -and $null -ne $h.Fail_Count) { [int]$h.Fail_Count } else { 0 }
+        Fail_Count     = if ($h.ContainsKey('Fail_Count') -and $null -ne $h.Fail_Count -and "$($h.Fail_Count)" -ne '') { [int]$h.Fail_Count } else { 0 }
         Win_License    = if ($h.ContainsKey('Win_License') -and $h.Win_License) { [string]$h.Win_License } else { '-' }
         Office_License = if ($h.ContainsKey('Office_License') -and $h.Office_License) { [string]$h.Office_License } else { '-' }
         Office_Detail  = if ($h.ContainsKey('Office_Detail') -and $h.Office_Detail) { [string]$h.Office_Detail } else { '-' }
@@ -88,16 +117,20 @@ function Parse-OfficeLicenseInfo([string]$c2rProd, $slpList) {
             $chan = [string]$p.ProductKeyChannel
             $stat = [int]$p.LicenseStatus # 1=Licensed, 5/2=Grace, 0=Unlicensed
 
-            $edition = if ($name -match 'Office\s*(\d+)') {
-                "Office " + $Matches[1]
-            } elseif ($name -match 'Office16|Office 16') {
+            $edition = if ($name -match 'Office14|Office\s*14|2010') {
+                "Office 2010"
+            } elseif ($name -match 'Office15|Office\s*15|2013') {
+                "Office 2013"
+            } elseif ($name -match 'Office16|Office\s*16|2016') {
                 "Office 2016"
-            } elseif ($name -match 'Office19|Office 19') {
+            } elseif ($name -match 'Office19|Office\s*19|2019') {
                 "Office 2019"
-            } elseif ($name -match 'Office21|Office 21') {
+            } elseif ($name -match 'Office21|Office\s*21|2021') {
                 "Office 2021"
-            } elseif ($name -match 'Office24|Office 24') {
+            } elseif ($name -match 'Office24|Office\s*24|2024') {
                 "Office 2024"
+            } elseif ($name -match 'Office\s*(\d+)') {
+                "Office " + $Matches[1]
             } else {
                 "Office"
             }
@@ -137,13 +170,21 @@ function Parse-OfficeLicenseInfo([string]$c2rProd, $slpList) {
     }
 
     if ($c2rProd) {
-        if ($c2rProd -match 'O365|M365|Microsoft365') {
+        if ($c2rProd -match '(?i)O365|M365|Microsoft\s*365|365ProPlus|365Business') {
             return @{ Badge = 'M365 (Act)'; Detail = "Microsoft 365 ($c2rProd)" }
+        } elseif ($c2rProd -match '2024') {
+            return @{ Badge = '2024 (C2R)'; Detail = "Office 2024 Click-to-Run ($c2rProd)" }
         } elseif ($c2rProd -match '2021') {
             return @{ Badge = '2021 (C2R)'; Detail = "Office 2021 Click-to-Run ($c2rProd)" }
         } elseif ($c2rProd -match '2019') {
             return @{ Badge = '2019 (C2R)'; Detail = "Office 2019 Click-to-Run ($c2rProd)" }
-        } elseif ($c2rProd -match 'ProPlus|Standard') {
+        } elseif ($c2rProd -match '2016') {
+            return @{ Badge = '2016 (Inst)'; Detail = "Office 2016 ($c2rProd)" }
+        } elseif ($c2rProd -match '2013') {
+            return @{ Badge = '2013 (Inst)'; Detail = "Office 2013 ($c2rProd)" }
+        } elseif ($c2rProd -match '2010') {
+            return @{ Badge = '2010 (Inst)'; Detail = "Office 2010 ($c2rProd)" }
+        } elseif ($c2rProd -match '(?i)ProPlus|Standard|HomeBusiness|HomeStudent|Professional|Enterprise|LTSC|Office') {
             return @{ Badge = 'Office C2R'; Detail = "Office Click-to-Run ($c2rProd)" }
         }
     }
@@ -151,30 +192,195 @@ function Parse-OfficeLicenseInfo([string]$c2rProd, $slpList) {
     return @{ Badge = 'None'; Detail = 'No Microsoft Office installation detected' }
 }
 
-# --- Helper: Smart Connectivity Check (ICMP Ping + TCP 5985/135 Fallback) ---
+# --- Helper: Advanced Multi-Method Reachability & Parallel Port Probing ---
 function Test-PCConnection([string]$computer) {
+    $script:lastConnInfo = @{ Online = $false; Method = 'None'; Detail = 'Host unreachable' }
+
+    if ([string]::IsNullOrWhiteSpace($computer)) {
+        return $false
+    }
+
+    # 0. Localhost shortcut
     if ($computer -eq 'localhost' -or $computer -eq '127.0.0.1' -or $computer -eq $env:COMPUTERNAME) {
+        $script:lastConnInfo = @{ Online = $true; Method = 'Localhost'; Detail = 'Local machine loopback' }
         return $true
     }
-    # 1. Quick ICMP ping
-    if (Test-Connection -ComputerName $computer -Count 1 -Quiet -ErrorAction SilentlyContinue) {
+
+    # 1. Skip unassigned / broadcast addresses (*.0 or *.255)
+    if ($SkipBroadcast -and ($computer -match '\.(0|255)$')) {
+        $script:lastConnInfo = @{ Online = $false; Method = 'Skipped'; Detail = 'Skipped broadcast/network address (*.0 or *.255)' }
+        return $false
+    }
+
+    # 2. Force Scan Dead Hosts override
+    if ($ScanDeadHosts) {
+        $script:lastConnInfo = @{ Online = $true; Method = 'Forced (ScanDeadHosts)'; Detail = 'Scan dead hosts active (bypassed reachability check)' }
         return $true
     }
-    # 2. Smart Port Check: WinRM 5985 or RPC 135 (prevents false Offline if ICMP blocked)
-    foreach ($port in 5985, 135) {
+
+    $method = if ($PingMethod) { $PingMethod.ToLower() } else { 'combined' }
+    $timeoutMs = if ($PingTimeoutMs -ge 100) { $PingTimeoutMs } else { 1000 }
+    $probes = if ($PingProbes -ge 1) { $PingProbes } else { 2 }
+    $ports = if ($script:ParsedProbePorts -and $script:ParsedProbePorts.Count -gt 0) { $script:ParsedProbePorts } else { @(135, 445, 5985) }
+
+    # Helper: Fast UDP Wake-up Datagram (wakes sleeping Wi-Fi / power-saving adapters)
+    $sendUdpWakeup = {
         try {
-            $tcp = New-Object System.Net.Sockets.TcpClient
-            $ar = $tcp.BeginConnect($computer, $port, $null, $null)
-            $wait = $ar.AsyncWaitHandle.WaitOne(800)
-            if ($wait -and $tcp.Connected) {
-                $tcp.EndConnect($ar)
-                $tcp.Close()
-                return $true
-            }
-            $tcp.Close()
+            $udp = New-Object System.Net.Sockets.UdpClient
+            $dummy = [byte[]]@(0x00, 0x01, 0x02, 0x03)
+            [void]$udp.Send($dummy, $dummy.Length, $computer, 137)
+            $udp.Close()
         } catch { }
     }
-    return $false
+
+    # Helper: .NET ICMP Ping probe with retry
+    $testIcmp = {
+        for ($p = 1; $p -le $probes; $p++) {
+            try {
+                $pinger = New-Object System.Net.NetworkInformation.Ping
+                $reply = $pinger.Send($computer, $timeoutMs)
+                if ($reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) {
+                    $rtt = $reply.RoundtripTime
+                    return @{ Success = $true; Detail = "ICMP Ping ($($rtt)ms, probe $p/$probes)" }
+                }
+            } catch { }
+        }
+        return @{ Success = $false; Detail = "ICMP ping timed out ($probes probes @ " + $timeoutMs + "ms)" }
+    }
+
+    # Helper: Parallel TCP Multi-Port Probe
+    $testTcpParallel = {
+        $sockets = @()
+        $handles = @()
+        $arMap = @{}
+
+        foreach ($port in $ports) {
+            try {
+                $tcp = New-Object System.Net.Sockets.TcpClient
+                $ar = $tcp.BeginConnect($computer, $port, $null, $null)
+                $sockets += $tcp
+                $handles += $ar.AsyncWaitHandle
+                $arMap[$port] = @{ Tcp = $tcp; Ar = $ar }
+            } catch { }
+        }
+
+        $connectedPort = $null
+        if ($handles.Count -gt 0) {
+            [System.Threading.WaitHandle]::WaitAny($handles, $timeoutMs) | Out-Null
+            foreach ($entry in $arMap.GetEnumerator()) {
+                $pNum = $entry.Key
+                $tObj = $entry.Value.Tcp
+                $aObj = $entry.Value.Ar
+                try {
+                    if ($tObj.Connected -or ($aObj.IsCompleted -and -not $tObj.Client.Poll(0, [System.Net.Sockets.SelectMode]::SelectError))) {
+                        $tObj.EndConnect($aObj)
+                        if ($tObj.Connected) {
+                            $connectedPort = $pNum
+                            break
+                        }
+                    }
+                } catch { }
+            }
+        }
+
+        foreach ($s in $sockets) {
+            try { $s.Close() } catch { }
+        }
+
+        if ($connectedPort) {
+            return @{ Success = $true; Port = $connectedPort; Detail = "TCP port $connectedPort open" }
+        }
+        return @{ Success = $false; Port = $null; Detail = "TCP ports ($($ports -join ',')) closed/timed out" }
+    }
+
+    # Helper: ARP Cache check (for local subnet LAN/VLAN)
+    $testArp = {
+        try {
+            $arpOutput = & arp.exe -a 2>$null
+            if ($arpOutput -match [regex]::Escape($computer) + '\s+([0-9a-fA-F-]+)\s+dynamic') {
+                return @{ Success = $true; Mac = $Matches[1]; Detail = "ARP cache entry verified ($($Matches[1]))" }
+            }
+        } catch { }
+        return @{ Success = $false; Detail = 'No dynamic ARP entry found' }
+    }
+
+    switch ($method) {
+        'icmp' {
+            $icmpRes = & $testIcmp
+            if ($icmpRes.Success) {
+                $script:lastConnInfo = @{ Online = $true; Method = 'ICMP'; Detail = $icmpRes.Detail }
+                return $true
+            }
+            $script:lastConnInfo = @{ Online = $false; Method = 'ICMP'; Detail = $icmpRes.Detail }
+            return $false
+        }
+
+        'tcp' {
+            $tcpRes = & $testTcpParallel
+            if ($tcpRes.Success) {
+                $script:lastConnInfo = @{ Online = $true; Method = "TCP:$($tcpRes.Port)"; Detail = $tcpRes.Detail }
+                return $true
+            }
+            $script:lastConnInfo = @{ Online = $false; Method = 'TCP'; Detail = $tcpRes.Detail }
+            return $false
+        }
+
+        'udptcp' {
+            & $sendUdpWakeup
+            $tcpRes = & $testTcpParallel
+            if ($tcpRes.Success) {
+                $script:lastConnInfo = @{ Online = $true; Method = "UDP+TCP:$($tcpRes.Port)"; Detail = $tcpRes.Detail }
+                return $true
+            }
+            $script:lastConnInfo = @{ Online = $false; Method = 'UDP+TCP'; Detail = $tcpRes.Detail }
+            return $false
+        }
+
+        'arp' {
+            $icmpRes = & $testIcmp
+            if ($icmpRes.Success) {
+                $script:lastConnInfo = @{ Online = $true; Method = 'ICMP'; Detail = $icmpRes.Detail }
+                return $true
+            }
+            $arpRes = & $testArp
+            if ($arpRes.Success) {
+                $script:lastConnInfo = @{ Online = $true; Method = 'ARP'; Detail = $arpRes.Detail }
+                return $true
+            }
+            $script:lastConnInfo = @{ Online = $false; Method = 'ARP'; Detail = "ICMP and $($arpRes.Detail)" }
+            return $false
+        }
+
+        default {
+            # 'combined' (Best for Wi-Fi & Firewalled Windows PCs)
+            & $sendUdpWakeup
+
+            $icmpRes = & $testIcmp
+            if ($icmpRes.Success) {
+                $script:lastConnInfo = @{ Online = $true; Method = 'ICMP'; Detail = $icmpRes.Detail }
+                return $true
+            }
+
+            $tcpRes = & $testTcpParallel
+            if ($tcpRes.Success) {
+                $script:lastConnInfo = @{ Online = $true; Method = "TCP:$($tcpRes.Port)"; Detail = $tcpRes.Detail }
+                return $true
+            }
+
+            $arpRes = & $testArp
+            if ($arpRes.Success) {
+                $script:lastConnInfo = @{ Online = $true; Method = 'ARP'; Detail = $arpRes.Detail }
+                return $true
+            }
+
+            $script:lastConnInfo = @{
+                Online = $false
+                Method = 'Combined'
+                Detail = "Host unreachable (ICMP ping and TCP ports $($ports -join ',') timed out @ " + $timeoutMs + "ms)"
+            }
+            return $false
+        }
+    }
 }
 
 # --- Cache and Helper for Active Directory metadata (Logon, OU) ---
@@ -407,10 +613,10 @@ if (-not $SkipHardware) {
     $masterDict = [ordered]@{}
     if (Test-Path -LiteralPath $MasterFile) {
         try {
-            $oldMaster = Import-Csv -LiteralPath $MasterFile -Encoding UTF8
+            $oldMaster = @(Import-Csv -LiteralPath $MasterFile -Encoding UTF8)
             foreach ($row in $oldMaster) {
                 if ($row.PCName) {
-                    $masterDict[$row.PCName.ToUpper()] = $row
+                    $masterDict[$row.PCName.ToUpper()] = New-HardwareRecord $row
                 }
             }
         } catch {
@@ -419,33 +625,51 @@ if (-not $SkipHardware) {
     }
 
     $i = 0
-    $hw = foreach ($pc in $pcs) {
+    $hw = @(foreach ($pc in $pcs) {
         $i++
         Write-Progress -Activity 'Hardware scan' -Status "$pc ($i/$($pcs.Count))" -PercentComplete (10 + [math]::Round(55 * $i / $pcs.Count))
         Write-Host "[STAGE:HW|$i|$($pcs.Count)] Scanning $pc ($i/$($pcs.Count))..."
 
         $key = $pc.ToUpper()
+        $shortKey = ($key -split '\.')[0]
         $prevFailCount = 0
         $prevWinLicense = '-'
         $prevOfficeLicense = '-'
         $prevOfficeDetail = '-'
         $oldRecord = $null
+
         if ($masterDict.Contains($key)) {
-            $mRow = $masterDict[$key]
-            $oldRecord = $mRow
-            if ($mRow.Fail_Count) { [int]::TryParse($mRow.Fail_Count, [ref]$prevFailCount) | Out-Null }
-            if ($mRow.Win_License -and $mRow.Win_License -ne '-') { $prevWinLicense = $mRow.Win_License }
-            if ($mRow.Office_License -and $mRow.Office_License -ne '-') { $prevOfficeLicense = $mRow.Office_License }
-            if ($mRow.Office_Detail -and $mRow.Office_Detail -ne '-') { $prevOfficeDetail = $mRow.Office_Detail }
+            $oldRecord = $masterDict[$key]
+        } elseif ($masterDict.Contains($shortKey)) {
+            $oldRecord = $masterDict[$shortKey]
+        } else {
+            foreach ($mVal in $masterDict.Values) {
+                if ($mVal.IP -and ($mVal.IP -split ',\s*') -contains $pc) {
+                    $oldRecord = $mVal
+                    break
+                }
+            }
+        }
+
+        if ($oldRecord) {
+            if ($oldRecord.Fail_Count) { [int]::TryParse([string]$oldRecord.Fail_Count, [ref]$prevFailCount) | Out-Null }
+            if ($oldRecord.Win_License -and $oldRecord.Win_License -ne '-') { $prevWinLicense = $oldRecord.Win_License }
+            if ($oldRecord.Office_License -and $oldRecord.Office_License -notin @('-', 'None')) { $prevOfficeLicense = $oldRecord.Office_License }
+            if ($oldRecord.Office_Detail -and $oldRecord.Office_Detail -notin @('-', 'No Microsoft Office installation detected')) { $prevOfficeDetail = $oldRecord.Office_Detail }
+        }
+
+        if ($ThreadDelayMs -gt 0 -and $i -gt 1) {
+            Start-Sleep -Milliseconds $ThreadDelayMs
         }
 
         if (-not (Test-PCConnection $pc)) {
             $ad = Get-ADInfo $pc
             $newFail = $prevFailCount + 1
+            $statusDetailMsg = if ($script:lastConnInfo -and $script:lastConnInfo.Detail) { $script:lastConnInfo.Detail } else { 'Host unreachable (ping/ports timed out)' }
             $hData = @{
-                PCName         = $pc
+                PCName         = if ($oldRecord -and $oldRecord.PCName -and $oldRecord.PCName -ne '-') { $oldRecord.PCName } else { $pc }
                 Status         = 'Offline'
-                Status_Detail  = 'Host unreachable (ICMP ping and WinRM/RPC ports timed out)'
+                Status_Detail  = $statusDetailMsg
                 Fail_Count     = $newFail
                 Win_License    = $prevWinLicense
                 Office_License = $prevOfficeLicense
@@ -503,6 +727,18 @@ if (-not $SkipHardware) {
                 $cDrive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -CimSession $s -ErrorAction SilentlyContinue
             }
 
+            # Refresh oldRecord using resolved actual hostname ($cs.Name) when scanning by IP or alias
+            if ($cs -and $cs.Name) {
+                $realKey = $cs.Name.ToUpper()
+                if ((-not $oldRecord) -and $masterDict.Contains($realKey)) {
+                    $oldRecord = $masterDict[$realKey]
+                    if ($oldRecord.Fail_Count) { [int]::TryParse([string]$oldRecord.Fail_Count, [ref]$prevFailCount) | Out-Null }
+                    if ($oldRecord.Win_License -and $oldRecord.Win_License -ne '-') { $prevWinLicense = $oldRecord.Win_License }
+                    if ($oldRecord.Office_License -and $oldRecord.Office_License -notin @('-', 'None')) { $prevOfficeLicense = $oldRecord.Office_License }
+                    if ($oldRecord.Office_Detail -and $oldRecord.Office_Detail -notin @('-', 'No Microsoft Office installation detected')) { $prevOfficeDetail = $oldRecord.Office_Detail }
+                }
+            }
+
             # Skip server if detected by OS ProductType (1=Workstation, 2=Domain Controller, 3=Server)
             if ($SkipServers -and -not $isLocal -and $os -and $os.ProductType -and $os.ProductType -ne 1) {
                 Write-Host "  [SKIP SERVER] Skipping $pc (Detected Server OS: $($os.Caption))" -ForegroundColor Yellow
@@ -539,7 +775,7 @@ if (-not $SkipHardware) {
 
             $ad = Get-ADInfo $pc
 
-            # Query Windows & Office License Channel & Activation Status
+            # Query Windows & Office License Channel & Activation Status (with extended timeout & registry fallback)
             $winLicenseStr = '-'
             $officeLicenseStr = '-'
             $officeDetailStr = '-'
@@ -547,11 +783,14 @@ if (-not $SkipHardware) {
                 $slpItems = if ($isLocal) {
                     @(Get-CimInstance SoftwareLicensingProduct -Filter "PartialProductKey is not null" -ErrorAction SilentlyContinue)
                 } elseif ($s) {
-                    @(Get-CimInstance SoftwareLicensingProduct -CimSession $s -Filter "PartialProductKey is not null" -OperationTimeoutSec 10 -ErrorAction SilentlyContinue)
+                    @(Get-CimInstance SoftwareLicensingProduct -CimSession $s -Filter "PartialProductKey is not null" -OperationTimeoutSec 25 -ErrorAction SilentlyContinue)
                 } else { @() }
 
                 # 1. Windows License
-                $winLic = $slpItems | Where-Object { $_.ApplicationID -eq '55c92734-d682-4d71-983e-d6ec3f16059f' } | Select-Object -First 1
+                $winLic = $slpItems | Where-Object { $_.ApplicationID -eq '55c92734-d682-4d71-983e-d6ec3f16059f' } | Sort-Object LicenseStatus -Descending | Select-Object -First 1
+                if (-not $winLic) {
+                    $winLic = $slpItems | Where-Object { $_.Name -match '(?i)Windows' -and $null -ne $_.LicenseStatus } | Sort-Object LicenseStatus -Descending | Select-Object -First 1
+                }
                 if ($winLic) {
                     $rawChan = if ($winLic.ProductKeyChannel) { $winLic.ProductKeyChannel } else { [string]$winLic.Description }
                     $chan = if ($rawChan -match '(?i)OEM') {
@@ -569,7 +808,25 @@ if (-not $SkipHardware) {
                     }
                     $actStatus = if ($winLic.LicenseStatus -eq 1) { 'Activated' } elseif ($winLic.LicenseStatus -eq 0) { 'Unlicensed' } else { 'Grace' }
                     $winLicenseStr = "$chan ($actStatus)"
-                } elseif ($prevWinLicense -ne '-') {
+                } else {
+                    # Fallback to SoftwareLicensingService OA3 key check if SoftwareLicensingProduct timed out
+                    try {
+                        $sls = if ($isLocal) {
+                            Get-CimInstance SoftwareLicensingService -ErrorAction SilentlyContinue
+                        } elseif ($s) {
+                            Get-CimInstance SoftwareLicensingService -CimSession $s -OperationTimeoutSec 10 -ErrorAction SilentlyContinue
+                        } else { $null }
+                        if ($sls) {
+                            if ($sls.OA3xOriginalProductKey) {
+                                $winLicenseStr = 'OEM (Activated)'
+                            } elseif ($sls.KeyManagementServiceMachine) {
+                                $winLicenseStr = 'Volume (KMS) (Activated)'
+                            }
+                        }
+                    } catch {}
+                }
+
+                if (($winLicenseStr -eq '-' -or [string]::IsNullOrWhiteSpace($winLicenseStr)) -and $prevWinLicense -ne '-') {
                     $winLicenseStr = $prevWinLicense
                 }
 
@@ -578,18 +835,28 @@ if (-not $SkipHardware) {
                 if ($isLocal) {
                     $c2r = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration' -ErrorAction SilentlyContinue
                     if ($c2r -and $c2r.ProductReleaseIds) { $c2rProdIds = [string]$c2r.ProductReleaseIds }
+                    if (-not $c2rProdIds) {
+                        $uninstPaths = @(
+                            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+                        )
+                        $offApp = Get-ItemProperty $uninstPaths -ErrorAction SilentlyContinue |
+                            Where-Object { $_.DisplayName -match '(?i)^(Microsoft 365|Microsoft Office (Professional|Standard|Home|Business|Enterprise|LTSC|365|20\d{2}))' -and $_.DisplayName -notmatch '(?i)MUI|Proof|Shared|Component|Viewer|Redistributable|Visio|Project|Connector' } |
+                            Select-Object -ExpandProperty DisplayName -First 1
+                        if ($offApp) { $c2rProdIds = [string]$offApp }
+                    }
                 } elseif ($s) {
                     try {
                         $c2rRes = Invoke-CimMethod -CimSession $s -Namespace 'root\default' -ClassName StdRegProv -MethodName GetStringValue -Arguments @{
                             hDefKey     = [uint32]2147483650 # HKLM
                             sSubKeyName = 'SOFTWARE\Microsoft\Office\ClickToRun\Configuration'
                             sValueName  = 'ProductReleaseIds'
-                        } -ErrorAction SilentlyContinue
+                        } -OperationTimeoutSec 10 -ErrorAction SilentlyContinue
                         if ($c2rRes -and $c2rRes.sValue) { $c2rProdIds = [string]$c2rRes.sValue }
                     } catch {}
                 }
 
-                $officeSlp = $slpItems | Where-Object { $_.Name -match 'Office|O16|O15|O14|0ff1ce15-a989-479d-af46-f275c6370663' }
+                $officeSlp = @($slpItems | Where-Object { $_.Name -match 'Office|O16|O15|O14|0ff1ce15-a989-479d-af46-f275c6370663' })
                 $offParsed = Parse-OfficeLicenseInfo $c2rProdIds $officeSlp
                 $officeLicenseStr = $offParsed.Badge
                 $officeDetailStr  = $offParsed.Detail
@@ -597,9 +864,12 @@ if (-not $SkipHardware) {
 
             if ($s) { Remove-CimSession $s -ErrorAction SilentlyContinue }
 
-            if ($officeLicenseStr -eq '-' -and $prevOfficeLicense -ne '-') {
+            if (($winLicenseStr -eq '-' -or [string]::IsNullOrWhiteSpace($winLicenseStr)) -and $prevWinLicense -ne '-') {
+                $winLicenseStr = $prevWinLicense
+            }
+            if (($officeLicenseStr -in @('-', 'None') -or [string]::IsNullOrWhiteSpace($officeLicenseStr)) -and $prevOfficeLicense -notin @('-', 'None')) {
                 $officeLicenseStr = $prevOfficeLicense
-                $officeDetailStr  = $prevOfficeDetail
+                $officeDetailStr  = if ($prevOfficeDetail -and $prevOfficeDetail -ne '-') { $prevOfficeDetail } else { $prevOfficeLicense }
             }
 
             $itemOk = New-HardwareRecord @{
@@ -640,7 +910,7 @@ if (-not $SkipHardware) {
             $ad = Get-ADInfo $pc
             $newFail = $prevFailCount + 1
             $hDataErr = @{
-                PCName         = $pc
+                PCName         = if ($oldRecord -and $oldRecord.PCName -and $oldRecord.PCName -ne '-') { $oldRecord.PCName } else { $pc }
                 Status         = "Error"
                 Status_Detail  = $_.Exception.Message
                 Fail_Count     = $newFail
@@ -672,7 +942,7 @@ if (-not $SkipHardware) {
             Write-Host ('[LIVE_PC] ' + ($itemErr | ConvertTo-Json -Compress))
             $itemErr
         }
-    }
+    })
     Write-Progress -Activity 'Hardware scan' -Completed
 
     # --- Master Database Synchronization ---
@@ -683,18 +953,25 @@ if (-not $SkipHardware) {
                 if ($masterDict.Contains($key)) {
                     $old = $masterDict[$key]
                     $prevCount = 0
-                    if ($old.Scan_Count) { [int]::TryParse($old.Scan_Count, [ref]$prevCount) | Out-Null }
+                    if ($old.Scan_Count) { [int]::TryParse([string]$old.Scan_Count, [ref]$prevCount) | Out-Null }
                     $r.Scan_Count = [string]($prevCount + 1)
                     $r.First_Seen = if ($old.First_Seen -and $old.First_Seen -ne '-') { $old.First_Seen } else { (Get-Date -Format 'yyyy-MM-dd HH:mm') }
                     $r.Last_Scan  = Get-Date -Format 'yyyy-MM-dd HH:mm'
                     $r.Fail_Count = 0
+                    if ((-not $r.Win_License -or $r.Win_License -eq '-') -and ($old.Win_License -and $old.Win_License -ne '-')) {
+                        $r.Win_License = $old.Win_License
+                    }
+                    if ((-not $r.Office_License -or $r.Office_License -in @('-', 'None')) -and ($old.Office_License -and $old.Office_License -notin @('-', 'None'))) {
+                        $r.Office_License = $old.Office_License
+                        $r.Office_Detail  = if ($old.Office_Detail -and $old.Office_Detail -ne '-') { $old.Office_Detail } else { $old.Office_License }
+                    }
                 } else {
                     $r.Scan_Count = '1'
                     $r.First_Seen = Get-Date -Format 'yyyy-MM-dd HH:mm'
                     $r.Last_Scan  = Get-Date -Format 'yyyy-MM-dd HH:mm'
                     $r.Fail_Count = 0
                 }
-                $masterDict[$key] = $r
+                $masterDict[$key] = New-HardwareRecord $r
             } else {
                 # Host is Offline or Error
                 if ($masterDict.Contains($key)) {
@@ -707,8 +984,8 @@ if (-not $SkipHardware) {
                         Status_Detail  = $r.Status_Detail
                         Fail_Count     = $r.Fail_Count
                         Win_License    = if ($r.Win_License -and $r.Win_License -ne '-') { $r.Win_License } else { $old.Win_License }
-                        Office_License = if ($r.Office_License -and $r.Office_License -ne '-') { $r.Office_License } else { $old.Office_License }
-                        Office_Detail  = if ($r.Office_Detail -and $r.Office_Detail -ne '-') { $r.Office_Detail } else { $old.Office_Detail }
+                        Office_License = if ($r.Office_License -and $r.Office_License -notin @('-', 'None')) { $r.Office_License } else { $old.Office_License }
+                        Office_Detail  = if ($r.Office_Detail -and $r.Office_Detail -notin @('-', 'No Microsoft Office installation detected')) { $r.Office_Detail } else { $old.Office_Detail }
                         User           = if ($old.User -and $old.User -ne '-') { $old.User } else { '-' }
                         Maker          = if ($old.Maker -and $old.Maker -ne '-') { $old.Maker } else { '-' }
                         Model          = if ($old.Model -and $old.Model -ne '-') { $old.Model } else { '-' }
@@ -733,20 +1010,20 @@ if (-not $SkipHardware) {
                     }
                     $masterDict[$key] = New-HardwareRecord $hMerged
                 } else {
-                    $masterDict[$key] = $r
+                    $masterDict[$key] = New-HardwareRecord $r
                 }
             }
         }
 
-        # Save Master CSV with standardized columns
-        $masterRows = @($masterDict.Values | Sort-Object PCName)
+        # Save Master CSV with standardized columns across all records
+        $masterRows = @($masterDict.Values | ForEach-Object { New-HardwareRecord $_ } | Sort-Object PCName)
         $masterRows | Export-Csv $MasterFile -NoTypeInformation -Encoding UTF8
         Write-Host "Master Database updated: $($masterRows.Count) total records -> $MasterFile" -ForegroundColor Cyan
     }
 
     # Snapshot CSV for this specific run
     $fHw = Join-Path $OutDir "Hardware_$stamp.csv"
-    $hw | Export-Csv $fHw -NoTypeInformation -Encoding UTF8
+    @($hw | ForEach-Object { New-HardwareRecord $_ }) | Export-Csv $fHw -NoTypeInformation -Encoding UTF8
     $hwOk = @($hw | Where-Object { $_.Status -eq 'OK' }).Count
     Write-Host "Hardware done. OK: $hwOk / $($pcs.Count) -> $fHw"
 }
@@ -942,11 +1219,40 @@ if ($Software) {
     # Per-PC output: one CSV per computer (folder) + one summary row per computer
     $fByPC = Join-Path $OutDir "Software_ByPC_$stamp.html"
     $fSumPC = Join-Path $OutDir "Software_PerPC_$stamp.csv"
+    $hwBackfilled = $false
     $perPc = foreach ($g in ($final | Group-Object PCName)) {
         $keyApps = @($g.Group | Where-Object { $_.Name -match 'Office|Microsoft 365|Google Chrome|Firefox|Adobe|7-Zip|CrowdStrike|Antivirus|Defender|AnyDesk|TeamViewer' } | Select-Object -ExpandProperty Name -First 4)
         $topApps = if ($keyApps.Count -gt 0) { $keyApps -join ', ' } else { (($g.Group | Select-Object -First 3 | ForEach-Object { $_.Name }) -join ', ') }
         $methodUsed = @($status | Where-Object { $_.PCName -ieq $g.Name } | Select-Object -ExpandProperty Status -First 1)
         if (-not $methodUsed) { $methodUsed = 'OK' }
+
+        # Backfill Office_License into Hardware & Master records if WMI SoftwareLicensingProduct missed it
+        $offSwApp = $g.Group | Where-Object { $_.Name -match '(?i)^(Microsoft 365|Microsoft Office (Professional|Standard|Home|Business|Enterprise|LTSC|365|20\d{2}))' -and $_.Name -notmatch '(?i)MUI|Proof|Shared|Component|Viewer|Redistributable|Visio|Project|Connector' } | Select-Object -First 1
+        if ($offSwApp -and (-not $SkipHardware)) {
+            $parsedSwOff = Parse-OfficeLicenseInfo $offSwApp.Name @()
+            if ($parsedSwOff.Badge -notin @('-', 'None')) {
+                $pcKeyUpper = $g.Name.ToUpper()
+                if ($hw) {
+                    foreach ($hItem in $hw) {
+                        if ($hItem.PCName -ieq $g.Name -and ($hItem.Office_License -in @('-', 'None') -or [string]::IsNullOrWhiteSpace($hItem.Office_License))) {
+                            $hItem.Office_License = $parsedSwOff.Badge
+                            $hItem.Office_Detail  = $parsedSwOff.Detail
+                            Write-Host ('[LIVE_PC] ' + ($hItem | ConvertTo-Json -Compress))
+                            $hwBackfilled = $true
+                        }
+                    }
+                }
+                if ($MasterMode -and $masterDict -and $masterDict.Contains($pcKeyUpper)) {
+                    $mEntry = $masterDict[$pcKeyUpper]
+                    if ($mEntry.Office_License -in @('-', 'None') -or [string]::IsNullOrWhiteSpace($mEntry.Office_License)) {
+                        $mEntry.Office_License = $parsedSwOff.Badge
+                        $mEntry.Office_Detail  = $parsedSwOff.Detail
+                        $masterDict[$pcKeyUpper] = New-HardwareRecord $mEntry
+                        $hwBackfilled = $true
+                    }
+                }
+            }
+        }
 
         $liveSwObj = [pscustomobject]@{
             PCName        = $g.Name
@@ -958,6 +1264,14 @@ if ($Software) {
         }
         Write-Host ('[LIVE_SW] ' + ($liveSwObj | ConvertTo-Json -Compress))
         $liveSwObj
+    }
+    if ($hwBackfilled -and (-not $SkipHardware)) {
+        if ($fHw -and $hw) {
+            @($hw | ForEach-Object { New-HardwareRecord $_ }) | Export-Csv $fHw -NoTypeInformation -Encoding UTF8
+        }
+        if ($MasterMode -and $MasterFile -and $masterDict -and $masterDict.Count -gt 0) {
+            @($masterDict.Values | ForEach-Object { New-HardwareRecord $_ } | Sort-Object PCName) | Export-Csv $MasterFile -NoTypeInformation -Encoding UTF8
+        }
     }
     # Also emit failed/offline hosts in [LIVE_SW]
     foreach ($st in $status) {
