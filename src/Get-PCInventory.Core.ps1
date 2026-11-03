@@ -76,6 +76,7 @@ function New-HardwareRecord($h) {
     return [pscustomobject][ordered]@{
         PCName         = if ($h.ContainsKey('PCName') -and $h.PCName) { [string]$h.PCName } else { '-' }
         Status         = if ($h.ContainsKey('Status') -and $h.Status) { [string]$h.Status } else { 'OK' }
+        Method         = if ($h.ContainsKey('Method') -and $h.Method) { [string]$h.Method } else { '-' }
         Status_Detail  = if ($h.ContainsKey('Status_Detail') -and $h.Status_Detail) { [string]$h.Status_Detail } else { '' }
         Fail_Count     = if ($h.ContainsKey('Fail_Count') -and $null -ne $h.Fail_Count -and "$($h.Fail_Count)" -ne '') { [int]$h.Fail_Count } else { 0 }
         Win_License    = if ($h.ContainsKey('Win_License') -and $h.Win_License) { [string]$h.Win_License } else { '-' }
@@ -112,37 +113,66 @@ function Parse-OfficeLicenseInfo([string]$c2rProd, $slpList) {
     $foundStatus = ''
 
     if ($slpList -and $slpList.Count -gt 0) {
-        foreach ($p in $slpList) {
+        # Prioritize Activated (1), then Grace (5, 2), then others, with newer editions evaluated first
+        $sortedSlp = @($slpList | Sort-Object @{
+            Expression = { if ($_.LicenseStatus -eq 1) { 0 } elseif ($_.LicenseStatus -in 2, 5) { 1 } else { 2 } }
+        }, @{
+            Expression = {
+                $nm = [string]$_.Name
+                if ($nm -match '(?i)2024|Office24') { 0 }
+                elseif ($nm -match '(?i)2021|Office21') { 1 }
+                elseif ($nm -match '(?i)2019|Office19') { 2 }
+                elseif ($nm -match '(?i)2016|Office16') { 3 }
+                else { 4 }
+            }
+        })
+
+        foreach ($p in $sortedSlp) {
             $name = [string]$p.Name
             $chan = [string]$p.ProductKeyChannel
+            $desc = [string]$p.Description
             $stat = [int]$p.LicenseStatus # 1=Licensed, 5/2=Grace, 0=Unlicensed
 
-            $edition = if ($name -match 'Office14|Office\s*14|2010') {
-                "Office 2010"
-            } elseif ($name -match 'Office15|Office\s*15|2013') {
+            # Evaluate newest versions first to avoid "Office 16, Office21..." being falsely classified as 2016
+            $edition = if ($name -match '(?i)Office24|Office\s*24|2024') {
+                if ($name -match '(?i)HomeBusiness|Home_Business') { "Office 2024 H&B" }
+                elseif ($name -match '(?i)HomeStudent|Home_Student') { "Office 2024 Home & Student" }
+                elseif ($name -match '(?i)ProPlus|Professional') { "Office 2024 Pro" }
+                else { "Office 2024" }
+            } elseif ($name -match '(?i)Office21|Office\s*21|2021') {
+                if ($name -match '(?i)HomeBusiness|Home_Business') { "Office 2021 H&B" }
+                elseif ($name -match '(?i)HomeStudent|Home_Student') { "Office 2021 Home & Student" }
+                elseif ($name -match '(?i)ProPlus|Professional') { "Office 2021 Pro" }
+                else { "Office 2021" }
+            } elseif ($name -match '(?i)Office19|Office\s*19|2019') {
+                if ($name -match '(?i)HomeBusiness|Home_Business') { "Office 2019 H&B" }
+                elseif ($name -match '(?i)HomeStudent|Home_Student') { "Office 2019 Home & Student" }
+                elseif ($name -match '(?i)ProPlus|Professional') { "Office 2019 Pro" }
+                else { "Office 2019" }
+            } elseif ($name -match '(?i)Office16|Office\s*16|2016') {
+                if ($name -match '(?i)HomeBusiness|Home_Business') { "Office 2016 H&B" }
+                elseif ($name -match '(?i)HomeStudent|Home_Student') { "Office 2016 Home & Student" }
+                elseif ($name -match '(?i)ProPlus|Professional') { "Office 2016 Pro" }
+                else { "Office 2016" }
+            } elseif ($name -match '(?i)Office15|Office\s*15|2013') {
                 "Office 2013"
-            } elseif ($name -match 'Office16|Office\s*16|2016') {
-                "Office 2016"
-            } elseif ($name -match 'Office19|Office\s*19|2019') {
-                "Office 2019"
-            } elseif ($name -match 'Office21|Office\s*21|2021') {
-                "Office 2021"
-            } elseif ($name -match 'Office24|Office\s*24|2024') {
-                "Office 2024"
-            } elseif ($name -match 'Office\s*(\d+)') {
+            } elseif ($name -match '(?i)Office14|Office\s*14|2010') {
+                "Office 2010"
+            } elseif ($name -match '(?i)Office\s*(\d+)') {
                 "Office " + $Matches[1]
             } else {
                 "Office"
             }
 
-            $chType = if ($chan -match '(?i)KMS|GVLK') {
+            $rawChan = if ($chan) { $chan } else { $desc }
+            $chType = if ($rawChan -match '(?i)KMS|GVLK') {
                 'KMS'
-            } elseif ($chan -match '(?i)MAK') {
+            } elseif ($rawChan -match '(?i)MAK') {
                 'MAK'
-            } elseif ($chan -match '(?i)OEM') {
-                'OEM'
-            } elseif ($chan -match '(?i)RETAIL') {
+            } elseif ($rawChan -match '(?i)RETAIL|ESD|MSDN') {
                 'Retail'
+            } elseif ($rawChan -match '(?i)OEM') {
+                'OEM'
             } else {
                 'Volume'
             }
@@ -172,17 +202,21 @@ function Parse-OfficeLicenseInfo([string]$c2rProd, $slpList) {
     if ($c2rProd) {
         if ($c2rProd -match '(?i)O365|M365|Microsoft\s*365|365ProPlus|365Business') {
             return @{ Badge = 'M365 (Act)'; Detail = "Microsoft 365 ($c2rProd)" }
-        } elseif ($c2rProd -match '2024') {
-            return @{ Badge = '2024 (C2R)'; Detail = "Office 2024 Click-to-Run ($c2rProd)" }
-        } elseif ($c2rProd -match '2021') {
-            return @{ Badge = '2021 (C2R)'; Detail = "Office 2021 Click-to-Run ($c2rProd)" }
-        } elseif ($c2rProd -match '2019') {
-            return @{ Badge = '2019 (C2R)'; Detail = "Office 2019 Click-to-Run ($c2rProd)" }
-        } elseif ($c2rProd -match '2016') {
-            return @{ Badge = '2016 (Inst)'; Detail = "Office 2016 ($c2rProd)" }
-        } elseif ($c2rProd -match '2013') {
+        } elseif ($c2rProd -match '(?i)2024') {
+            $ed = if ($c2rProd -match '(?i)HomeBusiness') { '2024 H&B Retail' } elseif ($c2rProd -match '(?i)ProPlus') { '2024 Pro Retail' } else { '2024 Retail' }
+            return @{ Badge = $ed; Detail = "Microsoft Office 2024 Retail/ESD ($c2rProd)" }
+        } elseif ($c2rProd -match '(?i)2021') {
+            $ed = if ($c2rProd -match '(?i)HomeBusiness') { '2021 H&B Retail' } elseif ($c2rProd -match '(?i)ProPlus') { '2021 Pro Retail' } elseif ($c2rProd -match '(?i)HomeStudent') { '2021 Home & Student' } else { '2021 Retail' }
+            return @{ Badge = $ed; Detail = "Microsoft Office 2021 Retail/ESD ($c2rProd)" }
+        } elseif ($c2rProd -match '(?i)2019') {
+            $ed = if ($c2rProd -match '(?i)HomeBusiness') { '2019 H&B Retail' } elseif ($c2rProd -match '(?i)ProPlus') { '2019 Pro Retail' } else { '2019 Retail' }
+            return @{ Badge = $ed; Detail = "Microsoft Office 2019 Retail/ESD ($c2rProd)" }
+        } elseif ($c2rProd -match '(?i)2016') {
+            $ed = if ($c2rProd -match '(?i)HomeBusiness') { '2016 H&B Retail' } elseif ($c2rProd -match '(?i)ProPlus') { '2016 Pro Retail' } else { '2016 (Inst)' }
+            return @{ Badge = $ed; Detail = "Office 2016 ($c2rProd)" }
+        } elseif ($c2rProd -match '(?i)2013') {
             return @{ Badge = '2013 (Inst)'; Detail = "Office 2013 ($c2rProd)" }
-        } elseif ($c2rProd -match '2010') {
+        } elseif ($c2rProd -match '(?i)2010') {
             return @{ Badge = '2010 (Inst)'; Detail = "Office 2010 ($c2rProd)" }
         } elseif ($c2rProd -match '(?i)ProPlus|Standard|HomeBusiness|HomeStudent|Professional|Enterprise|LTSC|Office') {
             return @{ Badge = 'Office C2R'; Detail = "Office Click-to-Run ($c2rProd)" }
@@ -669,6 +703,7 @@ if (-not $SkipHardware) {
             $hData = @{
                 PCName         = if ($oldRecord -and $oldRecord.PCName -and $oldRecord.PCName -ne '-') { $oldRecord.PCName } else { $pc }
                 Status         = 'Offline'
+                Method         = if ($script:lastConnInfo -and $script:lastConnInfo.Method) { $script:lastConnInfo.Method } else { 'Offline' }
                 Status_Detail  = $statusDetailMsg
                 Fail_Count     = $newFail
                 Win_License    = $prevWinLicense
@@ -875,6 +910,7 @@ if (-not $SkipHardware) {
             $itemOk = New-HardwareRecord @{
                 PCName         = $cs.Name
                 Status         = 'OK'
+                Method         = if ($script:lastConnInfo -and $script:lastConnInfo.Method) { $script:lastConnInfo.Method } else { 'WMI' }
                 Status_Detail  = 'Hardware scan completed successfully'
                 Fail_Count     = 0
                 Win_License    = $winLicenseStr
@@ -912,6 +948,7 @@ if (-not $SkipHardware) {
             $hDataErr = @{
                 PCName         = if ($oldRecord -and $oldRecord.PCName -and $oldRecord.PCName -ne '-') { $oldRecord.PCName } else { $pc }
                 Status         = "Error"
+                Method         = if ($script:lastConnInfo -and $script:lastConnInfo.Method) { $script:lastConnInfo.Method } else { 'Error' }
                 Status_Detail  = $_.Exception.Message
                 Fail_Count     = $newFail
                 Win_License    = $prevWinLicense
@@ -958,6 +995,9 @@ if (-not $SkipHardware) {
                     $r.First_Seen = if ($old.First_Seen -and $old.First_Seen -ne '-') { $old.First_Seen } else { (Get-Date -Format 'yyyy-MM-dd HH:mm') }
                     $r.Last_Scan  = Get-Date -Format 'yyyy-MM-dd HH:mm'
                     $r.Fail_Count = 0
+                    if ((-not $r.Method -or $r.Method -eq '-') -and ($old.Method -and $old.Method -ne '-')) {
+                        $r.Method = $old.Method
+                    }
                     if ((-not $r.Win_License -or $r.Win_License -eq '-') -and ($old.Win_License -and $old.Win_License -ne '-')) {
                         $r.Win_License = $old.Win_License
                     }
@@ -981,6 +1021,7 @@ if (-not $SkipHardware) {
                     $hMerged = @{
                         PCName         = $r.PCName
                         Status         = if ($old.Status -eq 'OK' -or ($old.CPU -and $old.CPU -ne '-')) { "Offline (Was OK)" } else { $r.Status }
+                        Method         = if ($r.Method -and $r.Method -ne '-') { $r.Method } else { $old.Method }
                         Status_Detail  = $r.Status_Detail
                         Fail_Count     = $r.Fail_Count
                         Win_License    = if ($r.Win_License -and $r.Win_License -ne '-') { $r.Win_License } else { $old.Win_License }

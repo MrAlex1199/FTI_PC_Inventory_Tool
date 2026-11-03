@@ -160,6 +160,83 @@ $script:inAppSchedule = @{
 $script:lastScanParams = $null
 $script:lastOutDir = 'C:\Inventory'
 
+# Helper: Preload existing Master DB on backend startup for instant Dashboard & Grid display
+function Load-InitialMasterDb() {
+    try {
+        $masterPath = Join-Path $script:lastOutDir 'Hardware_Master.csv'
+        if (-not (Test-Path -LiteralPath $masterPath)) {
+            $masterPath = 'C:\Inventory\Hardware_Master.csv'
+        }
+        if (Test-Path -LiteralPath $masterPath) {
+            $csvHw = @(Import-Csv -LiteralPath $masterPath -Encoding UTF8)
+            if ($csvHw -and $csvHw.Count -gt 0) {
+                foreach ($row in $csvHw) {
+                    $item = @{
+                        PCName         = [string]$row.PCName
+                        Status         = if ($row.Status) { [string]$row.Status } else { 'OK' }
+                        Method         = if ($row.Method) { [string]$row.Method } else { '-' }
+                        Status_Detail  = if ($row.Status_Detail) { [string]$row.Status_Detail } else { '' }
+                        Fail_Count     = if ($row.Fail_Count) { [string]$row.Fail_Count } else { '0' }
+                        Win_License    = if ($row.Win_License) { [string]$row.Win_License } else { '-' }
+                        Office_License = if ($row.Office_License) { [string]$row.Office_License } else { '-' }
+                        Office_Detail  = if ($row.Office_Detail) { [string]$row.Office_Detail } else { '-' }
+                        User           = if ($row.User) { [string]$row.User } else { '-' }
+                        Maker          = if ($row.Maker) { [string]$row.Maker } else { '-' }
+                        Model          = if ($row.Model) { [string]$row.Model } else { '-' }
+                        Serial         = if ($row.Serial) { [string]$row.Serial } else { '-' }
+                        CPU            = if ($row.CPU) { [string]$row.CPU } else { '-' }
+                        Cores          = if ($row.Cores) { [string]$row.Cores } else { '-' }
+                        RAM_GB         = if ($row.RAM_GB) { [string]$row.RAM_GB } else { '-' }
+                        Disk_C_Free    = if ($row.Disk_C_Free) { [string]$row.Disk_C_Free } else { '-' }
+                        Disks          = if ($row.Disks) { [string]$row.Disks } else { '-' }
+                        GPU            = if ($row.GPU) { [string]$row.GPU } else { '-' }
+                        OS             = if ($row.OS) { [string]$row.OS } else { '-' }
+                        OSBuild        = if ($row.OSBuild) { [string]$row.OSBuild } else { '-' }
+                        IP             = if ($row.IP) { [string]$row.IP } else { '-' }
+                        Last_Boot      = if ($row.Last_Boot) { [string]$row.Last_Boot } else { '-' }
+                        Uptime         = if ($row.Uptime) { [string]$row.Uptime } else { '-' }
+                        AD_LastLogon   = if ($row.AD_LastLogon) { [string]$row.AD_LastLogon } else { '-' }
+                        AD_OU          = if ($row.AD_OU) { [string]$row.AD_OU } else { '-' }
+                        Scan_Count     = if ($row.Scan_Count) { [string]$row.Scan_Count } else { '1' }
+                        First_Seen     = if ($row.First_Seen) { [string]$row.First_Seen } else { '-' }
+                    }
+                    $script:scannedPCs.Add($item)
+                }
+                $script:total = $script:scannedPCs.Count
+                $script:ok = @($script:scannedPCs | Where-Object { $_.Status -eq 'OK' }).Count
+                $script:offline = @($script:scannedPCs | Where-Object { $_.Status -match 'Offline' }).Count
+                $script:errCount = @($script:scannedPCs | Where-Object { $_.Status -match 'Error|Failed' }).Count
+                Write-SystemLog "INFO" "Preloaded $($script:scannedPCs.Count) records from Master Database ($masterPath)"
+            }
+        }
+
+        $swMasterPath = Join-Path $script:lastOutDir 'Software_Master.csv'
+        if (-not (Test-Path -LiteralPath $swMasterPath)) {
+            $swMasterPath = 'C:\Inventory\Software_Master.csv'
+        }
+        if (Test-Path -LiteralPath $swMasterPath) {
+            $csvSw = @(Import-Csv -LiteralPath $swMasterPath -Encoding UTF8)
+            if ($csvSw -and $csvSw.Count -gt 0) {
+                $grouped = $csvSw | Group-Object PCName
+                foreach ($g in $grouped) {
+                    $swItem = @{
+                        PCName        = [string]$g.Name
+                        Status        = 'OK'
+                        Method        = '-'
+                        SoftwareCount = $g.Count
+                        KeySoftware   = (($g.Group | Select-Object -First 3 -ExpandProperty Name) -join ', ')
+                    }
+                    $script:swScannedPCs.Add($swItem)
+                }
+                Write-SystemLog "INFO" "Preloaded $($script:swScannedPCs.Count) software machines from Software Master"
+            }
+        }
+    } catch {
+        Write-SystemLog "WARN" "Preload Master DB notice: $($_.Exception.Message)"
+    }
+}
+Load-InitialMasterDb
+
 # Helper: Find the real FTI_PC_Inventory.exe
 function Get-FtiExecutablePath() {
     if ($env:FTI_HOST_EXE -and (Test-Path -LiteralPath $env:FTI_HOST_EXE)) {
@@ -323,6 +400,7 @@ function Update-ScanProgress() {
                         $pcItem = @{
                             PCName         = [string]$live.PCName
                             Status         = [string]$live.Status
+                            Method         = if ($live.Method) { [string]$live.Method } else { '-' }
                             Status_Detail  = if ($live.Status_Detail) { [string]$live.Status_Detail } else { '' }
                             Fail_Count     = if ($live.Fail_Count) { [string]$live.Fail_Count } else { '0' }
                             Win_License    = if ($live.Win_License) { [string]$live.Win_License } else { '-' }
@@ -521,6 +599,7 @@ function Update-ScanProgress() {
                                 $script:scannedPCs.Add(@{
                                     PCName         = $row.PCName
                                     Status         = if ($row.Status) { $row.Status } else { 'OK' }
+                                    Method         = if ($row.Method) { $row.Method } elseif ($liveMatch -and $liveMatch.Method) { $liveMatch.Method } else { '-' }
                                     Status_Detail  = if ($row.Status_Detail) { $row.Status_Detail } else { '' }
                                     Fail_Count     = if ($row.Fail_Count) { $row.Fail_Count } else { '0' }
                                     Win_License    = $winLicVal
@@ -1370,6 +1449,7 @@ while ($running) {
                             $machines.Add(@{
                                 PCName      = $r.PCName
                                 Status      = $r.Status
+                                Method      = if ($r.Method) { $r.Method } else { '-' }
                                 IP          = $r.IP
                                 OS          = $r.OS
                                 User        = $r.User

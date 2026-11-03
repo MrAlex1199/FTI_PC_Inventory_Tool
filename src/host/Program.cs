@@ -12,9 +12,9 @@ using System.Text;
 [assembly: AssemblyCopyright("Copyright © Function International 2026")]
 [assembly: AssemblyTrademark("FTI")]
 [assembly: AssemblyCulture("")]
-[assembly: AssemblyVersion("2026.11.03.1")]
-[assembly: AssemblyFileVersion("2026.11.03.1")]
-[assembly: AssemblyInformationalVersion("v2026.11.03.1 Enterprise (2026-11-03 20:24:55)")]
+[assembly: AssemblyVersion("2026.11.03.5")]
+[assembly: AssemblyFileVersion("2026.11.03.5")]
+[assembly: AssemblyInformationalVersion("v2026.11.03.5 Enterprise (2026-11-03 21:58:10)")]
 
 namespace FTI.PCInventory
 {

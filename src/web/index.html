@@ -8,7 +8,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>FTI PC Inventory Tool - v2026.11.03.1</title>
+  <title>FTI PC Inventory Tool - v2026.11.03.5</title>
 
   <script>
 
@@ -1830,6 +1830,67 @@
 
       background: var(--bg-surface);
 
+      position: relative;
+
+    }
+
+    /* Column Resizing Guides and Handles */
+    .col-resizer {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 8px;
+      bottom: 0;
+      cursor: col-resize;
+      user-select: none;
+      z-index: 10;
+      transition: background-color 0.1s ease;
+    }
+    .col-resizer:hover,
+    .col-resizer.resizing {
+      background: var(--accent-primary) !important;
+      opacity: 0.9;
+    }
+    .col-resize-guide {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--accent-primary);
+      box-shadow: 0 0 8px var(--accent-primary);
+      pointer-events: none;
+      z-index: 99;
+      display: none;
+    }
+    body.col-resizing {
+      cursor: col-resize !important;
+      user-select: none !important;
+    }
+    body.col-resizing * {
+      user-select: none !important;
+    }
+    .live-grid.has-custom-widths {
+      table-layout: fixed;
+    }
+    .btn-compact-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn-compact-ghost:hover {
+      background: var(--bg-surface-elevated);
+      color: var(--text-main);
+      border-color: var(--accent-primary);
     }
 
     .live-grid {
@@ -2986,6 +3047,50 @@
       color: #fff;
     }
 
+    /* Hardware Probing Method Badges */
+    .method-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      font-family: var(--font-mono, monospace);
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface-elevated);
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .method-badge.method-icmp {
+      border-color: rgba(59, 130, 246, 0.35);
+      background: rgba(59, 130, 246, 0.08);
+      color: var(--accent-primary);
+    }
+    .method-badge.method-tcp {
+      border-color: rgba(139, 92, 246, 0.35);
+      background: rgba(139, 92, 246, 0.08);
+      color: #a78bfa;
+    }
+    .method-badge.method-winrm {
+      border-color: rgba(14, 165, 233, 0.35);
+      background: rgba(14, 165, 233, 0.08);
+      color: #38bdf8;
+    }
+    .method-badge.method-local {
+      border-color: rgba(16, 185, 129, 0.35);
+      background: rgba(16, 185, 129, 0.08);
+      color: var(--accent-emerald);
+    }
+    .method-badge.method-arp {
+      border-color: rgba(245, 158, 11, 0.35);
+      background: rgba(245, 158, 11, 0.08);
+      color: #fbbf24;
+    }
+    .method-badge.method-offline {
+      opacity: 0.6;
+      border-color: transparent;
+    }
+
     /* Office License Badges */
     .office-badge {
       display: inline-flex;
@@ -3096,6 +3201,516 @@
       to { opacity: 1; transform: translate(-50%, 0); }
     }
 
+  
+    /* ==========================================================================
+       UI/UX PRO MAX: Executive IT Asset Analytics Dashboard Styles
+       ========================================================================== */
+    .dashboard-container {
+      padding: 16px 20px 40px 20px;
+      color: var(--text-main);
+      animation: fadeIn 0.25s ease-out;
+      container-type: inline-size;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .dash-header-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .dash-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .dash-main-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-main);
+      letter-spacing: -0.01em;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dash-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .dash-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Zone 1: Executive KPI Cards (Glassmorphism & Health Rings) */
+    .dash-zone-kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .dash-kpi-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 14px 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(8px);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dash-kpi-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(2, 132, 199, 0.4);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .dash-kpi-inner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    /* SVG Circular Health Ring */
+    .dash-ring-wrap {
+      position: relative;
+      width: 52px;
+      height: 52px;
+      flex-shrink: 0;
+    }
+
+    .dash-ring-svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .dash-ring-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.08);
+      stroke-width: 3.5;
+    }
+
+    .dash-ring-fill {
+      fill: none;
+      stroke: var(--accent-emerald);
+      stroke-width: 3.5;
+      stroke-linecap: round;
+      transition: stroke-dasharray 0.8s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.4s;
+    }
+
+    .dash-ring-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 1;
+    }
+
+    .dash-ring-num {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--text-main);
+      font-family: monospace;
+    }
+
+    .dash-ring-lbl {
+      font-size: 0.55rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+
+    /* Icon Box */
+    .dash-icon-box {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .dash-icon-box.blue {
+      background: rgba(2, 132, 199, 0.15);
+      color: var(--accent-primary);
+      border: 1px solid rgba(2, 132, 199, 0.3);
+    }
+
+    .dash-icon-box.amber {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--accent-amber);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .dash-icon-box.purple {
+      background: rgba(139, 92, 246, 0.15);
+      color: #a78bfa;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+
+    .dash-kpi-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .dash-kpi-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .dash-kpi-val {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .dash-kpi-sub {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+
+    .kpi-sub-pill {
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.65rem;
+    }
+
+    .kpi-sub-pill.ok { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
+    .kpi-sub-pill.off { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; }
+    .kpi-sub-pill.err { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); }
+
+    /* Zone 2 & 3 Grids */
+    .dash-grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .dash-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    /* Glass Cards */
+    .dash-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+      backdrop-filter: blur(8px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .dash-card-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .dash-card-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 0.82rem;
+      color: var(--text-main);
+    }
+
+    .dash-card-title-wrap svg {
+      color: var(--accent-primary);
+    }
+
+    .dash-card-badge {
+      font-size: 0.68rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .dash-card-badge.red { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); }
+    .dash-card-badge.amber { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
+    .dash-card-badge.purple { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+
+    /* Segmented Toggle Inside Card Header */
+    .dash-seg-toggle {
+      display: flex;
+      gap: 2px;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 2px;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .dash-seg-btn {
+      background: transparent;
+      border: none;
+      padding: 2px 8px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+
+    .dash-seg-btn:hover {
+      color: var(--text-main);
+    }
+
+    .dash-seg-btn.active {
+      background: var(--accent-primary);
+      color: #fff;
+    }
+
+    .dash-card-body {
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+
+    /* Interactive Bar Rows */
+    .dash-bar-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+
+    .dash-bar-row:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .dash-bar-row:hover .dash-bar-fill {
+      filter: brightness(1.15);
+    }
+
+    .dash-bar-label-wrap {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.74rem;
+    }
+
+    .dash-bar-label {
+      font-weight: 600;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 75%;
+    }
+
+    .dash-bar-count {
+      font-family: monospace;
+      font-weight: 700;
+      color: var(--text-main);
+      font-size: 0.74rem;
+    }
+
+    .dash-bar-track {
+      width: 100%;
+      height: 7px;
+      background: rgba(255, 255, 255, 0.07);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .dash-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Gradients for bars */
+    .dash-bar-fill.gradient-blue { background: linear-gradient(90deg, #0284c7, #38bdf8); }
+    .dash-bar-fill.gradient-emerald { background: linear-gradient(90deg, #059669, #34d399); }
+    .dash-bar-fill.gradient-purple { background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+    .dash-bar-fill.gradient-amber { background: linear-gradient(90deg, #d97706, #fbbf24); }
+    .dash-bar-fill.gradient-rose { background: linear-gradient(90deg, #e11d48, #fb7185); }
+    .dash-bar-fill.gradient-cyan { background: linear-gradient(90deg, #0891b2, #22d3ee); }
+
+    /* Zone 4: Actionable Watchlist */
+    .dash-watchlist-header {
+      margin-top: 8px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .dash-watchlist-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .dash-watchlist-title-wrap svg {
+      color: var(--accent-amber);
+    }
+
+    .dash-watchlist-desc {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .dash-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .dash-dot.red { background: var(--accent-rose); box-shadow: 0 0 6px rgba(244, 63, 94, 0.6); }
+    .dash-dot.amber { background: var(--accent-amber); box-shadow: 0 0 6px rgba(245, 158, 11, 0.6); }
+    .dash-dot.purple { background: #a78bfa; box-shadow: 0 0 6px rgba(167, 139, 250, 0.6); }
+
+    .dash-watchlist-list {
+      padding: 8px 12px 12px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .dash-watchlist-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.73rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .dash-watchlist-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(2, 132, 199, 0.4);
+      transform: translateX(2px);
+    }
+
+    .dash-wl-pc {
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .dash-wl-sub {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      display: block;
+    }
+
+    .dash-wl-badge {
+      font-weight: 700;
+      font-size: 0.68rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .dash-wl-badge.red { background: rgba(244, 63, 94, 0.18); color: var(--accent-rose); }
+    .dash-wl-badge.amber { background: rgba(245, 158, 11, 0.18); color: var(--accent-amber); }
+    .dash-wl-badge.purple { background: rgba(139, 92, 246, 0.18); color: #c4b5fd; }
+
+    .dash-wl-empty {
+      text-align: center;
+      padding: 24px 12px;
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-style: italic;
+    }
+
+    /* Print Formatting */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #dashboardContainer, #dashboardContainer * {
+        visibility: visible;
+      }
+      #dashboardContainer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100% !important;
+        background: #fff !important;
+        color: #0f172a !important;
+        padding: 0 !important;
+      }
+      .dash-card, .dash-kpi-card {
+        background: #fff !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+      }
+      .dash-actions-group, .dash-seg-toggle {
+        display: none !important;
+      }
+      .dash-main-title, .dash-kpi-val, .dash-bar-count, .dash-wl-pc {
+        color: #0f172a !important;
+      }
+      .dash-subtitle, .dash-kpi-label, .dash-bar-label, .dash-wl-sub {
+        color: #475569 !important;
+      }
+    }
+
   </style>
 
 </head>
@@ -3118,7 +3733,7 @@
 
         <span>FTI PC Inventory Tool</span>
 
-        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-03 20:24:55" id="appVersionTag">v2026.11.03.1 Enterprise</span>
+        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-03 21:58:10" id="appVersionTag">v2026.11.03.5 Enterprise</span>
 
       </div>
 
@@ -3634,6 +4249,9 @@
                 <span>📦 Software Scan</span>
                 <span class="grid-tab-pill" id="lblSwTabCount">0</span>
               </button>
+              <button class="grid-tab-btn" id="tabGridDash" onclick="switchGridTab('dashboard')">
+                <span>📊 Dashboard</span>
+              </button>
             </div>
             <span class="nav-badge" id="lblTableTotalCount" style="display: none;">0 Computers</span>
           </div>
@@ -3644,21 +4262,36 @@
               <input type="text" id="txtSearchTable" placeholder="Search host, specs, user, IP, license..." class="search-table-input">
             </div>
 
-            <div style="display: flex; gap: 4px;" id="filterPillsHw">
+                        <div style="display: flex; gap: 4px;" id="filterPillsHw">
               <button class="filter-btn-pill active" data-filter="all">All</button>
               <button class="filter-btn-pill" data-filter="OK">Success (OK)</button>
               <button class="filter-btn-pill" data-filter="Offline">Offline</button>
               <button class="filter-btn-pill" data-filter="Error">Failed</button>
             </div>
+
+            <div id="activeDrilldownChip" style="display: none; align-items: center; gap: 6px; background: rgba(2, 132, 199, 0.15); border: 1px solid rgba(2, 132, 199, 0.35); padding: 2px 10px; border-radius: 12px; font-size: 0.72rem; color: var(--accent-primary); font-weight: 600;">
+              <span id="drilldownChipText">Filter: -</span>
+              <button type="button" onclick="clearDrilldownFilter()" style="background: none; border: none; color: var(--accent-rose); cursor: pointer; font-size: 0.8rem; line-height: 1; padding: 0 2px;" title="Clear filter">✕</button>
+            </div>
+            <button type="button" class="btn-compact-ghost" id="btnPrintDashboard" onclick="printDashboardReport()" style="display: none;" title="Print or Export Executive Summary Report to PDF">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              <span>Print / PDF</span>
+            </button>
+            <button type="button" class="btn-compact-ghost" id="btnResetColWidths" onclick="resetColumnWidths()" title="Reset column widths to default auto layout">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              <span>Reset Widths</span>
+            </button>
           </div>
         </div>
 
         <div class="table-scroll-wrap">
+          <div id="colResizeGuide" class="col-resize-guide"></div>
           <!-- Hardware Grid View -->
           <table class="live-grid" id="resultsTable">
             <thead>
               <tr>
                 <th title="Scan Status (OK, Offline, Scanning, Error)">Status</th>
+                <th title="Connection / Reachability Method (ICMP, TCP Ports, WinRM, etc.)">Method</th>
                 <th style="text-align: center;" title="Consecutive Failed Scans Count">Fails</th>
                 <th title="Host / Computer Name">PC Name</th>
                 <th title="Windows OS License Channel & Activation Status">Win License</th>
@@ -3676,7 +4309,7 @@
 
               <tr>
 
-                <td colspan="11" style="text-align: center; color: var(--text-muted); padding: 35px;">
+                <td colspan="13" style="text-align: center; color: var(--text-muted); padding: 35px;">
 
                   No scan results available yet. (Click "Start Network Scan" on the left)
 
@@ -3703,8 +4336,234 @@
               <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:35px;">No software scan records yet.</td></tr>
             </tbody>
           </table>
-        </div>
 
+          <!-- Executive IT Asset Analytics Dashboard Container -->
+          <div id="dashboardContainer" class="dashboard-container" style="display: none;">
+            <div class="dash-header-toolbar">
+              <div class="dash-title-group">
+                <h2 class="dash-main-title">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" stroke-width="2.2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+                  Executive IT Asset Fleet Analytics
+                </h2>
+                <span class="dash-subtitle" id="dashSubtitleText">Comprehensive telemetry & fleet analytics</span>
+              </div>
+              <div class="dash-actions-group">
+                <button type="button" class="btn-compact-ghost" onclick="renderDashboard()" title="Refresh Dashboard Metrics">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                  <span>Refresh</span>
+                </button>
+                <button type="button" class="btn-compact-ghost" onclick="printDashboardReport()" title="Print or Save PDF Executive Report">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                  <span>Print / PDF</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Zone 1: Executive KPI Cards -->
+            <div class="dash-zone-kpis">
+              <!-- Card 1: Fleet Availability & Health Score -->
+              <div class="dash-kpi-card" onclick="applyDashboardDrilldown('status', 'OK', 'Status: OK')" title="Click to view OK PCs">
+                <div class="dash-kpi-inner">
+                  <div class="dash-ring-wrap">
+                    <svg class="dash-ring-svg" viewBox="0 0 36 36">
+                      <path class="dash-ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                      <path id="dashRingHealth" class="dash-ring-fill" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+                    </svg>
+                    <div class="dash-ring-center">
+                      <span id="dashKpiHealthPct" class="dash-ring-num">0%</span>
+                      <span class="dash-ring-lbl">Health</span>
+                    </div>
+                  </div>
+                  <div class="dash-kpi-details">
+                    <span class="dash-kpi-label">Fleet Availability</span>
+                    <div class="dash-kpi-val" id="dashKpiTotalPcs">0 PCs</div>
+                    <div class="dash-kpi-sub">
+                      <span class="kpi-sub-pill ok" id="dashKpiOkCount">0 OK</span>
+                      <span class="kpi-sub-pill off" id="dashKpiOffCount">0 Off</span>
+                      <span class="kpi-sub-pill err" id="dashKpiErrCount">0 Err</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 2: License Compliance -->
+              <div class="dash-kpi-card" onclick="applyDashboardDrilldown('unlicensed', 'true', 'Unlicensed Win/Office')" title="Click to view Unlicensed PCs">
+                <div class="dash-kpi-inner">
+                  <div class="dash-icon-box blue">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  </div>
+                  <div class="dash-kpi-details">
+                    <span class="dash-kpi-label">License Compliance</span>
+                    <div class="dash-kpi-val" id="dashKpiLicPct">0%</div>
+                    <div class="dash-kpi-sub" id="dashKpiLicSub">
+                      <span>Win: <strong id="dashKpiWinAct">0</strong> act</span>
+                      <span>Office: <strong id="dashKpiOffAct">0</strong> act</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 3: Spec Upgrade Attention -->
+              <div class="dash-kpi-card" onclick="applyDashboardDrilldown('ramLow', 'true', 'Low RAM (< 8GB)')" title="Click to view Upgrade Candidates">
+                <div class="dash-kpi-inner">
+                  <div class="dash-icon-box amber">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                  </div>
+                  <div class="dash-kpi-details">
+                    <span class="dash-kpi-label">Upgrade Attention</span>
+                    <div class="dash-kpi-val" id="dashKpiUpgradeCount">0 PCs</div>
+                    <div class="dash-kpi-sub" id="dashKpiUpgradeSub">
+                      <span>RAM &lt; 8G: <strong id="dashKpiRamLow">0</strong></span>
+                      <span>Disk ≤ 15%: <strong id="dashKpiDiskLow">0</strong></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 4: Reachability Method -->
+              <div class="dash-kpi-card" onclick="switchGridTab('hardware')" title="Click to view all connection methods">
+                <div class="dash-kpi-inner">
+                  <div class="dash-icon-box purple">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                  </div>
+                  <div class="dash-kpi-details">
+                    <span class="dash-kpi-label">Reachability Method</span>
+                    <div class="dash-kpi-val" id="dashKpiTopMethod">-</div>
+                    <div class="dash-kpi-sub" id="dashKpiMethodSub">
+                      <span>Online Ratio: <strong id="dashKpiOnlineRatio">0%</strong></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Zone 2: Hardware Analytics (CPU & RAM) -->
+            <div class="dash-grid-2">
+              <div class="dash-card">
+                <div class="dash-card-header">
+                  <div class="dash-card-title-wrap">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+                    <span class="dash-card-title">Processor (CPU) Breakdown</span>
+                  </div>
+                  <div class="dash-seg-toggle">
+                    <button type="button" id="btnCpuModeTier" class="dash-seg-btn active" onclick="setCpuViewMode('tier')">By Tier / Family</button>
+                    <button type="button" id="btnCpuModeGen" class="dash-seg-btn" onclick="setCpuViewMode('gen')">By Generation</button>
+                  </div>
+                </div>
+                <div class="dash-card-body" id="dashCpuBarsContainer"></div>
+              </div>
+
+              <div class="dash-card">
+                <div class="dash-card-header">
+                  <div class="dash-card-title-wrap">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 19v-3"/><path d="M10 19v-3"/><path d="M14 19v-3"/><path d="M18 19v-3"/><rect x="2" y="5" width="20" height="10" rx="2"/></svg>
+                    <span class="dash-card-title">RAM Memory Distribution</span>
+                  </div>
+                  <span class="dash-card-badge" id="lblDashRamTotal">0 GB Total</span>
+                </div>
+                <div class="dash-card-body" id="dashRamBarsContainer"></div>
+              </div>
+            </div>
+
+            <!-- Zone 2 continued: OS & Manufacturer -->
+            <div class="dash-grid-2">
+              <div class="dash-card">
+                <div class="dash-card-header">
+                  <div class="dash-card-title-wrap">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    <span class="dash-card-title">Operating System &amp; Win 11 Readiness</span>
+                  </div>
+                  <span class="dash-card-badge" id="lblDashWin11Pct">0% Win 11</span>
+                </div>
+                <div class="dash-card-body" id="dashOsBarsContainer"></div>
+              </div>
+
+              <div class="dash-card">
+                <div class="dash-card-header">
+                  <div class="dash-card-title-wrap">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                    <span class="dash-card-title">Hardware Manufacturer (Brand)</span>
+                  </div>
+                </div>
+                <div class="dash-card-body" id="dashBrandBarsContainer"></div>
+              </div>
+            </div>
+
+            <!-- Zone 3: Software & License / Network -->
+            <div class="dash-grid-2">
+              <div class="dash-card">
+                <div class="dash-card-header">
+                  <div class="dash-card-title-wrap">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                    <span class="dash-card-title">Microsoft Office Edition Matrix</span>
+                  </div>
+                </div>
+                <div class="dash-card-body" id="dashOfficeBarsContainer"></div>
+              </div>
+
+              <div class="dash-card">
+                <div class="dash-card-header">
+                  <div class="dash-card-title-wrap">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                    <span class="dash-card-title">Fleet Network &amp; OU Distribution</span>
+                  </div>
+                  <div class="dash-seg-toggle">
+                    <button type="button" id="btnNetModeOu" class="dash-seg-btn active" onclick="setNetViewMode('ou')">Department (OU)</button>
+                    <button type="button" id="btnNetModeSubnet" class="dash-seg-btn" onclick="setNetViewMode('subnet')">IP Subnet</button>
+                  </div>
+                </div>
+                <div class="dash-card-body" id="dashNetBarsContainer"></div>
+              </div>
+            </div>
+
+            <!-- Zone 4: Actionable Watchlist -->
+            <div class="dash-watchlist-header">
+              <div class="dash-watchlist-title-wrap">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <span class="dash-watchlist-title">Actionable IT Attention Watchlist</span>
+              </div>
+              <span class="dash-watchlist-desc">Computers requiring IT administrator attention or hardware upgrade</span>
+            </div>
+            <div class="dash-grid-3">
+              <!-- Watchlist 1: Critical Storage -->
+              <div class="dash-card watchlist-card">
+                <div class="dash-card-header">
+                  <div class="dash-card-title-wrap">
+                    <span class="dash-dot red"></span>
+                    <span class="dash-card-title">Critical Storage (C: ≤ 15%)</span>
+                  </div>
+                  <span class="dash-card-badge red" id="lblWatchlistDiskCount">0</span>
+                </div>
+                <div class="dash-watchlist-list" id="watchlistDiskList"></div>
+              </div>
+
+              <!-- Watchlist 2: Low Memory -->
+              <div class="dash-card watchlist-card">
+                <div class="dash-card-header">
+                  <div class="dash-card-title-wrap">
+                    <span class="dash-dot amber"></span>
+                    <span class="dash-card-title">Low Memory (RAM &lt; 8 GB)</span>
+                  </div>
+                  <span class="dash-card-badge amber" id="lblWatchlistRamCount">0</span>
+                </div>
+                <div class="dash-watchlist-list" id="watchlistRamList"></div>
+              </div>
+
+              <!-- Watchlist 3: License & Reachability Attention -->
+              <div class="dash-card watchlist-card">
+                <div class="dash-card-header">
+                  <div class="dash-card-title-wrap">
+                    <span class="dash-dot purple"></span>
+                    <span class="dash-card-title">License &amp; Reachability</span>
+                  </div>
+                  <span class="dash-card-badge purple" id="lblWatchlistLicCount">0</span>
+                </div>
+                <div class="dash-watchlist-list" id="watchlistLicList"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </section>
 
       <!-- Bottom Dual-Tab Log Drawer -->
@@ -4216,29 +5075,453 @@
         .replace(/'/g, '&#39;');
     }
 
+    // Analytics Dashboard State
+    let cpuViewMode = 'tier'; // 'tier' | 'gen'
+    let netViewMode = 'ou';   // 'ou' | 'subnet'
+    let activeDrilldownCategory = null;
+
     function switchGridTab(tabName) {
       activeGridTab = tabName;
       const tabHw = document.getElementById('tabGridHw');
       const tabSw = document.getElementById('tabGridSw');
+      const tabDash = document.getElementById('tabGridDash');
       const tblHw = document.getElementById('resultsTable');
       const tblSw = document.getElementById('swResultsTable');
+      const dashContainer = document.getElementById('dashboardContainer');
       const filterPillsHw = document.getElementById('filterPillsHw');
+      const btnResetColWidths = document.getElementById('btnResetColWidths');
+      const btnPrintDashboard = document.getElementById('btnPrintDashboard');
+      const txtSearchTable = document.getElementById('txtSearchTable');
 
       if (tabName === 'hardware') {
         if (tabHw) tabHw.classList.add('active');
         if (tabSw) tabSw.classList.remove('active');
+        if (tabDash) tabDash.classList.remove('active');
         if (tblHw) tblHw.style.display = '';
         if (tblSw) tblSw.style.display = 'none';
+        if (dashContainer) dashContainer.style.display = 'none';
         if (filterPillsHw) filterPillsHw.style.display = 'flex';
+        if (btnResetColWidths) btnResetColWidths.style.display = 'inline-flex';
+        if (btnPrintDashboard) btnPrintDashboard.style.display = 'none';
+        if (txtSearchTable) txtSearchTable.style.display = '';
+        loadSavedColumnWidths('resultsTable');
         renderTable();
-      } else {
+      } else if (tabName === 'software') {
         if (tabHw) tabHw.classList.remove('active');
         if (tabSw) tabSw.classList.add('active');
+        if (tabDash) tabDash.classList.remove('active');
         if (tblHw) tblHw.style.display = 'none';
         if (tblSw) tblSw.style.display = '';
+        if (dashContainer) dashContainer.style.display = 'none';
         if (filterPillsHw) filterPillsHw.style.display = 'none';
+        if (btnResetColWidths) btnResetColWidths.style.display = 'inline-flex';
+        if (btnPrintDashboard) btnPrintDashboard.style.display = 'none';
+        if (txtSearchTable) txtSearchTable.style.display = '';
+        loadSavedColumnWidths('swResultsTable');
         renderSwTable();
+      } else if (tabName === 'dashboard') {
+        if (tabHw) tabHw.classList.remove('active');
+        if (tabSw) tabSw.classList.remove('active');
+        if (tabDash) tabDash.classList.add('active');
+        if (tblHw) tblHw.style.display = 'none';
+        if (tblSw) tblSw.style.display = 'none';
+        if (dashContainer) dashContainer.style.display = 'block';
+        if (filterPillsHw) filterPillsHw.style.display = 'none';
+        if (btnResetColWidths) btnResetColWidths.style.display = 'none';
+        if (btnPrintDashboard) btnPrintDashboard.style.display = 'inline-flex';
+        renderDashboard();
       }
+    }
+
+    // --- Interactive Drill-Down Filters ---
+    function applyDashboardDrilldown(type, value, label) {
+      activeDrilldownCategory = { type, value, label };
+      switchGridTab('hardware');
+      updateDrilldownChipUI();
+      renderTable();
+    }
+
+    function clearDrilldownFilter() {
+      activeDrilldownCategory = null;
+      updateDrilldownChipUI();
+      renderTable();
+    }
+
+    function updateDrilldownChipUI() {
+      const chip = document.getElementById('activeDrilldownChip');
+      const chipText = document.getElementById('drilldownChipText');
+      if (!chip || !chipText) return;
+      if (activeDrilldownCategory) {
+        chip.style.display = 'inline-flex';
+        chipText.innerText = 'Filter: ' + activeDrilldownCategory.label;
+      } else {
+        chip.style.display = 'none';
+      }
+    }
+
+    function printDashboardReport() {
+      window.print();
+    }
+
+    function setCpuViewMode(mode) {
+      cpuViewMode = mode;
+      const bTier = document.getElementById('btnCpuModeTier');
+      const bGen = document.getElementById('btnCpuModeGen');
+      if (bTier) bTier.classList.toggle('active', mode === 'tier');
+      if (bGen) bGen.classList.toggle('active', mode === 'gen');
+      renderDashboard();
+    }
+
+    function setNetViewMode(mode) {
+      netViewMode = mode;
+      const bOu = document.getElementById('btnNetModeOu');
+      const bSub = document.getElementById('btnNetModeSubnet');
+      if (bOu) bOu.classList.toggle('active', mode === 'ou');
+      if (bSub) bSub.classList.toggle('active', mode === 'subnet');
+      renderDashboard();
+    }
+
+    // --- Classification Utilities ---
+    function classifyCpuTier(cpu) {
+      if (!cpu || cpu === '-') return 'Other / Unknown';
+      const c = cpu.toLowerCase();
+      if (c.includes('i9') || c.includes('ryzen 9') || c.includes('threadripper')) return 'Core i9 / Ryzen 9';
+      if (c.includes('i7') || c.includes('ryzen 7')) return 'Core i7 / Ryzen 7';
+      if (c.includes('i5') || c.includes('ryzen 5')) return 'Core i5 / Ryzen 5';
+      if (c.includes('i3') || c.includes('ryzen 3')) return 'Core i3 / Ryzen 3';
+      if (c.includes('pentium') || c.includes('celeron') || c.includes('athlon')) return 'Pentium / Celeron';
+      if (c.includes('xeon') || c.includes('epyc')) return 'Server (Xeon / Epyc)';
+      return 'Other / Entry';
+    }
+
+    function classifyCpuGen(cpu) {
+      if (!cpu || cpu === '-') return 'Unknown CPU';
+      const c = cpu.toLowerCase();
+      if (c.includes('ryzen')) {
+        const rm = c.match(/ryzen\s*\d?\s*(\d{4})/i);
+        if (rm) {
+          const s = parseInt(rm[1]);
+          if (s >= 7000) return 'AMD Ryzen 7000+ (Win11)';
+          if (s >= 5000) return 'AMD Ryzen 5000 (Win11)';
+          if (s >= 3000) return 'AMD Ryzen 3000 (Win11)';
+          if (s >= 2000) return 'AMD Ryzen 2000 (Win11)';
+          return 'AMD Legacy (<2000) (Win11 ⚠️)';
+        }
+        return 'AMD Ryzen (Win11)';
+      }
+      const m = c.match(/i[3579]-(\d{1,2})\d{3}/i) || c.match(/i[3579]\s+(\d{1,2})\d{3}/i);
+      if (m) {
+        const gen = parseInt(m[1]);
+        if (gen >= 12) return 'Intel Gen ' + gen + ' (12-14th) (Win11)';
+        if (gen >= 10) return 'Intel Gen ' + gen + ' (10-11th) (Win11)';
+        if (gen >= 8) return 'Intel Gen ' + gen + ' (8-9th) (Win11)';
+        return 'Intel Gen ' + gen + ' (≤7th) (Win11 ⚠️)';
+      }
+      if (c.includes('ultra')) return 'Intel Core Ultra (Win11)';
+      return 'Legacy / Other CPU';
+    }
+
+    function classifyRam(ramGb) {
+      const r = parseFloat(ramGb) || 0;
+      if (r >= 32) return '32 GB+ (Power)';
+      if (r >= 16) return '16 GB (Standard)';
+      if (r >= 8) return '8 GB (Basic)';
+      if (r > 0) return '≤ 4 GB (Upgrade Needed)';
+      return 'Unknown RAM';
+    }
+
+    function getDiskFreePercent(diskStr) {
+      if (!diskStr || diskStr === '-') return null;
+      const m = diskStr.match(/(\d+)%\s+free/i);
+      return m ? parseInt(m[1]) : null;
+    }
+
+    function classifyOs(os, osBuild) {
+      if (!os || os === '-') return 'Unknown OS';
+      const o = os.toLowerCase();
+      const b = parseInt(osBuild) || 0;
+      if (o.includes('windows 11') || b >= 22000) {
+        if (b >= 26100) return 'Windows 11 (24H2)';
+        if (b >= 22631) return 'Windows 11 (23H2)';
+        if (b >= 22621) return 'Windows 11 (22H2)';
+        return 'Windows 11';
+      }
+      if (o.includes('windows 10') || (b >= 10240 && b < 22000)) {
+        if (b >= 19045) return 'Windows 10 (22H2)';
+        if (b >= 19044) return 'Windows 10 (21H2)';
+        return 'Windows 10';
+      }
+      if (o.includes('server')) return 'Windows Server';
+      if (o.includes('windows 7') || o.includes('windows 8')) return 'Legacy Windows (7/8)';
+      return os;
+    }
+
+    function classifyBrand(maker) {
+      if (!maker || maker === '-') return 'Other / Custom';
+      const m = maker.toLowerCase();
+      if (m.includes('dell')) return 'Dell';
+      if (m.includes('hp') || m.includes('hewlett')) return 'HP';
+      if (m.includes('lenovo')) return 'Lenovo';
+      if (m.includes('asus')) return 'ASUS';
+      if (m.includes('acer')) return 'Acer';
+      if (m.includes('apple')) return 'Apple';
+      if (m.includes('microsoft')) return 'Microsoft';
+      return 'Other / Custom';
+    }
+
+    function classifyOffice(offLic) {
+      if (!offLic || offLic === '-' || offLic === 'None') return 'No Office Installed';
+      const o = offLic.toLowerCase();
+      if (o.includes('m365') || o.includes('o365') || o.includes('365')) return 'Microsoft 365';
+      if (o.includes('2024')) return 'Office 2024';
+      if (o.includes('2021')) {
+        if (o.includes('h&b') || o.includes('homebusiness')) return 'Office 2021 H&B';
+        if (o.includes('pro')) return 'Office 2021 Pro';
+        return 'Office 2021';
+      }
+      if (o.includes('2019')) return 'Office 2019';
+      if (o.includes('2016')) return 'Office 2016';
+      if (o.includes('2013') || o.includes('2010')) return 'Office Legacy (2013/2010)';
+      if (o.includes('unlicensed') || o.includes('grace')) return 'Unlicensed / Grace';
+      return 'Other Office';
+    }
+
+    function classifyWinLicense(winLic) {
+      if (!winLic || winLic === '-') return 'Unknown License';
+      const w = winLic.toLowerCase();
+      if (w.includes('unlicensed') || w.includes('grace')) return 'Unlicensed / Grace';
+      if (w.includes('oem')) return 'OEM (Activated)';
+      if (w.includes('volume') || w.includes('kms') || w.includes('mak') || w.includes('gvlk')) return 'Volume License';
+      if (w.includes('retail') || w.includes('esd')) return 'Retail License';
+      return 'Activated (Other)';
+    }
+
+    function classifyOU(adOu) {
+      if (!adOu || adOu === '-') return null;
+      const m = adOu.match(/OU=([^,]+)/i);
+      return m ? m[1] : adOu;
+    }
+
+    function classifySubnet(ip) {
+      if (!ip || ip === '-' || !ip.includes('.')) return 'Unknown Subnet';
+      const parts = ip.split('.');
+      if (parts.length >= 3) return parts[0] + '.' + parts[1] + '.' + parts[2] + '.0/24';
+      return ip;
+    }
+
+    // --- Render Bar Rows Helper ---
+    function renderBarGroup(containerId, mapData, drilldownType, gradientClass) {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      const entries = Object.entries(mapData).sort((a, b) => b[1] - a[1]);
+      const maxVal = entries.length > 0 ? entries[0][1] : 1;
+      const total = entries.reduce((acc, curr) => acc + curr[1], 0) || 1;
+
+      if (entries.length === 0) {
+        el.innerHTML = '<div style="color:var(--text-muted); font-size:0.75rem; text-align:center; padding:18px;">No data available</div>';
+        return;
+      }
+
+      el.innerHTML = entries.map(([name, count]) => {
+        const pct = Math.round((count / total) * 100);
+        const barWidth = Math.max(3, Math.round((count / maxVal) * 100));
+        return `
+          <div class="dash-bar-row" onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')">
+            <div class="dash-bar-label-wrap">
+              <span class="dash-bar-label" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+              <span class="dash-bar-count">${count} <span style="font-weight:400; color:var(--text-muted); font-size:0.68rem;">(${pct}%)</span></span>
+            </div>
+            <div class="dash-bar-track">
+              <div class="dash-bar-fill ${gradientClass}" style="width: ${barWidth}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // --- Main Render Dashboard Engine ---
+    function renderDashboard() {
+      const pcs = allScannedPCs || [];
+      const totalPcs = pcs.length;
+
+      // 1. Zone 1: Fleet Health & Availability
+      const okCount = pcs.filter(p => p.Status === 'OK').length;
+      const offCount = pcs.filter(p => p.Status && p.Status.includes('Offline')).length;
+      const errCount = pcs.filter(p => p.Status && (p.Status.includes('Error') || p.Status.includes('Failed'))).length;
+      const healthPct = totalPcs > 0 ? Math.round((okCount / totalPcs) * 100) : 0;
+
+      const dashRingHealth = document.getElementById('dashRingHealth');
+      const dashKpiHealthPct = document.getElementById('dashKpiHealthPct');
+      const dashKpiTotalPcs = document.getElementById('dashKpiTotalPcs');
+      const dashKpiOkCount = document.getElementById('dashKpiOkCount');
+      const dashKpiOffCount = document.getElementById('dashKpiOffCount');
+      const dashKpiErrCount = document.getElementById('dashKpiErrCount');
+      const dashSubtitleText = document.getElementById('dashSubtitleText');
+
+      if (dashRingHealth) {
+        dashRingHealth.setAttribute('stroke-dasharray', `${healthPct}, 100`);
+        dashRingHealth.style.stroke = healthPct >= 80 ? 'var(--accent-emerald)' : (healthPct >= 50 ? 'var(--accent-amber)' : 'var(--accent-rose)');
+      }
+      if (dashKpiHealthPct) dashKpiHealthPct.innerText = healthPct + '%';
+      if (dashKpiTotalPcs) dashKpiTotalPcs.innerText = totalPcs + ' PCs';
+      if (dashKpiOkCount) dashKpiOkCount.innerText = okCount + ' OK';
+      if (dashKpiOffCount) dashKpiOffCount.innerText = offCount + ' Off';
+      if (dashKpiErrCount) dashKpiErrCount.innerText = errCount + ' Err';
+      if (dashSubtitleText) dashSubtitleText.innerText = `Telemetry across ${totalPcs} total scanned computer assets`;
+
+      // 2. Zone 1: License Compliance
+      let winActCount = 0;
+      let offActCount = 0;
+      let unlicCount = 0;
+      pcs.forEach(p => {
+        const w = (p.Win_License || '').toLowerCase();
+        const o = (p.Office_License || '').toLowerCase();
+        if (w && !w.includes('unlicensed') && !w.includes('grace') && w !== '-') winActCount++;
+        if (o && !o.includes('unlicensed') && !o.includes('grace') && o !== '-' && o !== 'none') offActCount++;
+        if (w.includes('unlicensed') || w.includes('grace') || o.includes('unlicensed') || o.includes('grace')) unlicCount++;
+      });
+      const licPct = totalPcs > 0 ? Math.round(((winActCount + offActCount) / (totalPcs * 2)) * 100) : 0;
+      const dashKpiLicPct = document.getElementById('dashKpiLicPct');
+      const dashKpiWinAct = document.getElementById('dashKpiWinAct');
+      const dashKpiOffAct = document.getElementById('dashKpiOffAct');
+      if (dashKpiLicPct) dashKpiLicPct.innerText = licPct + '%';
+      if (dashKpiWinAct) dashKpiWinAct.innerText = winActCount;
+      if (dashKpiOffAct) dashKpiOffAct.innerText = offActCount;
+
+      // 3. Zone 1: Spec Upgrade Attention & Watchlists
+      let ramLowCount = 0;
+      let diskLowCount = 0;
+      let totalRamGb = 0;
+      const criticalDiskList = [];
+      const lowRamList = [];
+      const attentionLicList = [];
+
+      pcs.forEach(p => {
+        const r = parseFloat(p.RAM_GB) || 0;
+        totalRamGb += r;
+        if (r > 0 && r < 8) {
+          ramLowCount++;
+          lowRamList.push({ pc: p.PCName, user: p.User, val: r + ' GB RAM', cpu: p.CPU });
+        }
+
+        const dFree = getDiskFreePercent(p.Disk_C_Free);
+        if (dFree !== null && dFree <= 15) {
+          diskLowCount++;
+          criticalDiskList.push({ pc: p.PCName, user: p.User, val: dFree + '% free (' + (p.Disk_C_Free || '') + ')' });
+        }
+
+        const w = (p.Win_License || '').toLowerCase();
+        const o = (p.Office_License || '').toLowerCase();
+        const fails = parseInt(p.Fail_Count) || 0;
+        if (w.includes('unlicensed') || w.includes('grace') || o.includes('unlicensed') || o.includes('grace') || fails >= 3) {
+          let reason = '';
+          if (fails >= 3) reason = fails + ' Fails';
+          else if (w.includes('unlicensed') || w.includes('grace')) reason = 'Win Unlic';
+          else reason = 'Office Unlic';
+          attentionLicList.push({ pc: p.PCName, user: p.User, val: reason });
+        }
+      });
+
+      const dashKpiUpgradeCount = document.getElementById('dashKpiUpgradeCount');
+      const dashKpiRamLow = document.getElementById('dashKpiRamLow');
+      const dashKpiDiskLow = document.getElementById('dashKpiDiskLow');
+      if (dashKpiUpgradeCount) dashKpiUpgradeCount.innerText = (ramLowCount + diskLowCount) + ' PCs';
+      if (dashKpiRamLow) dashKpiRamLow.innerText = ramLowCount;
+      if (dashKpiDiskLow) dashKpiDiskLow.innerText = diskLowCount;
+
+      // 4. Zone 1: Dominant Reachability Method
+      const methodCounts = {};
+      pcs.forEach(p => {
+        const m = p.Method || (p.Status === 'OK' ? 'Localhost' : 'Offline');
+        methodCounts[m] = (methodCounts[m] || 0) + 1;
+      });
+      const topMethodEntry = Object.entries(methodCounts).sort((a, b) => b[1] - a[1])[0];
+      const dashKpiTopMethod = document.getElementById('dashKpiTopMethod');
+      const dashKpiOnlineRatio = document.getElementById('dashKpiOnlineRatio');
+      if (dashKpiTopMethod) dashKpiTopMethod.innerText = topMethodEntry ? topMethodEntry[0] : '-';
+      if (dashKpiOnlineRatio) dashKpiOnlineRatio.innerText = healthPct + '%';
+
+      // 5. Zone 2: CPU Breakdown
+      const cpuMap = {};
+      pcs.forEach(p => {
+        const key = (cpuViewMode === 'gen') ? classifyCpuGen(p.CPU) : classifyCpuTier(p.CPU);
+        cpuMap[key] = (cpuMap[key] || 0) + 1;
+      });
+      renderBarGroup('dashCpuBarsContainer', cpuMap, cpuViewMode === 'gen' ? 'cpuGen' : 'cpuTier', 'gradient-cyan');
+
+      // 6. Zone 2: RAM Memory Breakdown
+      const ramMap = {};
+      pcs.forEach(p => {
+        const key = classifyRam(p.RAM_GB);
+        ramMap[key] = (ramMap[key] || 0) + 1;
+      });
+      renderBarGroup('dashRamBarsContainer', ramMap, 'ram', 'gradient-blue');
+      const lblDashRamTotal = document.getElementById('lblDashRamTotal');
+      if (lblDashRamTotal) lblDashRamTotal.innerText = Math.round(totalRamGb) + ' GB Total';
+
+      // 7. Zone 2: OS & Windows 11 Readiness
+      const osMap = {};
+      let win11Count = 0;
+      pcs.forEach(p => {
+        const key = classifyOs(p.OS, p.OSBuild);
+        osMap[key] = (osMap[key] || 0) + 1;
+        if (key.includes('Windows 11')) win11Count++;
+      });
+      renderBarGroup('dashOsBarsContainer', osMap, 'os', 'gradient-purple');
+      const lblDashWin11Pct = document.getElementById('lblDashWin11Pct');
+      if (lblDashWin11Pct) {
+        const win11Pct = totalPcs > 0 ? Math.round((win11Count / totalPcs) * 100) : 0;
+        lblDashWin11Pct.innerText = win11Pct + '% Win 11 (' + win11Count + ' PCs)';
+      }
+
+      // 8. Zone 2: Hardware Manufacturer / Brand
+      const brandMap = {};
+      pcs.forEach(p => {
+        const key = classifyBrand(p.Maker);
+        brandMap[key] = (brandMap[key] || 0) + 1;
+      });
+      renderBarGroup('dashBrandBarsContainer', brandMap, 'brand', 'gradient-emerald');
+
+      // 9. Zone 3: Office Edition Matrix
+      const offMap = {};
+      pcs.forEach(p => {
+        const key = classifyOffice(p.Office_License);
+        offMap[key] = (offMap[key] || 0) + 1;
+      });
+      renderBarGroup('dashOfficeBarsContainer', offMap, 'office', 'gradient-amber');
+
+      // 10. Zone 3: Network / OU Distribution
+      const netMap = {};
+      pcs.forEach(p => {
+        const key = (netViewMode === 'ou') ? (classifyOU(p.AD_OU) || 'No OU Assigned') : classifySubnet(p.IP);
+        netMap[key] = (netMap[key] || 0) + 1;
+      });
+      renderBarGroup('dashNetBarsContainer', netMap, netViewMode === 'ou' ? 'ou' : 'subnet', 'gradient-rose');
+
+      // 11. Zone 4: Watchlist Lists
+      const renderWlList = (containerId, badgeId, items, drilldownType, badgeClass) => {
+        const el = document.getElementById(containerId);
+        const b = document.getElementById(badgeId);
+        if (b) b.innerText = items.length;
+        if (!el) return;
+        if (items.length === 0) {
+          el.innerHTML = '<div class="dash-wl-empty">✅ Clean! No computers require attention.</div>';
+          return;
+        }
+        el.innerHTML = items.slice(0, 8).map(it => `
+          <div class="dash-watchlist-item" onclick="applyDashboardDrilldown('${drilldownType}', 'true', '${escapeHtml(it.pc)}')">
+            <div>
+              <span class="dash-wl-pc">${escapeHtml(it.pc)}</span>
+              <span class="dash-wl-sub">${escapeHtml(it.user || '-')}</span>
+            </div>
+            <span class="dash-wl-badge ${badgeClass}">${escapeHtml(it.val)}</span>
+          </div>
+        `).join('');
+      };
+
+      renderWlList('watchlistDiskList', 'lblWatchlistDiskCount', criticalDiskList, 'diskCritical', 'red');
+      renderWlList('watchlistRamList', 'lblWatchlistRamCount', lowRamList, 'ramLow', 'amber');
+      renderWlList('watchlistLicList', 'lblWatchlistLicCount', attentionLicList, 'unlicensed', 'purple');
     }
 
     let currentFilter = 'all';
@@ -5041,8 +6324,40 @@
           (pc.Office_License && pc.Office_License.toLowerCase().includes(q)) ||
           (pc.Office_Detail && pc.Office_Detail.toLowerCase().includes(q)) ||
           (pc.IP && pc.IP.toLowerCase().includes(q)) ||
-          (pc.AD_OU && pc.AD_OU.toLowerCase().includes(q));
-        return matchesFilter && matchesSearch;
+          (pc.AD_OU && pc.AD_OU.toLowerCase().includes(q)) ||
+          (pc.Method && pc.Method.toLowerCase().includes(q));
+
+        if (!matchesFilter || !matchesSearch) return false;
+
+        // Apply Drill-down Smart Filter if active
+        if (activeDrilldownCategory) {
+          const { type, value } = activeDrilldownCategory;
+          if (type === 'status' && pc.Status !== value) return false;
+          if (type === 'ram' && classifyRam(pc.RAM_GB) !== value) return false;
+          if (type === 'cpuTier' && classifyCpuTier(pc.CPU) !== value) return false;
+          if (type === 'cpuGen' && classifyCpuGen(pc.CPU) !== value) return false;
+          if (type === 'os' && classifyOs(pc.OS, pc.OSBuild) !== value) return false;
+          if (type === 'brand' && classifyBrand(pc.Maker) !== value) return false;
+          if (type === 'office' && classifyOffice(pc.Office_License) !== value) return false;
+          if (type === 'winLic' && classifyWinLicense(pc.Win_License) !== value) return false;
+          if (type === 'subnet' && classifySubnet(pc.IP) !== value) return false;
+          if (type === 'ou' && (classifyOU(pc.AD_OU) || 'No OU Assigned') !== value) return false;
+          if (type === 'diskCritical') {
+            const free = getDiskFreePercent(pc.Disk_C_Free);
+            if (free === null || free > 15) return false;
+          }
+          if (type === 'ramLow') {
+            const r = parseFloat(pc.RAM_GB) || 0;
+            if (r >= 8) return false;
+          }
+          if (type === 'unlicensed') {
+            const w = (pc.Win_License || '').toLowerCase();
+            const o = (pc.Office_License || '').toLowerCase();
+            const fails = parseInt(pc.Fail_Count) || 0;
+            if (!w.includes('unlicensed') && !w.includes('grace') && !o.includes('unlicensed') && !o.includes('grace') && fails < 3) return false;
+          }
+        }
+        return true;
       });
 
       const lblHwTabCount = document.getElementById('lblHwTabCount');
@@ -5050,7 +6365,7 @@
       if (lblTableTotalCount) lblTableTotalCount.innerText = `${filtered.length} Computers`;
 
       if (filtered.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--text-muted); padding: 35px;">${allScannedPCs.length === 0 ? 'No scan results available yet. (Click "Start Network Scan" on the left)' : 'No matching records found.'}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="13" style="text-align: center; color: var(--text-muted); padding: 35px;">${allScannedPCs.length === 0 ? 'No scan results available yet. (Click "Start Network Scan" on the left)' : 'No matching records found.'}</td></tr>`;
         return;
       }
 
@@ -5110,9 +6425,21 @@
           }
         }
 
+        const methodText = pc.Method || "-";
+        let methodCls = "default";
+        const mLower = methodText.toLowerCase();
+        if (mLower.includes("ping") || mLower.includes("icmp")) methodCls = "icmp";
+        else if (mLower.includes("tcp")) methodCls = "tcp";
+        else if (mLower.includes("winrm")) methodCls = "winrm";
+        else if (mLower.includes("localhost") || mLower.includes("loopback")) methodCls = "local";
+        else if (mLower.includes("arp")) methodCls = "arp";
+        else if (mLower.includes("offline") || methodText === "-") methodCls = "offline";
+        const methodBadgeHtml = `<span class="method-badge method-${methodCls}">${escapeHtml(methodText)}</span>`;
+
         return `
           <tr>
             <td>${statusBadgeHtml}</td>
+            <td>${methodBadgeHtml}</td>
             <td style="text-align: center;"><span class="badge-fail-count ${failClass}">${failCount}</span></td>
             <td><span class="pc-name-bold">${escapeHtml(pc.PCName || '-')}</span></td>
             <td><span class="license-badge ${licClass}">${escapeHtml(licText)}</span></td>
@@ -6096,6 +7423,8 @@
           if (lblHwTabCount) lblHwTabCount.innerText = allScannedPCs.length;
           if (activeGridTab === 'hardware') {
             renderTable();
+          } else if (activeGridTab === 'dashboard') {
+            renderDashboard();
           }
         }
 
@@ -6507,7 +7836,183 @@
 
     // Startup Initialization
 
+    
+    // --- Interactive Column Resizer Engine ---
+    const COL_STORAGE_KEYS = {
+      'resultsTable': 'fti_col_widths_hw',
+      'swResultsTable': 'fti_col_widths_sw'
+    };
+
+    function initTableColumnResizers() {
+      ['resultsTable', 'swResultsTable'].forEach(tableId => {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+
+        const ths = table.querySelectorAll('thead th');
+        ths.forEach((th, idx) => {
+          if (th.querySelector('.col-resizer')) return;
+          if (tableId === 'swResultsTable' && idx === ths.length - 1) return; // skip Action column
+
+          const resizer = document.createElement('div');
+          resizer.className = 'col-resizer';
+          th.appendChild(resizer);
+
+          // Double click auto-fit
+          resizer.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            autoFitColumn(table, th, idx);
+          });
+
+          // Mouse drag resize
+          resizer.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            startColumnResize(e, table, th, idx, resizer);
+          });
+        });
+
+        loadSavedColumnWidths(tableId);
+      });
+    }
+
+    function startColumnResize(e, table, th, colIndex, resizer) {
+      const scrollWrap = table.closest('.table-scroll-wrap');
+      const guide = document.getElementById('colResizeGuide');
+      const startX = e.pageX;
+      const startWidth = th.offsetWidth;
+      resizer.classList.add('resizing');
+      document.body.classList.add('col-resizing');
+      table.classList.add('has-custom-widths');
+
+      if (guide && scrollWrap) {
+        const wrapRect = scrollWrap.getBoundingClientRect();
+        const thRect = th.getBoundingClientRect();
+        guide.style.display = 'block';
+        guide.style.left = (thRect.right - wrapRect.left + scrollWrap.scrollLeft) + 'px';
+      }
+
+      function onMouseMove(moveEvent) {
+        const deltaX = moveEvent.pageX - startX;
+        const newWidth = Math.max(45, startWidth + deltaX);
+        th.style.width = newWidth + 'px';
+        th.style.minWidth = newWidth + 'px';
+
+        if (guide && scrollWrap) {
+          const wrapRect = scrollWrap.getBoundingClientRect();
+          const thRect = th.getBoundingClientRect();
+          guide.style.left = (thRect.right - wrapRect.left + scrollWrap.scrollLeft) + 'px';
+        }
+      }
+
+      function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        resizer.classList.remove('resizing');
+        document.body.classList.remove('col-resizing');
+        if (guide) guide.style.display = 'none';
+
+        saveColumnWidths(table.id);
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    }
+
+    function autoFitColumn(table, th, colIndex) {
+      table.classList.add('has-custom-widths');
+      th.style.width = '';
+      th.style.minWidth = '';
+
+      let maxCellWidth = th.scrollWidth;
+      const rows = table.querySelectorAll('tbody tr');
+      rows.forEach(r => {
+        const cell = r.children[colIndex];
+        if (cell) {
+          const w = cell.scrollWidth;
+          if (w > maxCellWidth) maxCellWidth = w;
+        }
+      });
+
+      const finalWidth = Math.min(650, Math.max(50, maxCellWidth + 24));
+      th.style.width = finalWidth + 'px';
+      th.style.minWidth = finalWidth + 'px';
+
+      saveColumnWidths(table.id);
+    }
+
+    function saveColumnWidths(tableId) {
+      const table = document.getElementById(tableId);
+      if (!table) return;
+      const key = COL_STORAGE_KEYS[tableId];
+      if (!key) return;
+
+      const widths = {};
+      const ths = table.querySelectorAll('thead th');
+      let hasCustom = false;
+      ths.forEach((th, idx) => {
+        if (th.style.width) {
+          widths[idx] = th.style.width;
+          hasCustom = true;
+        }
+      });
+
+      if (hasCustom) {
+        try {
+          localStorage.setItem(key, JSON.stringify(widths));
+        } catch (e) {}
+      }
+    }
+
+    function loadSavedColumnWidths(tableId) {
+      const table = document.getElementById(tableId);
+      if (!table) return;
+      const key = COL_STORAGE_KEYS[tableId];
+      if (!key) return;
+
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const widths = JSON.parse(raw);
+        if (!widths || typeof widths !== 'object') return;
+
+        const ths = table.querySelectorAll('thead th');
+        let hasCustom = false;
+        ths.forEach((th, idx) => {
+          if (widths[idx]) {
+            th.style.width = widths[idx];
+            th.style.minWidth = widths[idx];
+            hasCustom = true;
+          }
+        });
+        if (hasCustom) {
+          table.classList.add('has-custom-widths');
+        }
+      } catch (e) {}
+    }
+
+    window.resetColumnWidths = function() {
+      const activeTableId = (activeGridTab === 'software') ? 'swResultsTable' : 'resultsTable';
+      const table = document.getElementById(activeTableId);
+      if (!table) return;
+
+      const key = COL_STORAGE_KEYS[activeTableId];
+      if (key) {
+        try { localStorage.removeItem(key); } catch (e) {}
+      }
+
+      table.classList.remove('has-custom-widths');
+      const ths = table.querySelectorAll('thead th');
+      ths.forEach(th => {
+        th.style.width = '';
+        th.style.minWidth = '';
+      });
+
+      showToast('Column widths reset to default auto-fit.', 'info');
+    };
+
     window.addEventListener('DOMContentLoaded', () => {
+      initTableColumnResizers();
 
       initTheme();
 
