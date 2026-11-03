@@ -27,3 +27,7 @@ $RECYCLE.BIN/
 scratch/
 *.bak
 
+
+# Exported chat database binaries (keep markdown docs)
+chat_memory_export/*.db*
+chat_memory_export/*.zip
