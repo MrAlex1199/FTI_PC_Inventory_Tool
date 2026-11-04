@@ -8,7 +8,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>FTI PC Inventory Tool - v2026.11.04.1</title>
+  <title>FTI PC Inventory Tool - v2026.11.04.2</title>
 
   <script>
 
@@ -3741,7 +3741,7 @@
 
         <span>FTI PC Inventory Tool</span>
 
-        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-04 21:10:05" id="appVersionTag">v2026.11.04.1 Enterprise</span>
+        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-04 21:35:51" id="appVersionTag">v2026.11.04.2 Enterprise</span>
 
       </div>
 
@@ -3963,167 +3963,130 @@
 
         </div>
 
-        <!-- Section 3: Performance & Scope -->
-
-        <div class="accordion-section">
-
+        <!-- Section 3: ⚙️ Advanced Settings (Scope, Performance & Network Probing) -->
+        <div class="accordion-section" id="secAdvancedSettings">
           <div class="accordion-header" onclick="toggleAccordion(this)">
-
-            <span>3. Scan Scope & Performance</span>
-
-            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-
-          </div>
-
-          <div class="accordion-content">
-
-            <div class="toggle-compact-row">
-
-              <span class="toggle-text">Scan Hardware (CPU, RAM, Disks)</span>
-
-              <label class="switch-compact">
-
-                <input type="checkbox" id="chkHw" checked>
-
-                <span class="switch-slider"></span>
-
-              </label>
-
+            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; min-width: 0; padding-right: 6px;">
+              <span style="font-weight: 600;">3. ⚙️ Advanced Settings</span>
+              <span class="status-pill-small" style="font-size: 0.65rem; background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); padding: 2px 7px; border-radius: 4px; font-weight: 600; white-space: nowrap;">⚡ 8 Ports Active • 2-Pass Deep Mode</span>
             </div>
-
-            <div class="toggle-compact-row">
-
-              <span class="toggle-text">Scan Installed Software</span>
-
-              <label class="switch-compact">
-
-                <input type="checkbox" id="chkSw" checked>
-
-                <span class="switch-slider"></span>
-
-              </label>
-
-            </div>
-
-            <div id="swSubBox" style="display: flex; flex-direction: column; gap: 6px; padding: 6px 8px; background: var(--bg-surface-elevated); border-radius: 6px;">
-
-              <div>
-
-                <span class="field-label">Filter Software Name (* wildcards):</span>
-
-                <input type="text" id="txtNameFilter" value="*" class="input-compact">
-
-              </div>
-
-              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;">
-
-                <input type="checkbox" id="chkUser" style="accent-color: var(--accent-primary);">
-
-                <span>Include user-specific installations</span>
-
-              </label>
-
-              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;">
-
-                <input type="checkbox" id="chkHidden" style="accent-color: var(--accent-primary);">
-
-                <span>Include System components & Windows Updates</span>
-
-              </label>
-
-            </div>
-
-            <div>
-
-              <span class="field-label">Performance Presets:</span>
-
-              <div style="display: flex; gap: 4px;" id="boxPerfPresets">
-
-                <button type="button" class="preset-chip" id="btnPerfSafe" onclick="setPerfPreset(10, 30, 'Safe')">🛡️ Safe</button>
-
-                <button type="button" class="preset-chip active" id="btnPerfBalanced" onclick="setPerfPreset(20, 30, 'Balanced')">⚖️ Balanced</button>
-
-                <button type="button" class="preset-chip" id="btnPerfHigh" onclick="setPerfPreset(40, 15, 'High Speed')">🚀 High Speed</button>
-
-              </div>
-
-              <input type="hidden" id="numThrottle" value="20">
-
-            </div>
-
-          </div>
-
-        </div>
-
-        <!-- Section 4: Network Reachability & Wi-Fi Probing -->
-        <div class="accordion-section">
-          <div class="accordion-header" onclick="toggleAccordion(this)">
-            <span>4. Network & Wi-Fi Probing</span>
             <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div class="accordion-content">
-            <!-- 1-Click Wi-Fi vs Standard LAN Presets -->
-            <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-              <button type="button" class="preset-chip active" id="btnNetPresetLan" onclick="setNetPreset('lan')" style="flex: 1; padding: 4px 6px;">⚡ Standard LAN</button>
-              <button type="button" class="preset-chip" id="btnNetPresetWifi" onclick="setNetPreset('wifi')" style="flex: 1; padding: 4px 6px;">📶 Wi-Fi Mode</button>
-            </div>
-
-            <!-- Pinging Method Selector -->
-            <div>
-              <span class="field-label">Pinging Method:</span>
-              <select id="selPingMethod" class="input-compact" style="width: 100%;">
-                <option value="combined" selected>Combined (ICMP + TCP + UDP/ARP)</option>
-                <option value="icmp">Windows ICMP (.NET Ping)</option>
-                <option value="tcp">TCP Port Probe Only</option>
-                <option value="udptcp">Combined UDP + TCP</option>
-                <option value="arp">ARP + Ping (LAN Only)</option>
-              </select>
-            </div>
-
-            <!-- Ports to Probe -->
-            <div style="margin-top: 6px;">
-              <span class="field-label">Probe Ports (Multi-Select):</span>
-              <div id="boxPortPresets" style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px;">
-                <button type="button" class="preset-chip active" data-port="135" onclick="togglePortChip(this)">135 (RPC)</button>
-                <button type="button" class="preset-chip active" data-port="445" onclick="togglePortChip(this)">445 (SMB)</button>
-                <button type="button" class="preset-chip active" data-port="5985" onclick="togglePortChip(this)">5985 (WinRM)</button>
-                <button type="button" class="preset-chip active" data-port="5986" onclick="togglePortChip(this)">5986 (HTTPS)</button>
-                <button type="button" class="preset-chip active" data-port="3389" onclick="togglePortChip(this)">3389 (RDP)</button>
-                <button type="button" class="preset-chip active" data-port="139" onclick="togglePortChip(this)">139 (NetBIOS)</button>
-                <button type="button" class="preset-chip active" data-port="80" onclick="togglePortChip(this)">80 (HTTP)</button>
-                <button type="button" class="preset-chip active" data-port="443" onclick="togglePortChip(this)">443 (HTTPS)</button>
+            <!-- Sub-group 1: Scan Scope & Performance -->
+            <div style="margin-bottom: 10px;">
+              <span class="field-label" style="font-weight: 700; color: var(--text-primary); margin-bottom: 6px; display: block; border-bottom: 1px solid var(--border-subtle); padding-bottom: 3px;">📊 Scan Scope & Performance</span>
+              
+              <div class="toggle-compact-row">
+                <span class="toggle-text">Scan Hardware (CPU, RAM, Disks)</span>
+                <label class="switch-compact">
+                  <input type="checkbox" id="chkHw" checked>
+                  <span class="switch-slider"></span>
+                </label>
               </div>
-              <input type="text" id="txtCustomPorts" placeholder="Extra custom ports, e.g. 8080, 9100" class="input-compact" style="width: 100%; font-size: 0.72rem;">
+
+              <div class="toggle-compact-row">
+                <span class="toggle-text">Scan Installed Software</span>
+                <label class="switch-compact">
+                  <input type="checkbox" id="chkSw" checked>
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+
+              <div id="swSubBox" style="display: flex; flex-direction: column; gap: 6px; padding: 6px 8px; background: var(--bg-surface-elevated); border-radius: 6px; margin-top: 4px;">
+                <div>
+                  <span class="field-label">Filter Software Name (* wildcards):</span>
+                  <input type="text" id="txtNameFilter" value="*" class="input-compact">
+                </div>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;">
+                  <input type="checkbox" id="chkUser" style="accent-color: var(--accent-primary);">
+                  <span>Include user-specific installations</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;">
+                  <input type="checkbox" id="chkHidden" style="accent-color: var(--accent-primary);">
+                  <span>Include System components & Windows Updates</span>
+                </label>
+              </div>
+
+              <div style="margin-top: 6px;">
+                <span class="field-label">Performance Presets:</span>
+                <div style="display: flex; gap: 4px;" id="boxPerfPresets">
+                  <button type="button" class="preset-chip" id="btnPerfSafe" onclick="setPerfPreset(10, 30, 'Safe')">🛡️ Safe</button>
+                  <button type="button" class="preset-chip active" id="btnPerfBalanced" onclick="setPerfPreset(20, 30, 'Balanced')">⚖️ Balanced</button>
+                  <button type="button" class="preset-chip" id="btnPerfHigh" onclick="setPerfPreset(40, 15, 'High Speed')">🚀 High Speed</button>
+                </div>
+                <input type="hidden" id="numThrottle" value="20">
+              </div>
             </div>
 
-            <!-- Ping Tuning Parameters -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px;">
+            <!-- Sub-group 2: Network Reachability & Wi-Fi Probing -->
+            <div style="margin-top: 12px; border-top: 1px solid var(--border-subtle); padding-top: 8px;">
+              <span class="field-label" style="font-weight: 700; color: var(--text-primary); margin-bottom: 6px; display: block; border-bottom: 1px solid var(--border-subtle); padding-bottom: 3px;">🌐 Network & Wi-Fi Probing Tuning</span>
+
+              <!-- 1-Click Wi-Fi vs Standard LAN Presets -->
+              <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                <button type="button" class="preset-chip active" id="btnNetPresetLan" onclick="setNetPreset('lan')" style="flex: 1; padding: 4px 6px;">⚡ Standard LAN</button>
+                <button type="button" class="preset-chip" id="btnNetPresetWifi" onclick="setNetPreset('wifi')" style="flex: 1; padding: 4px 6px;">📶 Wi-Fi Mode</button>
+              </div>
+
+              <!-- Pinging Method Selector -->
               <div>
-                <span class="field-label">Timeout (ms):</span>
-                <input type="number" id="numPingTimeout" value="1000" min="200" max="10000" step="100" class="input-compact" style="width: 100%;">
+                <span class="field-label">Pinging Method:</span>
+                <select id="selPingMethod" class="input-compact" style="width: 100%;">
+                  <option value="combined" selected>Combined (ICMP + TCP + UDP/ARP)</option>
+                  <option value="icmp">Windows ICMP (.NET Ping)</option>
+                  <option value="tcp">TCP Port Probe Only</option>
+                  <option value="udptcp">Combined UDP + TCP</option>
+                  <option value="arp">ARP + Ping (LAN Only)</option>
+                </select>
               </div>
-              <div>
-                <span class="field-label">Ping Probes:</span>
-                <input type="number" id="numPingProbes" value="2" min="1" max="10" class="input-compact" style="width: 100%;">
+
+              <!-- Ports to Probe -->
+              <div style="margin-top: 6px;">
+                <span class="field-label">Probe Ports (Multi-Select):</span>
+                <div id="boxPortPresets" style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px;">
+                  <button type="button" class="preset-chip active" data-port="135" onclick="togglePortChip(this)">135 (RPC)</button>
+                  <button type="button" class="preset-chip active" data-port="445" onclick="togglePortChip(this)">445 (SMB)</button>
+                  <button type="button" class="preset-chip active" data-port="5985" onclick="togglePortChip(this)">5985 (WinRM)</button>
+                  <button type="button" class="preset-chip active" data-port="5986" onclick="togglePortChip(this)">5986 (HTTPS)</button>
+                  <button type="button" class="preset-chip active" data-port="3389" onclick="togglePortChip(this)">3389 (RDP)</button>
+                  <button type="button" class="preset-chip active" data-port="139" onclick="togglePortChip(this)">139 (NetBIOS)</button>
+                  <button type="button" class="preset-chip active" data-port="80" onclick="togglePortChip(this)">80 (HTTP)</button>
+                  <button type="button" class="preset-chip active" data-port="443" onclick="togglePortChip(this)">443 (HTTPS)</button>
+                </div>
+                <input type="text" id="txtCustomPorts" placeholder="Extra custom ports, e.g. 8080, 9100" class="input-compact" style="width: 100%; font-size: 0.72rem;">
+              </div>
+
+              <!-- Ping Tuning Parameters -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px;">
+                <div>
+                  <span class="field-label">Timeout (ms):</span>
+                  <input type="number" id="numPingTimeout" value="1000" min="200" max="10000" step="100" class="input-compact" style="width: 100%;">
+                </div>
+                <div>
+                  <span class="field-label">Ping Probes:</span>
+                  <input type="number" id="numPingProbes" value="2" min="1" max="10" class="input-compact" style="width: 100%;">
+                </div>
+              </div>
+
+              <div style="margin-top: 6px;">
+                <span class="field-label">Thread Delay (ms):</span>
+                <input type="number" id="numThreadDelay" value="20" min="0" max="500" step="5" class="input-compact" style="width: 100%;">
+              </div>
+
+              <!-- Checkbox Overrides -->
+              <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;">
+                  <input type="checkbox" id="chkScanDeadHosts" style="accent-color: var(--accent-primary);">
+                  <span>Scan dead hosts (bypass ping check)</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;">
+                  <input type="checkbox" id="chkSkipBroadcast" checked style="accent-color: var(--accent-primary);">
+                  <span>Skip unassigned IPs (*.0 and *.255)</span>
+                </label>
               </div>
             </div>
 
-            <div style="margin-top: 6px;">
-              <span class="field-label">Thread Delay (ms):</span>
-              <input type="number" id="numThreadDelay" value="20" min="0" max="500" step="5" class="input-compact" style="width: 100%;">
-            </div>
-
-            <!-- Checkbox Overrides -->
-            <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px;">
-              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;">
-                <input type="checkbox" id="chkScanDeadHosts" style="accent-color: var(--accent-primary);">
-                <span>Scan dead hosts (bypass ping check)</span>
-              </label>
-              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;">
-                <input type="checkbox" id="chkSkipBroadcast" checked style="accent-color: var(--accent-primary);">
-                <span>Skip unassigned IPs (*.0 and *.255)</span>
-              </label>
-            </div>
           </div>
         </div>
 
