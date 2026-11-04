@@ -8,7 +8,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>FTI PC Inventory Tool - v2026.11.04.8</title>
+  <title>FTI PC Inventory Tool - v2026.11.04.10</title>
 
   <script>
 
@@ -3741,7 +3741,7 @@
 
         <span>FTI PC Inventory Tool</span>
 
-        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-04 22:45:54" id="appVersionTag">v2026.11.04.8 Enterprise</span>
+        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-04 23:04:10" id="appVersionTag">v2026.11.04.10 Enterprise</span>
 
       </div>
 
@@ -4410,8 +4410,9 @@
                     <span class="dash-card-title">Processor (CPU) Breakdown</span>
                   </div>
                   <div class="dash-seg-toggle">
-                    <button type="button" id="btnCpuModeTier" class="dash-seg-btn active" onclick="setCpuViewMode('tier')">By Tier / Family</button>
-                    <button type="button" id="btnCpuModeGen" class="dash-seg-btn" onclick="setCpuViewMode('gen')">By Generation</button>
+                    <button type="button" id="btnCpuModeTier" class="dash-seg-btn active" onclick="setCpuViewMode('tier')">Tier</button>
+                    <button type="button" id="btnCpuModeGen" class="dash-seg-btn" onclick="setCpuViewMode('gen')">Generation</button>
+                    <button type="button" id="btnCpuModeModel" class="dash-seg-btn" onclick="setCpuViewMode('model')">Exact Model</button>
                   </div>
                 </div>
                 <div class="dash-card-body" id="dashCpuBarsContainer"></div>
@@ -4436,6 +4437,10 @@
                   <div class="dash-card-title-wrap">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                     <span class="dash-card-title">Operating System &amp; Win 11 Readiness</span>
+                  </div>
+                  <div class="dash-seg-toggle">
+                    <button type="button" id="btnOsModeVer" class="dash-seg-btn active" onclick="setOsViewMode('ver')">By Version</button>
+                    <button type="button" id="btnOsModeBuild" class="dash-seg-btn" onclick="setOsViewMode('build')">By Build Number</button>
                   </div>
                   <span class="dash-card-badge" id="lblDashWin11Pct">0% Win 11</span>
                 </div>
@@ -5040,7 +5045,8 @@
     }
 
     // Analytics Dashboard State
-    let cpuViewMode = 'tier'; // 'tier' | 'gen'
+    let cpuViewMode = 'tier'; // 'tier' | 'gen' | 'model'
+    let osViewMode = 'ver';   // 'ver' | 'build'
     let netViewMode = 'ou';   // 'ou' | 'subnet'
     let activeDrilldownCategory = null;
 
@@ -5131,8 +5137,19 @@
       cpuViewMode = mode;
       const bTier = document.getElementById('btnCpuModeTier');
       const bGen = document.getElementById('btnCpuModeGen');
+      const bModel = document.getElementById('btnCpuModeModel');
       if (bTier) bTier.classList.toggle('active', mode === 'tier');
       if (bGen) bGen.classList.toggle('active', mode === 'gen');
+      if (bModel) bModel.classList.toggle('active', mode === 'model');
+      renderDashboard();
+    }
+
+    function setOsViewMode(mode) {
+      osViewMode = mode;
+      const bVer = document.getElementById('btnOsModeVer');
+      const bBuild = document.getElementById('btnOsModeBuild');
+      if (bVer) bVer.classList.toggle('active', mode === 'ver');
+      if (bBuild) bBuild.classList.toggle('active', mode === 'build');
       renderDashboard();
     }
 
@@ -5200,24 +5217,67 @@
       return m ? parseInt(m[1]) : null;
     }
 
-    function classifyOs(os, osBuild) {
+    function classifyCpuModel(cpu) {
+      if (!cpu || cpu === '-') return 'Unknown CPU';
+      let clean = cpu
+        .replace(/@\s*[\d\.]+\s*GHz/gi, '')
+        .replace(/\(R\)/gi, '')
+        .replace(/\(TM\)/gi, '')
+        .replace(/with Radeon Graphics/gi, '')
+        .replace(/with Radeon Vega Graphics/gi, '')
+        .replace(/\b\d+-Core Processor\b/gi, '')
+        .replace(/\bSix-Core Processor\b/gi, '')
+        .replace(/\bQuad-Core Processor\b/gi, '')
+        .replace(/\bEight-Core Processor\b/gi, '')
+        .replace(/\bProcessor\b/gi, '')
+        .replace(/\bCPU\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      clean = clean.replace(/^(\d+th Gen)\s+/i, '');
+      return clean || cpu;
+    }
+
+    function classifyOs(os, osBuild, mode = osViewMode) {
       if (!os || os === '-') return 'Unknown OS';
       const o = os.toLowerCase();
       const b = parseInt(osBuild) || 0;
+
+      if (mode === 'build') {
+        if (b > 0) {
+          let verName = '';
+          if (o.includes('server')) verName = 'Server';
+          else if (b >= 26100) verName = 'Win 11 24H2';
+          else if (b >= 22631) verName = 'Win 11 23H2';
+          else if (b >= 22621) verName = 'Win 11 22H2';
+          else if (b >= 22000) verName = 'Win 11 21H2';
+          else if (b >= 19045) verName = 'Win 10 22H2';
+          else if (b >= 19044) verName = 'Win 10 21H2';
+          else if (b >= 19043) verName = 'Win 10 21H1';
+          else if (b >= 19042) verName = 'Win 10 20H2';
+          else if (b >= 19041) verName = 'Win 10 2004';
+          else if (b >= 10240) verName = 'Win 10';
+          else if (o.includes('windows 7')) verName = 'Win 7';
+          else verName = os;
+          return 'Build ' + b + ' (' + verName + ')';
+        }
+        return 'Build - (' + os + ')';
+      }
+
+      // Mode: 'ver' (Version Name with Build reference)
+      if (o.includes('server')) return b > 0 ? 'Windows Server (Build ' + b + ')' : 'Windows Server';
       if (o.includes('windows 11') || b >= 22000) {
-        if (b >= 26100) return 'Windows 11 (24H2)';
-        if (b >= 22631) return 'Windows 11 (23H2)';
-        if (b >= 22621) return 'Windows 11 (22H2)';
-        return 'Windows 11';
+        if (b >= 26100) return 'Windows 11 (24H2 • Build ' + (b || '26100+') + ')';
+        if (b >= 22631) return 'Windows 11 (23H2 • Build ' + (b || '22631') + ')';
+        if (b >= 22621) return 'Windows 11 (22H2 • Build ' + (b || '22621') + ')';
+        return 'Windows 11 (Build ' + (b || '22000') + ')';
       }
       if (o.includes('windows 10') || (b >= 10240 && b < 22000)) {
-        if (b >= 19045) return 'Windows 10 (22H2)';
-        if (b >= 19044) return 'Windows 10 (21H2)';
-        return 'Windows 10';
+        if (b >= 19045) return 'Windows 10 (22H2 • Build ' + (b || '19045') + ')';
+        if (b >= 19044) return 'Windows 10 (21H2 • Build ' + (b || '19044') + ')';
+        return 'Windows 10 (Build ' + (b || '10240') + ')';
       }
-      if (o.includes('server')) return 'Windows Server';
-      if (o.includes('windows 7') || o.includes('windows 8')) return 'Legacy Windows (7/8)';
-      return os;
+      if (o.includes('windows 7') || o.includes('windows 8')) return 'Legacy Windows (Build ' + (b || '7/8') + ')';
+      return b > 0 ? os + ' (Build ' + b + ')' : os;
     }
 
     function classifyBrand(maker) {
@@ -5407,11 +5467,12 @@
 
       // 5. Zone 2: CPU Breakdown
       const cpuMap = {};
+      const cpuDrillType = (cpuViewMode === 'model') ? 'cpuModel' : ((cpuViewMode === 'gen') ? 'cpuGen' : 'cpuTier');
       pcs.forEach(p => {
-        const key = (cpuViewMode === 'gen') ? classifyCpuGen(p.CPU) : classifyCpuTier(p.CPU);
+        const key = (cpuViewMode === 'model') ? classifyCpuModel(p.CPU) : ((cpuViewMode === 'gen') ? classifyCpuGen(p.CPU) : classifyCpuTier(p.CPU));
         cpuMap[key] = (cpuMap[key] || 0) + 1;
       });
-      renderBarGroup('dashCpuBarsContainer', cpuMap, cpuViewMode === 'gen' ? 'cpuGen' : 'cpuTier', 'gradient-cyan');
+      renderBarGroup('dashCpuBarsContainer', cpuMap, cpuDrillType, 'gradient-cyan');
 
       // 6. Zone 2: RAM Memory Breakdown
       const ramMap = {};
@@ -5427,9 +5488,9 @@
       const osMap = {};
       let win11Count = 0;
       pcs.forEach(p => {
-        const key = classifyOs(p.OS, p.OSBuild);
+        const key = classifyOs(p.OS, p.OSBuild, osViewMode);
         osMap[key] = (osMap[key] || 0) + 1;
-        if (key.includes('Windows 11')) win11Count++;
+        if (key.includes('Windows 11') || key.includes('Win 11')) win11Count++;
       });
       renderBarGroup('dashOsBarsContainer', osMap, 'os', 'gradient-purple');
       const lblDashWin11Pct = document.getElementById('lblDashWin11Pct');
@@ -6259,7 +6320,8 @@
           if (type === 'ram' && classifyRam(pc.RAM_GB) !== value) return false;
           if (type === 'cpuTier' && classifyCpuTier(pc.CPU) !== value) return false;
           if (type === 'cpuGen' && classifyCpuGen(pc.CPU) !== value) return false;
-          if (type === 'os' && classifyOs(pc.OS, pc.OSBuild) !== value) return false;
+          if (type === 'cpuModel' && classifyCpuModel(pc.CPU) !== value) return false;
+          if (type === 'os' && classifyOs(pc.OS, pc.OSBuild, osViewMode) !== value) return false;
           if (type === 'brand' && classifyBrand(pc.Maker) !== value) return false;
           if (type === 'office' && classifyOffice(pc.Office_License) !== value) return false;
           if (type === 'winLic' && classifyWinLicense(pc.Win_License) !== value) return false;
