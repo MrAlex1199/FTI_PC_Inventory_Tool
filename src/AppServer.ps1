@@ -728,7 +728,7 @@ function Start-ExecutionScan([hashtable]$params) {
 
     # Pass Network & Wi-Fi Probing settings
     $pingMethod = if ($params.ContainsKey('pingMethod') -and $params.pingMethod) { [string]$params.pingMethod } else { 'combined' }
-    $probePorts = if ($params.ContainsKey('probePorts') -and $params.probePorts) { [string]$params.probePorts } else { '135,445,5985,5986,3389,139,80,443' }
+    $probePorts = if ($params.ContainsKey('probePorts') -and $params.probePorts) { [string]$params.probePorts } else { '135,445,5985,5986,3389,139,80,443,5900' }
     $pingTimeoutMs = if ($params.ContainsKey('pingTimeoutMs') -and [int]$params.pingTimeoutMs -ge 100) { [int]$params.pingTimeoutMs } else { 1000 }
     $pingProbes = if ($params.ContainsKey('pingProbes') -and [int]$params.pingProbes -ge 1) { [int]$params.pingProbes } else { 2 }
     $threadDelayMs = if ($params.ContainsKey('threadDelayMs') -and [int]$params.threadDelayMs -ge 0) { [int]$params.threadDelayMs } else { 20 }

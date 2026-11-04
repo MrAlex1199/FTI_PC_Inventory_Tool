@@ -23,7 +23,7 @@ param(
     [switch]$SkipServers = $true,    # Skip Servers, DCs, RDS, and Remote servers (PC / Notebooks only)
     [string]$ExcludeServerFile,      # Optional .txt file with hostnames/IPs to exclude from scan
     [string]$PingMethod = 'combined', # Reachability method: combined, icmp, tcp, udptcp, arp
-    [string]$ProbePorts = '135,445,5985,5986,3389,139,80,443', # Target ports for TCP/UDP probing
+    [string]$ProbePorts = '135,445,5985,5986,3389,139,80,443,5900', # Target ports for TCP/UDP probing
     [int]$PingTimeoutMs = 1000,      # Probe timeout in milliseconds
     [int]$PingProbes = 2,            # Number of ping probes/packets to send
     [int]$ThreadDelayMs = 20,        # Inter-host delay between starting threads in ms
@@ -43,7 +43,7 @@ $script:ParsedProbePorts = @(
     }
 )
 if (-not $script:ParsedProbePorts -or $script:ParsedProbePorts.Count -eq 0) {
-    $script:ParsedProbePorts = @(135, 445, 5985, 5986, 3389, 139, 80, 443)
+    $script:ParsedProbePorts = @(135, 445, 5985, 5986, 3389, 139, 80, 443, 5900)
 }
 
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
@@ -255,7 +255,7 @@ function Test-PCConnection([string]$computer) {
     $method = if ($PingMethod) { $PingMethod.ToLower() } else { 'combined' }
     $timeoutMs = if ($PingTimeoutMs -ge 100) { $PingTimeoutMs } else { 1000 }
     $probes = if ($PingProbes -ge 1) { $PingProbes } else { 2 }
-    $ports = if ($script:ParsedProbePorts -and $script:ParsedProbePorts.Count -gt 0) { $script:ParsedProbePorts } else { @(135, 445, 5985, 5986, 3389, 139, 80, 443) }
+    $ports = if ($script:ParsedProbePorts -and $script:ParsedProbePorts.Count -gt 0) { $script:ParsedProbePorts } else { @(135, 445, 5985, 5986, 3389, 139, 80, 443, 5900) }
 
     # Helper: Fast UDP Wake-up Datagram (wakes sleeping Wi-Fi / power-saving adapters)
     $sendUdpWakeup = {
@@ -727,7 +727,7 @@ function Test-EndpointAlive([string]$endpoint, [int]$timeoutMs = 1000) {
         $udp.Close()
     } catch {}
 
-    $testPorts = @(135, 445, 5985, 3389, 139)
+    $testPorts = @(135, 445, 5985, 3389, 139, 5900)
     foreach ($p in $testPorts) {
         try {
             $tcp = New-Object System.Net.Sockets.TcpClient
@@ -1257,6 +1257,61 @@ function Invoke-DeepPenetrationScan {
         } catch { }
     }
 
+    # Diagnostic Stage 6: VNC Port 5900 Reachability Detection
+    $vncLive = $false
+    $vncTarget = $null
+    foreach ($cand in $orderedTargets) {
+        try {
+            $tcp = New-Object System.Net.Sockets.TcpClient
+            $ar = $tcp.BeginConnect($cand, 5900, $null, $null)
+            if ($ar.AsyncWaitHandle.WaitOne(600, $false) -and $tcp.Connected) {
+                $tcp.EndConnect($ar)
+                $tcp.Close()
+                $vncLive = $true
+                $vncTarget = $cand
+                break
+            }
+            $tcp.Close()
+        } catch {}
+    }
+
+    if ($vncLive) {
+        $ip = if ($vncTarget -match '^\d+\.\d+\.\d+\.\d+$') { $vncTarget } else { '' }
+        $mac = ''
+        if ($ip) {
+            try {
+                $arpOut = & arp.exe -a $ip 2>$null
+                if ($arpOut -match '([0-9a-fA-F]{2}[-:][0-9a-fA-F]{2}[-:][0-9a-fA-F]{2}[-:][0-9a-fA-F]{2}[-:][0-9a-fA-F]{2}[-:][0-9a-fA-F]{2})') {
+                    $mac = $Matches[1].ToUpper()
+                }
+            } catch {}
+        }
+        $prevCount = if ($oldRecord -and $oldRecord.Scan_Count) { [int]$oldRecord.Scan_Count } else { 0 }
+        return (New-HardwareRecord @{
+            PCName         = if ($oldRecord -and $oldRecord.PCName -and $oldRecord.PCName -ne '-') { $oldRecord.PCName } else { $pc }
+            Status         = 'Online'
+            Method         = '⚡ VNC:5900'
+            Status_Detail  = "Online (VNC:5900 Active on $vncTarget) - Windows Management Ports (WMI/WinRM) blocked by Firewall"
+            Fail_Count     = 0
+            IP             = if ($ip) { $ip } else { if ($oldRecord -and $oldRecord.IP) { $oldRecord.IP } else { '' } }
+            MAC            = if ($mac) { $mac } else { if ($oldRecord -and $oldRecord.MAC) { $oldRecord.MAC } else { '' } }
+            Maker          = if ($oldRecord -and $oldRecord.Maker) { $oldRecord.Maker } else { '-' }
+            Model          = if ($oldRecord -and $oldRecord.Model) { $oldRecord.Model } else { '-' }
+            Serial         = if ($oldRecord -and $oldRecord.Serial) { $oldRecord.Serial } else { '-' }
+            CPU            = if ($oldRecord -and $oldRecord.CPU) { $oldRecord.CPU } else { '-' }
+            RAM_GB         = if ($oldRecord -and $oldRecord.RAM_GB) { $oldRecord.RAM_GB } else { '-' }
+            Disk_Info      = if ($oldRecord -and $oldRecord.Disk_Info) { $oldRecord.Disk_Info } else { '-' }
+            Win_License    = $prevWinLicense
+            Office_License = $prevOfficeLicense
+            Office_Detail  = $prevOfficeDetail
+            AD_LastLogon   = if ($ad) { $ad.AD_LastLogon } else { '-' }
+            AD_OU          = if ($ad) { $ad.AD_OU } else { '-' }
+            Scan_Count     = ($prevCount + 1)
+            First_Seen     = if ($oldRecord -and $oldRecord.First_Seen -and $oldRecord.First_Seen -ne '-') { $oldRecord.First_Seen } else { (Get-Date -Format 'yyyy-MM-dd HH:mm') }
+            Last_Scan      = (Get-Date -Format 'yyyy-MM-dd HH:mm')
+        })
+    }
+
     return $null
 }
 
@@ -1481,8 +1536,12 @@ if (-not $SkipHardware) {
                 -masterDict $masterDict `
                 -wasError ($stub.Reason -eq 'Error')
 
-            if ($rescued -and $rescued.Status -eq 'OK') {
-                Write-Host "  [RESCUED] $sPc penetrated successfully! Method: $($rescued.Method)" -ForegroundColor Green
+            if ($rescued -and ($rescued.Status -eq 'OK' -or $rescued.Status -eq 'Online')) {
+                if ($rescued.Status -eq 'OK') {
+                    Write-Host "  [RESCUED] $sPc penetrated successfully! Method: $($rescued.Method)" -ForegroundColor Green
+                } else {
+                    Write-Host "  [DETECTED] $sPc live via $($rescued.Method)! ($($rescued.Status_Detail))" -ForegroundColor Yellow
+                }
                 for ($k = 0; $k -lt $hw.Count; $k++) {
                     if ($hw[$k].PCName -ieq $sPc) {
                         $hw[$k] = $rescued
