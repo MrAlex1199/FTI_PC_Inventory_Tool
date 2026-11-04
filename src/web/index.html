@@ -8,7 +8,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>FTI PC Inventory Tool - v2026.11.04.2</title>
+  <title>FTI PC Inventory Tool - v2026.11.04.3</title>
 
   <script>
 
@@ -3741,7 +3741,7 @@
 
         <span>FTI PC Inventory Tool</span>
 
-        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-04 21:35:51" id="appVersionTag">v2026.11.04.2 Enterprise</span>
+        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-04 21:46:01" id="appVersionTag">v2026.11.04.3 Enterprise</span>
 
       </div>
 
@@ -4021,13 +4021,7 @@
 
             <!-- Sub-group 2: Network Reachability & Wi-Fi Probing -->
             <div style="margin-top: 12px; border-top: 1px solid var(--border-subtle); padding-top: 8px;">
-              <span class="field-label" style="font-weight: 700; color: var(--text-primary); margin-bottom: 6px; display: block; border-bottom: 1px solid var(--border-subtle); padding-bottom: 3px;">🌐 Network & Wi-Fi Probing Tuning</span>
-
-              <!-- 1-Click Wi-Fi vs Standard LAN Presets -->
-              <div style="display: flex; gap: 6px; margin-bottom: 8px;">
-                <button type="button" class="preset-chip active" id="btnNetPresetLan" onclick="setNetPreset('lan')" style="flex: 1; padding: 4px 6px;">⚡ Standard LAN</button>
-                <button type="button" class="preset-chip" id="btnNetPresetWifi" onclick="setNetPreset('wifi')" style="flex: 1; padding: 4px 6px;">📶 Wi-Fi Mode</button>
-              </div>
+              <span class="field-label" style="font-weight: 700; color: var(--text-primary); margin-bottom: 6px; display: block; border-bottom: 1px solid var(--border-subtle); padding-bottom: 3px;">🌐 4. Network Probing & Ports</span>
 
               <!-- Pinging Method Selector -->
               <div>
@@ -5815,47 +5809,6 @@
     // Network & Wi-Fi Probing Presets and Port Toggles
     window.togglePortChip = function(btn) {
       btn.classList.toggle('active');
-    };
-
-    window.setNetPreset = function(preset) {
-      const btnLan = document.getElementById('btnNetPresetLan');
-      const btnWifi = document.getElementById('btnNetPresetWifi');
-      const selMethod = document.getElementById('selPingMethod');
-      const numTimeout = document.getElementById('numPingTimeout');
-      const numProbes = document.getElementById('numPingProbes');
-      const numDelay = document.getElementById('numThreadDelay');
-      const boxPorts = document.getElementById('boxPortPresets');
-
-      if (btnLan) btnLan.classList.toggle('active', preset === 'lan');
-      if (btnWifi) btnWifi.classList.toggle('active', preset === 'wifi');
-
-      if (preset === 'wifi') {
-        if (selMethod) selMethod.value = 'combined';
-        if (numTimeout) numTimeout.value = 1500;
-        if (numProbes) numProbes.value = 3;
-        if (numDelay) numDelay.value = 30;
-        if (boxPorts) {
-          const allPorts = ['135', '445', '5985', '5986', '3389', '139', '80', '443'];
-          boxPorts.querySelectorAll('.preset-chip').forEach(b => {
-            const p = b.getAttribute('data-port');
-            b.classList.toggle('active', allPorts.includes(p));
-          });
-        }
-        showToast('Wi-Fi Probing preset applied (Timeout: 1500ms, Probes: 3, Delay: 30ms, All 8 Ports Active)', 'info');
-      } else {
-        if (selMethod) selMethod.value = 'combined';
-        if (numTimeout) numTimeout.value = 1000;
-        if (numProbes) numProbes.value = 2;
-        if (numDelay) numDelay.value = 20;
-        if (boxPorts) {
-          const allPorts = ['135', '445', '5985', '5986', '3389', '139', '80', '443'];
-          boxPorts.querySelectorAll('.preset-chip').forEach(b => {
-            const p = b.getAttribute('data-port');
-            b.classList.toggle('active', allPorts.includes(p));
-          });
-        }
-        showToast('Standard LAN probing preset applied (Timeout: 1000ms, Probes: 2, All 8 Ports Active)', 'info');
-      }
     };
 
     // Source Selection
