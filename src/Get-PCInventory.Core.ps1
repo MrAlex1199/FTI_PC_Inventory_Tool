@@ -821,6 +821,29 @@ function Get-HardwareFromCimSession {
             } catch {}
         }
 
+        $osBuildStr = [string]$os.BuildNumber
+        try {
+            if ($isLocal) {
+                $ntKey = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SOFTWARE\Microsoft\Windows NT\CurrentVersion')
+                if ($ntKey) {
+                    $ubr = $ntKey.GetValue('UBR')
+                    if ($null -ne $ubr) {
+                        $osBuildStr = '{0}.{1}' -f $os.BuildNumber, $ubr
+                    }
+                    $ntKey.Close()
+                }
+            } elseif ($s) {
+                $regParams = @{
+                    hDefKey = 2147483650
+                    sSubKeyName = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+                }
+                $ubrRes = Invoke-CimMethod -CimSession $s -ClassName StdRegProv -MethodName GetDWORDValue -Arguments ($regParams + @{ sValueName = 'UBR' }) -OperationTimeoutSec 5 -ErrorAction SilentlyContinue
+                if ($ubrRes -and $null -ne $ubrRes.uValue) {
+                    $osBuildStr = '{0}.{1}' -f $os.BuildNumber, $ubrRes.uValue
+                }
+            }
+        } catch {}
+
         $winLicenseStr = '-'
         $officeLicenseStr = '-'
         $officeDetailStr = '-'
@@ -928,7 +951,7 @@ function Get-HardwareFromCimSession {
             Disks          = $disksVal
             GPU            = $gpuVal
             OS             = $os.Caption
-            OSBuild        = $os.BuildNumber
+            OSBuild        = $osBuildStr
             Last_Boot      = $lastBootStr
             Uptime         = $uptimeStr
             AD_LastLogon   = $ad.AD_LastLogon
@@ -992,7 +1015,9 @@ function Get-HardwareFromRemoteRegistry {
         # OS & Build
         $ntKey = $reg.OpenSubKey('SOFTWARE\Microsoft\Windows NT\CurrentVersion')
         $osCaption = if ($ntKey) { [string]$ntKey.GetValue('ProductName') } else { 'Windows' }
-        $osBuild = if ($ntKey) { [string]$ntKey.GetValue('CurrentBuild') } else { '-' }
+        $currentBuild = if ($ntKey) { [string]$ntKey.GetValue('CurrentBuild') } else { '-' }
+        $ubr = if ($ntKey) { $ntKey.GetValue('UBR') } else { $null }
+        $osBuild = if ($null -ne $ubr -and $currentBuild -ne '-') { '{0}.{1}' -f $currentBuild, $ubr } else { $currentBuild }
         if ($ntKey) { $ntKey.Close() }
 
         # User

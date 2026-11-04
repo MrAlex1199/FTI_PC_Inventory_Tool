@@ -8,7 +8,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>FTI PC Inventory Tool - v2026.11.04.10</title>
+  <title>FTI PC Inventory Tool - v2026.11.04.11</title>
 
   <script>
 
@@ -3741,7 +3741,7 @@
 
         <span>FTI PC Inventory Tool</span>
 
-        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-04 23:04:10" id="appVersionTag">v2026.11.04.10 Enterprise</span>
+        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-04 23:11:35" id="appVersionTag">v2026.11.04.11 Enterprise</span>
 
       </div>
 
@@ -5241,11 +5241,13 @@
       if (!os || os === '-') return 'Unknown OS';
       const o = os.toLowerCase();
       const b = parseInt(osBuild) || 0;
+      const displayBuild = (osBuild && osBuild !== '-') ? osBuild : (b ? String(b) : '');
 
       if (mode === 'build') {
         if (b > 0) {
           let verName = '';
           if (o.includes('server')) verName = 'Server';
+          else if (b >= 26300) verName = 'Win 11 26H2';
           else if (b >= 26100) verName = 'Win 11 24H2';
           else if (b >= 22631) verName = 'Win 11 23H2';
           else if (b >= 22621) verName = 'Win 11 22H2';
@@ -5258,26 +5260,27 @@
           else if (b >= 10240) verName = 'Win 10';
           else if (o.includes('windows 7')) verName = 'Win 7';
           else verName = os;
-          return 'Build ' + b + ' (' + verName + ')';
+          return 'Build ' + displayBuild + ' (' + verName + ')';
         }
         return 'Build - (' + os + ')';
       }
 
       // Mode: 'ver' (Version Name with Build reference)
-      if (o.includes('server')) return b > 0 ? 'Windows Server (Build ' + b + ')' : 'Windows Server';
+      if (o.includes('server')) return b > 0 ? 'Windows Server (Build ' + displayBuild + ')' : 'Windows Server';
       if (o.includes('windows 11') || b >= 22000) {
-        if (b >= 26100) return 'Windows 11 (24H2 • Build ' + (b || '26100+') + ')';
-        if (b >= 22631) return 'Windows 11 (23H2 • Build ' + (b || '22631') + ')';
-        if (b >= 22621) return 'Windows 11 (22H2 • Build ' + (b || '22621') + ')';
-        return 'Windows 11 (Build ' + (b || '22000') + ')';
+        if (b >= 26300) return 'Windows 11 (26H2 • Build ' + (displayBuild || '26300+') + ')';
+        if (b >= 26100) return 'Windows 11 (24H2 • Build ' + (displayBuild || '26100+') + ')';
+        if (b >= 22631) return 'Windows 11 (23H2 • Build ' + (displayBuild || '22631') + ')';
+        if (b >= 22621) return 'Windows 11 (22H2 • Build ' + (displayBuild || '22621') + ')';
+        return 'Windows 11 (Build ' + (displayBuild || '22000') + ')';
       }
       if (o.includes('windows 10') || (b >= 10240 && b < 22000)) {
-        if (b >= 19045) return 'Windows 10 (22H2 • Build ' + (b || '19045') + ')';
-        if (b >= 19044) return 'Windows 10 (21H2 • Build ' + (b || '19044') + ')';
-        return 'Windows 10 (Build ' + (b || '10240') + ')';
+        if (b >= 19045) return 'Windows 10 (22H2 • Build ' + (displayBuild || '19045') + ')';
+        if (b >= 19044) return 'Windows 10 (21H2 • Build ' + (displayBuild || '19044') + ')';
+        return 'Windows 10 (Build ' + (displayBuild || '10240') + ')';
       }
-      if (o.includes('windows 7') || o.includes('windows 8')) return 'Legacy Windows (Build ' + (b || '7/8') + ')';
-      return b > 0 ? os + ' (Build ' + b + ')' : os;
+      if (o.includes('windows 7') || o.includes('windows 8')) return 'Legacy Windows (Build ' + (displayBuild || '7/8') + ')';
+      return b > 0 ? os + ' (Build ' + displayBuild + ')' : os;
     }
 
     function classifyBrand(maker) {
