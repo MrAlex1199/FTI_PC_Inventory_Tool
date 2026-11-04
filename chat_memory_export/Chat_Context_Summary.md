@@ -83,3 +83,4 @@
      แตกไฟล์ `antigravity_brain_b0d6b9ba.zip` ไปไว้ที่:
      `C:\Users\<ชื่อผู้ใช้ของคุณ>\.gemini\antigravity\brain\b0d6b9ba-cb3c-419f-aa80-cedd90a17c21\`
 2. เปิดโปรแกรม Antigravity ขึ้นมาใหม่ คุณจะเห็นประวัติการสนทนา Session นี้โผล่ขึ้นมาในรายการ และสามารถพิมพ์คุยต่อได้ทันที
+

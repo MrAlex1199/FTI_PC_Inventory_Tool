@@ -8,7 +8,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>FTI PC Inventory Tool - v2026.11.03.5</title>
+  <title>FTI PC Inventory Tool - v2026.11.04.1</title>
 
   <script>
 
@@ -2021,6 +2021,8 @@
 
     .status-badge.scanning { background: rgba(2, 132, 199, 0.15); color: var(--accent-primary); border: 1px solid rgba(2, 132, 199, 0.3); animation: pulse-ring 1.3s infinite; }
 
+    .status-badge.deep-scan { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.45); animation: pulse-ring 1.3s infinite; }
+
     .status-badge.error { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); border: 1px solid rgba(244, 63, 94, 0.3); }
 
     .badge-fail-count {
@@ -3086,6 +3088,12 @@
       background: rgba(245, 158, 11, 0.08);
       color: #fbbf24;
     }
+    .method-badge.method-deep {
+      border-color: rgba(168, 85, 247, 0.45);
+      background: rgba(168, 85, 247, 0.15);
+      color: #c084fc;
+      font-weight: 700;
+    }
     .method-badge.method-offline {
       opacity: 0.6;
       border-color: transparent;
@@ -3733,7 +3741,7 @@
 
         <span>FTI PC Inventory Tool</span>
 
-        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-03 21:58:10" id="appVersionTag">v2026.11.03.5 Enterprise</span>
+        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-04 21:10:05" id="appVersionTag">v2026.11.04.1 Enterprise</span>
 
       </div>
 
@@ -4079,11 +4087,11 @@
                 <button type="button" class="preset-chip active" data-port="135" onclick="togglePortChip(this)">135 (RPC)</button>
                 <button type="button" class="preset-chip active" data-port="445" onclick="togglePortChip(this)">445 (SMB)</button>
                 <button type="button" class="preset-chip active" data-port="5985" onclick="togglePortChip(this)">5985 (WinRM)</button>
-                <button type="button" class="preset-chip" data-port="5986" onclick="togglePortChip(this)">5986 (HTTPS)</button>
-                <button type="button" class="preset-chip" data-port="3389" onclick="togglePortChip(this)">3389 (RDP)</button>
-                <button type="button" class="preset-chip" data-port="139" onclick="togglePortChip(this)">139 (NetBIOS)</button>
-                <button type="button" class="preset-chip" data-port="80" onclick="togglePortChip(this)">80 (HTTP)</button>
-                <button type="button" class="preset-chip" data-port="443" onclick="togglePortChip(this)">443 (HTTPS)</button>
+                <button type="button" class="preset-chip active" data-port="5986" onclick="togglePortChip(this)">5986 (HTTPS)</button>
+                <button type="button" class="preset-chip active" data-port="3389" onclick="togglePortChip(this)">3389 (RDP)</button>
+                <button type="button" class="preset-chip active" data-port="139" onclick="togglePortChip(this)">139 (NetBIOS)</button>
+                <button type="button" class="preset-chip active" data-port="80" onclick="togglePortChip(this)">80 (HTTP)</button>
+                <button type="button" class="preset-chip active" data-port="443" onclick="togglePortChip(this)">443 (HTTPS)</button>
               </div>
               <input type="text" id="txtCustomPorts" placeholder="Extra custom ports, e.g. 8080, 9100" class="input-compact" style="width: 100%; font-size: 0.72rem;">
             </div>
@@ -4129,7 +4137,7 @@
 
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
 
-          Retry Offline Hosts (<span id="badgeOfflineCount">0</span>)
+          ⚡ Deep Retry Offline/Stubborn Hosts (<span id="badgeOfflineCount">0</span>)
 
         </button>
 
@@ -5864,26 +5872,26 @@
         if (numProbes) numProbes.value = 3;
         if (numDelay) numDelay.value = 30;
         if (boxPorts) {
-          const wifiPorts = ['135', '445', '5985', '5986', '3389', '139'];
+          const allPorts = ['135', '445', '5985', '5986', '3389', '139', '80', '443'];
           boxPorts.querySelectorAll('.preset-chip').forEach(b => {
             const p = b.getAttribute('data-port');
-            b.classList.toggle('active', wifiPorts.includes(p));
+            b.classList.toggle('active', allPorts.includes(p));
           });
         }
-        showToast('Wi-Fi Probing preset applied (Timeout: 1500ms, Probes: 3, Delay: 30ms, Ports: 135, 445, 5985, 5986, 3389, 139)', 'info');
+        showToast('Wi-Fi Probing preset applied (Timeout: 1500ms, Probes: 3, Delay: 30ms, All 8 Ports Active)', 'info');
       } else {
         if (selMethod) selMethod.value = 'combined';
         if (numTimeout) numTimeout.value = 1000;
         if (numProbes) numProbes.value = 2;
         if (numDelay) numDelay.value = 20;
         if (boxPorts) {
-          const lanPorts = ['135', '445', '5985'];
+          const allPorts = ['135', '445', '5985', '5986', '3389', '139', '80', '443'];
           boxPorts.querySelectorAll('.preset-chip').forEach(b => {
             const p = b.getAttribute('data-port');
-            b.classList.toggle('active', lanPorts.includes(p));
+            b.classList.toggle('active', allPorts.includes(p));
           });
         }
-        showToast('Standard LAN probing preset applied', 'info');
+        showToast('Standard LAN probing preset applied (Timeout: 1000ms, Probes: 2, All 8 Ports Active)', 'info');
       }
     };
 
@@ -6385,6 +6393,11 @@
         } else if (pc.Status === 'Scanning') {
           badgeClass = 'scanning';
           statusDisplay = 'Scanning';
+        } else if (pc.Status && (pc.Status === 'Deep Scanning' || pc.Status.includes('Deep Scan'))) {
+          badgeClass = 'deep-scan';
+          statusDisplay = '⚡ Deep Scan';
+          hasTooltip = true;
+          tooltipText = pc.Status_Detail || 'Deep Penetration Probing in progress...';
         } else if (pc.Status && (pc.Status.startsWith('Error') || pc.Status.includes('Error') || pc.Status.includes('Failed'))) {
           badgeClass = 'error';
           statusDisplay = 'Error ⓘ';
@@ -6428,7 +6441,8 @@
         const methodText = pc.Method || "-";
         let methodCls = "default";
         const mLower = methodText.toLowerCase();
-        if (mLower.includes("ping") || mLower.includes("icmp")) methodCls = "icmp";
+        if (methodText.includes('⚡')) methodCls = 'deep';
+        else if (mLower.includes("ping") || mLower.includes("icmp")) methodCls = "icmp";
         else if (mLower.includes("tcp")) methodCls = "tcp";
         else if (mLower.includes("winrm")) methodCls = "winrm";
         else if (mLower.includes("localhost") || mLower.includes("loopback")) methodCls = "local";
@@ -6503,7 +6517,7 @@
         return `
           <tr class="sw-row-clickable" onclick="openPcSoftwareModal('${escapeHtml(pc.PCName)}')">
             <td>${statusBadge}</td>
-            <td style="font-size:0.72rem; color:var(--text-secondary);">${escapeHtml(pc.Method || '-')}</td>
+            <td style="font-size:0.72rem; color:var(--text-secondary);">${pc.Method && pc.Method.includes('⚡') ? `<span class="method-badge method-deep">${escapeHtml(pc.Method)}</span>` : escapeHtml(pc.Method || '-')}</td>
             <td><span class="pc-name-bold">${escapeHtml(pc.PCName || '-')}</span></td>
             <td style="text-align:center;">${countBadge}</td>
             <td style="font-size:0.75rem; color:var(--text-secondary); max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(pc.KeySoftware || '-')}">${escapeHtml(pc.KeySoftware || '-')}</td>
@@ -7056,7 +7070,7 @@
               }
             });
           }
-          return ports.join(',') || '135,445,5985';
+          return ports.join(',') || '135,445,5985,5986,3389,139,80,443';
         })(),
         pingTimeoutMs: parseInt(document.getElementById('numPingTimeout') ? document.getElementById('numPingTimeout').value : '1000', 10) || 1000,
         pingProbes: parseInt(document.getElementById('numPingProbes') ? document.getElementById('numPingProbes').value : '2', 10) || 2,

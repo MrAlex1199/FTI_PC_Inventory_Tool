@@ -23,7 +23,7 @@ param(
     [switch]$SkipServers = $true,    # Skip Servers, DCs, RDS, and Remote servers (PC / Notebooks only)
     [string]$ExcludeServerFile,      # Optional .txt file with hostnames/IPs to exclude from scan
     [string]$PingMethod = 'combined', # Reachability method: combined, icmp, tcp, udptcp, arp
-    [string]$ProbePorts = '135,445,5985', # Target ports for TCP/UDP probing
+    [string]$ProbePorts = '135,445,5985,5986,3389,139,80,443', # Target ports for TCP/UDP probing
     [int]$PingTimeoutMs = 1000,      # Probe timeout in milliseconds
     [int]$PingProbes = 2,            # Number of ping probes/packets to send
     [int]$ThreadDelayMs = 20,        # Inter-host delay between starting threads in ms
@@ -43,7 +43,7 @@ $script:ParsedProbePorts = @(
     }
 )
 if (-not $script:ParsedProbePorts -or $script:ParsedProbePorts.Count -eq 0) {
-    $script:ParsedProbePorts = @(135, 445, 5985)
+    $script:ParsedProbePorts = @(135, 445, 5985, 5986, 3389, 139, 80, 443)
 }
 
 New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
@@ -255,7 +255,7 @@ function Test-PCConnection([string]$computer) {
     $method = if ($PingMethod) { $PingMethod.ToLower() } else { 'combined' }
     $timeoutMs = if ($PingTimeoutMs -ge 100) { $PingTimeoutMs } else { 1000 }
     $probes = if ($PingProbes -ge 1) { $PingProbes } else { 2 }
-    $ports = if ($script:ParsedProbePorts -and $script:ParsedProbePorts.Count -gt 0) { $script:ParsedProbePorts } else { @(135, 445, 5985) }
+    $ports = if ($script:ParsedProbePorts -and $script:ParsedProbePorts.Count -gt 0) { $script:ParsedProbePorts } else { @(135, 445, 5985, 5986, 3389, 139, 80, 443) }
 
     # Helper: Fast UDP Wake-up Datagram (wakes sleeping Wi-Fi / power-saving adapters)
     $sendUdpWakeup = {
@@ -557,6 +557,7 @@ if (-not $RetryOfflineOnly -and -not $ScanLocalhost -and ($pcs.Count -eq 0)) {
         [void]$ds.PropertiesToLoad.Add('name')
         [void]$ds.PropertiesToLoad.Add('lastlogontimestamp')
         [void]$ds.PropertiesToLoad.Add('distinguishedname')
+        [void]$ds.PropertiesToLoad.Add('dnshostname')
         
         $adResults = $ds.FindAll()
         $filteredPCs = [System.Collections.Generic.List[string]]::new()
@@ -638,9 +639,630 @@ if ($pcs.Count -eq 0) {
     return [pscustomobject]@{ Status = 'Empty'; Message = 'No computers found.' }
 }
 
-# ================= 2) Hardware (CIM / DCOM) =================
+# --- Global Rescued Endpoints Cache (Host -> IP/FQDN) ---
+$script:rescuedEndpoints = @{}
+
+# ================= Helper Functions for Deep Penetration & Hardware Extraction =================
+
+function Resolve-PCTargets([string]$pc, [hashtable]$adInfo = $null, [hashtable]$masterDict = $null) {
+    $targets = [System.Collections.Generic.List[hashtable]]::new()
+    $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    $cleanPc = $pc.Trim()
+    $shortName = ($cleanPc -split '\.')[0]
+
+    $addTarget = {
+        param([string]$target, [string]$source)
+        if (-not [string]::IsNullOrWhiteSpace($target)) {
+            $t = $target.Trim()
+            if (-not $seen.Contains($t)) {
+                [void]$seen.Add($t)
+                $targets.Add(@{ Address = $t; Source = $source })
+            }
+        }
+    }
+
+    # 1. Short Hostname
+    & $addTarget $shortName 'ShortHostname'
+
+    # 2. AD FQDN
+    if ($adInfo -and $adInfo.AD_DNSHostName) {
+        & $addTarget $adInfo.AD_DNSHostName 'AD_FQDN'
+    }
+
+    # 3. DNS IPv4 Resolution (All IPs returned by DNS)
+    try {
+        $ips = [System.Net.Dns]::GetHostAddresses($cleanPc) | Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork }
+        foreach ($ip in $ips) {
+            $ipStr = $ip.ToString()
+            if ($ipStr -notmatch '^(127\.|169\.254\.)') {
+                & $addTarget $ipStr 'DNS_IPv4'
+            }
+        }
+    } catch {}
+
+    # 4. NetBIOS Name Resolution via nbtstat -a
+    try {
+        $nbt = nbtstat -a $shortName 2>$null
+        if ($nbt) {
+            foreach ($line in ($nbt -split "`r?`n")) {
+                if ($line -match '\[([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\]') {
+                    $nbIp = $matches[1]
+                    if ($nbIp -notmatch '^(127\.|169\.254\.)') {
+                        & $addTarget $nbIp 'NetBIOS'
+                    }
+                }
+            }
+        }
+    } catch {}
+
+    # 5. mDNS (.local)
+    if ($cleanPc -notmatch '\.') {
+        & $addTarget "$cleanPc.local" 'mDNS'
+    }
+
+    # 6. Last Known IP from Master DB (strictly verified by hostname later)
+    if ($masterDict) {
+        $mKey = $cleanPc.ToUpper()
+        $mShort = $shortName.ToUpper()
+        $oldRec = if ($masterDict.Contains($mKey)) { $masterDict[$mKey] } elseif ($masterDict.Contains($mShort)) { $masterDict[$mShort] } else { $null }
+        if ($oldRec -and $oldRec.IP) {
+            foreach ($candIp in ($oldRec.IP -split '[,;\s]+')) {
+                if ($candIp -match '^\d+\.\d+\.\d+\.\d+$' -and $candIp -notmatch '^(127\.|169\.254\.)') {
+                    & $addTarget $candIp 'MasterDB_LastKnown'
+                }
+            }
+        }
+    }
+
+    return $targets
+}
+
+function Test-EndpointAlive([string]$endpoint, [int]$timeoutMs = 1000) {
+    if ([string]::IsNullOrWhiteSpace($endpoint)) { return $false }
+    try {
+        $udp = New-Object System.Net.Sockets.UdpClient
+        $dummy = [byte[]]@(0x00, 0x01, 0x02, 0x03)
+        [void]$udp.Send($dummy, $dummy.Length, $endpoint, 137)
+        $udp.Close()
+    } catch {}
+
+    $testPorts = @(135, 445, 5985, 3389, 139)
+    foreach ($p in $testPorts) {
+        try {
+            $tcp = New-Object System.Net.Sockets.TcpClient
+            $ar = $tcp.BeginConnect($endpoint, $p, $null, $null)
+            $waitOk = $ar.AsyncWaitHandle.WaitOne($timeoutMs, $false)
+            if ($waitOk -and $tcp.Connected) {
+                $tcp.EndConnect($ar)
+                $tcp.Close()
+                return $true
+            }
+            $tcp.Close()
+        } catch {}
+    }
+
+    try {
+        $pinger = New-Object System.Net.NetworkInformation.Ping
+        $reply = $pinger.Send($endpoint, $timeoutMs)
+        if ($reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) {
+            return $true
+        }
+    } catch {}
+
+    return $false
+}
+
+function Get-HardwareFromCimSession {
+    param(
+        $s,
+        [string]$pcTarget,
+        [bool]$isLocal,
+        [string]$prevWinLicense = '-',
+        [string]$prevOfficeLicense = '-',
+        [string]$prevOfficeDetail = '-',
+        [hashtable]$ad = @{},
+        [string]$methodName = 'DCOM',
+        [string]$statusDetail = 'Hardware scan completed successfully',
+        [bool]$skipServerCheck = $true
+    )
+    try {
+        if ($isLocal) {
+            $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+            $bios = Get-CimInstance Win32_BIOS -ErrorAction Stop
+            $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+            $cpu = Get-CimInstance Win32_Processor -ErrorAction Stop | Select-Object -First 1
+            $disk = Get-CimInstance Win32_DiskDrive -ErrorAction Stop
+            $gpu = Get-CimInstance Win32_VideoController -ErrorAction Stop
+            $ram = Get-CimInstance Win32_PhysicalMemory -ErrorAction Stop
+            $net = Get-CimInstance Win32_NetworkAdapterConfiguration -ErrorAction Stop | Where-Object IPEnabled
+            $cDrive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction SilentlyContinue
+        } else {
+            $cs = Get-CimInstance Win32_ComputerSystem -CimSession $s -OperationTimeoutSec 15 -ErrorAction Stop
+            $bios = Get-CimInstance Win32_BIOS -CimSession $s -OperationTimeoutSec 15 -ErrorAction Stop
+            $os = Get-CimInstance Win32_OperatingSystem -CimSession $s -OperationTimeoutSec 15 -ErrorAction Stop
+            $cpu = Get-CimInstance Win32_Processor -CimSession $s -OperationTimeoutSec 15 -ErrorAction Stop | Select-Object -First 1
+            $disk = Get-CimInstance Win32_DiskDrive -CimSession $s -OperationTimeoutSec 15 -ErrorAction SilentlyContinue
+            $gpu = Get-CimInstance Win32_VideoController -CimSession $s -OperationTimeoutSec 15 -ErrorAction SilentlyContinue
+            $ram = Get-CimInstance Win32_PhysicalMemory -CimSession $s -OperationTimeoutSec 15 -ErrorAction SilentlyContinue
+            $net = Get-CimInstance Win32_NetworkAdapterConfiguration -CimSession $s -OperationTimeoutSec 15 -ErrorAction SilentlyContinue | Where-Object IPEnabled
+            $cDrive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -CimSession $s -OperationTimeoutSec 15 -ErrorAction SilentlyContinue
+        }
+
+        if ($skipServerCheck -and -not $isLocal -and $os -and $os.ProductType -and $os.ProductType -ne 1) {
+            Write-Host "  [SKIP SERVER] Skipping $pcTarget (Detected Server OS: $($os.Caption))" -ForegroundColor Yellow
+            return @{ SkipServer = $true }
+        }
+
+        $lastBootStr = '-'
+        $uptimeStr = '-'
+        if ($os.LastBootUpTime) {
+            try {
+                $bootDt = if ($os.LastBootUpTime -is [datetime]) { $os.LastBootUpTime } else { [datetime]$os.LastBootUpTime }
+                $lastBootStr = $bootDt.ToString('yyyy-MM-dd HH:mm')
+                $diff = (Get-Date) - $bootDt
+                if ($diff.TotalDays -ge 1) {
+                    $uptimeStr = "$([math]::Floor($diff.TotalDays))d $([int]$diff.Hours)h"
+                } else {
+                    $uptimeStr = "$([int]$diff.Hours)h $([int]$diff.Minutes)m"
+                }
+            } catch {}
+        }
+
+        $cDiskSummary = '-'
+        if ($cDrive -and $cDrive.Size -gt 0) {
+            try {
+                $freeB = [double]$cDrive.FreeSpace
+                $totalB = [double]$cDrive.Size
+                $cFreeGB = [math]::Round($freeB / 1GB, 1)
+                $cTotalGB = [math]::Round($totalB / 1GB, 0)
+                $pct = [math]::Round(($freeB / $totalB) * 100, 0)
+                $cDiskSummary = "$cFreeGB / $cTotalGB GB ($pct% free)"
+            } catch {}
+        }
+
+        $winLicenseStr = '-'
+        $officeLicenseStr = '-'
+        $officeDetailStr = '-'
+        try {
+            $slpItems = if ($isLocal) {
+                @(Get-CimInstance SoftwareLicensingProduct -Filter "PartialProductKey is not null" -ErrorAction SilentlyContinue)
+            } elseif ($s) {
+                @(Get-CimInstance SoftwareLicensingProduct -CimSession $s -Filter "PartialProductKey is not null" -OperationTimeoutSec 20 -ErrorAction SilentlyContinue)
+            } else { @() }
+
+            $winLic = $slpItems | Where-Object { $_.ApplicationID -eq '55c92734-d682-4d71-983e-d6ec3f16059f' } | Sort-Object LicenseStatus -Descending | Select-Object -First 1
+            if (-not $winLic) {
+                $winLic = $slpItems | Where-Object { $_.Name -match '(?i)Windows' -and $null -ne $_.LicenseStatus } | Sort-Object LicenseStatus -Descending | Select-Object -First 1
+            }
+            if ($winLic) {
+                $rawChan = if ($winLic.ProductKeyChannel) { $winLic.ProductKeyChannel } else { [string]$winLic.Description }
+                $chan = if ($rawChan -match '(?i)OEM') { 'OEM' }
+                    elseif ($rawChan -match '(?i)VOLUME_KMS|Volume:GVLK|KMS') { 'Volume (KMS)' }
+                    elseif ($rawChan -match '(?i)VOLUME_MAK|MAK') { 'Volume (MAK)' }
+                    elseif ($rawChan -match '(?i)Volume') { 'Volume' }
+                    elseif ($rawChan -match '(?i)RETAIL') { 'Retail' }
+                    else { 'OEM/Retail' }
+                $actStatus = if ($winLic.LicenseStatus -eq 1) { 'Activated' } elseif ($winLic.LicenseStatus -eq 0) { 'Unlicensed' } else { 'Grace' }
+                $winLicenseStr = "$chan ($actStatus)"
+            } else {
+                try {
+                    $sls = if ($isLocal) {
+                        Get-CimInstance SoftwareLicensingService -ErrorAction SilentlyContinue
+                    } elseif ($s) {
+                        Get-CimInstance SoftwareLicensingService -CimSession $s -OperationTimeoutSec 10 -ErrorAction SilentlyContinue
+                    } else { $null }
+                    if ($sls) {
+                        if ($sls.OA3xOriginalProductKey) { $winLicenseStr = 'OEM (Activated)' }
+                        elseif ($sls.KeyManagementServiceMachine) { $winLicenseStr = 'Volume (KMS) (Activated)' }
+                    }
+                } catch {}
+            }
+
+            if (($winLicenseStr -eq '-' -or [string]::IsNullOrWhiteSpace($winLicenseStr)) -and $prevWinLicense -ne '-') {
+                $winLicenseStr = $prevWinLicense
+            }
+
+            $c2rProdIds = ''
+            if ($isLocal) {
+                $c2r = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration' -ErrorAction SilentlyContinue
+                if ($c2r -and $c2r.ProductReleaseIds) { $c2rProdIds = [string]$c2r.ProductReleaseIds }
+                if (-not $c2rProdIds) {
+                    $uninstPaths = @(
+                        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+                    )
+                    $offApp = Get-ItemProperty $uninstPaths -ErrorAction SilentlyContinue |
+                        Where-Object { $_.DisplayName -match '(?i)^(Microsoft 365|Microsoft Office (Professional|Standard|Home|Business|Enterprise|LTSC|365|20\d{2}))' -and $_.DisplayName -notmatch '(?i)MUI|Proof|Shared|Component|Viewer|Redistributable|Visio|Project|Connector' } |
+                        Select-Object -ExpandProperty DisplayName -First 1
+                    if ($offApp) { $c2rProdIds = [string]$offApp }
+                }
+            } elseif ($s) {
+                try {
+                    $c2rRes = Invoke-CimMethod -CimSession $s -Namespace 'root\default' -ClassName StdRegProv -MethodName GetStringValue -Arguments @{
+                        hDefKey     = [uint32]2147483650
+                        sSubKeyName = 'SOFTWARE\Microsoft\Office\ClickToRun\Configuration'
+                        sValueName  = 'ProductReleaseIds'
+                    } -OperationTimeoutSec 10 -ErrorAction SilentlyContinue
+                    if ($c2rRes -and $c2rRes.sValue) { $c2rProdIds = [string]$c2rRes.sValue }
+                } catch {}
+            }
+
+            $officeSlp = @($slpItems | Where-Object { $_.Name -match 'Office|O16|O15|O14|0ff1ce15-a989-479d-af46-f275c6370663' })
+            $offParsed = Parse-OfficeLicenseInfo $c2rProdIds $officeSlp
+            $officeLicenseStr = $offParsed.Badge
+            $officeDetailStr  = $offParsed.Detail
+        } catch {}
+
+        if (($winLicenseStr -eq '-' -or [string]::IsNullOrWhiteSpace($winLicenseStr)) -and $prevWinLicense -ne '-') {
+            $winLicenseStr = $prevWinLicense
+        }
+        if (($officeLicenseStr -in @('-', 'None') -or [string]::IsNullOrWhiteSpace($officeLicenseStr)) -and $prevOfficeLicense -notin @('-', 'None')) {
+            $officeLicenseStr = $prevOfficeLicense
+            $officeDetailStr  = if ($prevOfficeDetail -and $prevOfficeDetail -ne '-') { $prevOfficeDetail } else { $prevOfficeLicense }
+        }
+
+        $ramVal = if ($ram) { [math]::Round(($ram | Measure-Object Capacity -Sum).Sum / 1GB) } else { '-' }
+        $disksVal = if ($disk) { ($disk | ForEach-Object { "$($_.Model) $([math]::Round($_.Size/1GB))GB" }) -join '; ' } else { '-' }
+        $gpuVal = if ($gpu) { ($gpu.Name) -join '; ' } else { '-' }
+        $ipVal = if ($net) { ($net.IPAddress | Where-Object { $_ -match '^\d+\.' }) -join ', ' } else { '-' }
+        $macVal = if ($net) { ($net.MACAddress) -join ', ' } else { '-' }
+
+        return New-HardwareRecord @{
+            PCName         = $cs.Name
+            Status         = 'OK'
+            Method         = $methodName
+            Status_Detail  = $statusDetail
+            Fail_Count     = 0
+            Win_License    = $winLicenseStr
+            Office_License = $officeLicenseStr
+            Office_Detail  = $officeDetailStr
+            User           = $cs.UserName
+            Maker          = $cs.Manufacturer
+            Model          = $cs.Model
+            Serial         = $bios.SerialNumber
+            CPU            = if ($cpu) { $cpu.Name } else { '-' }
+            Cores          = if ($cpu) { $cpu.NumberOfCores } else { '-' }
+            RAM_GB         = $ramVal
+            Disk_C_Free    = $cDiskSummary
+            Disks          = $disksVal
+            GPU            = $gpuVal
+            OS             = $os.Caption
+            OSBuild        = $os.BuildNumber
+            Last_Boot      = $lastBootStr
+            Uptime         = $uptimeStr
+            AD_LastLogon   = $ad.AD_LastLogon
+            AD_OU          = $ad.AD_OU
+            IP             = $ipVal
+            MAC            = $macVal
+            Scan_Count     = 1
+            First_Seen     = Get-Date -Format 'yyyy-MM-dd HH:mm'
+            Last_Scan      = Get-Date -Format 'yyyy-MM-dd HH:mm'
+        }
+    } catch {
+        return $null
+    }
+}
+
+function Get-HardwareFromRemoteRegistry {
+    param(
+        [string]$targetAddress,
+        [string]$expectedHost,
+        [string]$prevWinLicense = '-',
+        [string]$prevOfficeLicense = '-',
+        [string]$prevOfficeDetail = '-',
+        [hashtable]$ad = @{}
+    )
+    try {
+        $reg = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, $targetAddress)
+        if (-not $reg) { return $null }
+
+        # Verify hostname to prevent DHCP collision
+        $compKey = $reg.OpenSubKey('SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName')
+        $actualName = if ($compKey) { [string]$compKey.GetValue('ComputerName') } else { '' }
+        if ($compKey) { $compKey.Close() }
+
+        $expectedShort = ($expectedHost -split '\.')[0]
+        if ($actualName -and ($actualName -inotmatch "^$([regex]::Escape($expectedShort))$")) {
+            $reg.Close()
+            return $null
+        }
+        $reportedName = if ($actualName) { $actualName } else { $expectedShort }
+
+        # CPU & Cores
+        $cpuKey = $reg.OpenSubKey('HARDWARE\DESCRIPTION\System\CentralProcessor\0')
+        $cpuName = if ($cpuKey) { [string]$cpuKey.GetValue('ProcessorNameString') } else { '-' }
+        if ($cpuKey) { $cpuKey.Close() }
+
+        $cpuRoot = $reg.OpenSubKey('HARDWARE\DESCRIPTION\System\CentralProcessor')
+        $cores = if ($cpuRoot) { ($cpuRoot.GetSubKeyNames()).Count } else { 0 }
+        if ($cpuRoot) { $cpuRoot.Close() }
+
+        # BIOS
+        $biosKey = $reg.OpenSubKey('HARDWARE\DESCRIPTION\System\BIOS')
+        $maker = if ($biosKey) { [string]$biosKey.GetValue('SystemManufacturer') } else { '-' }
+        $model = if ($biosKey) { [string]$biosKey.GetValue('SystemProductName') } else { '-' }
+        $serial = if ($biosKey) {
+            $s = [string]$biosKey.GetValue('BaseBoardSerialNumber')
+            if (-not $s) { $s = [string]$biosKey.GetValue('SystemSerialNumber') }
+            $s
+        } else { '-' }
+        if ($biosKey) { $biosKey.Close() }
+
+        # OS & Build
+        $ntKey = $reg.OpenSubKey('SOFTWARE\Microsoft\Windows NT\CurrentVersion')
+        $osCaption = if ($ntKey) { [string]$ntKey.GetValue('ProductName') } else { 'Windows' }
+        $osBuild = if ($ntKey) { [string]$ntKey.GetValue('CurrentBuild') } else { '-' }
+        if ($ntKey) { $ntKey.Close() }
+
+        # User
+        $userKey = $reg.OpenSubKey('SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI')
+        $lastUser = if ($userKey) { [string]$userKey.GetValue('LastLoggedOnUser') } else { '-' }
+        if ($userKey) { $userKey.Close() }
+
+        # Office ClickToRun
+        $c2rKey = $reg.OpenSubKey('SOFTWARE\Microsoft\Office\ClickToRun\Configuration')
+        $c2rProds = if ($c2rKey) { [string]$c2rKey.GetValue('ProductReleaseIds') } else { '' }
+        if ($c2rKey) { $c2rKey.Close() }
+
+        $offParsed = if ($c2rProds) { Parse-OfficeLicenseInfo $c2rProds @() } else { @{ Badge = $prevOfficeLicense; Detail = $prevOfficeDetail } }
+
+        $reg.Close()
+
+        return New-HardwareRecord @{
+            PCName         = $reportedName
+            Status         = 'OK'
+            Method         = '⚡ Reg-445'
+            Status_Detail  = 'Rescued via Remote Registry over SMB Port 445'
+            Fail_Count     = 0
+            Win_License    = if ($prevWinLicense -and $prevWinLicense -ne '-') { $prevWinLicense } else { 'OEM/Retail (Activated)' }
+            Office_License = if ($offParsed.Badge -and $offParsed.Badge -notin @('-', 'None')) { $offParsed.Badge } else { $prevOfficeLicense }
+            Office_Detail  = if ($offParsed.Detail -and $offParsed.Detail -ne '-') { $offParsed.Detail } else { $prevOfficeDetail }
+            User           = $lastUser
+            Maker          = $maker
+            Model          = $model
+            Serial         = $serial
+            CPU            = $cpuName
+            Cores          = $cores
+            RAM_GB         = '-'
+            Disk_C_Free    = '-'
+            Disks          = '-'
+            GPU            = '-'
+            OS             = $osCaption
+            OSBuild        = $osBuild
+            Last_Boot      = '-'
+            Uptime         = '-'
+            AD_LastLogon   = $ad.AD_LastLogon
+            AD_OU          = $ad.AD_OU
+            IP             = $targetAddress
+            MAC            = '-'
+            Scan_Count     = 1
+            First_Seen     = Get-Date -Format 'yyyy-MM-dd HH:mm'
+            Last_Scan      = Get-Date -Format 'yyyy-MM-dd HH:mm'
+        }
+    } catch {
+        return $null
+    }
+}
+
+function Get-HardwareFromPSRemoting {
+    param(
+        [string]$targetAddress,
+        [string]$expectedHost,
+        [string]$prevWinLicense = '-',
+        [string]$prevOfficeLicense = '-',
+        [string]$prevOfficeDetail = '-',
+        [hashtable]$ad = @{}
+    )
+    try {
+        $expectedShort = ($expectedHost -split '\.')[0]
+        $remoteRes = Invoke-Command -ComputerName $targetAddress -ScriptBlock {
+            $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue
+            $bios = Get-CimInstance Win32_BIOS -ErrorAction SilentlyContinue
+            $os = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+            $cpu = Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1
+            $disk = Get-CimInstance Win32_DiskDrive -ErrorAction SilentlyContinue
+            $gpu = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue
+            $ram = Get-CimInstance Win32_PhysicalMemory -ErrorAction SilentlyContinue
+            $net = Get-CimInstance Win32_NetworkAdapterConfiguration -ErrorAction SilentlyContinue | Where-Object IPEnabled
+            $cDrive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction SilentlyContinue
+            [pscustomobject]@{
+                Name = $cs.Name; User = $cs.UserName; Maker = $cs.Manufacturer; Model = $cs.Model
+                Serial = $bios.SerialNumber; CPU = $cpu.Name; Cores = $cpu.NumberOfCores
+                RAM = ($ram | Measure-Object Capacity -Sum).Sum
+                Disks = ($disk | ForEach-Object { "$($_.Model) $([math]::Round($_.Size/1GB))GB" }) -join '; '
+                GPU = ($gpu.Name) -join '; '
+                OS = $os.Caption; OSBuild = $os.BuildNumber; LastBoot = $os.LastBootUpTime
+                IP = ($net.IPAddress | Where-Object { $_ -match '^\d+\.' }) -join ', '
+                MAC = ($net.MACAddress) -join ', '
+                C_Free = $cDrive.FreeSpace; C_Total = $cDrive.Size
+            }
+        } -OperationTimeoutSec 15 -ErrorAction Stop
+
+        if (-not $remoteRes) { return $null }
+
+        if ($remoteRes.Name -and ($remoteRes.Name -inotmatch "^$([regex]::Escape($expectedShort))$")) {
+            return $null
+        }
+
+        $ramGb = if ($remoteRes.RAM -gt 0) { [math]::Round($remoteRes.RAM / 1GB) } else { '-' }
+        $cSummary = '-'
+        if ($remoteRes.C_Total -gt 0) {
+            $fGB = [math]::Round($remoteRes.C_Free / 1GB, 1)
+            $tGB = [math]::Round($remoteRes.C_Total / 1GB, 0)
+            $pct = [math]::Round(($remoteRes.C_Free / $remoteRes.C_Total) * 100, 0)
+            $cSummary = "$fGB / $tGB GB ($pct% free)"
+        }
+
+        return New-HardwareRecord @{
+            PCName         = if ($remoteRes.Name) { $remoteRes.Name } else { $expectedShort }
+            Status         = 'OK'
+            Method         = '⚡ PS-Remote'
+            Status_Detail  = 'Rescued via PowerShell Remoting (Invoke-Command)'
+            Fail_Count     = 0
+            Win_License    = if ($prevWinLicense -and $prevWinLicense -ne '-') { $prevWinLicense } else { 'OEM/Retail (Activated)' }
+            Office_License = $prevOfficeLicense
+            Office_Detail  = $prevOfficeDetail
+            User           = $remoteRes.User
+            Maker          = $remoteRes.Maker
+            Model          = $remoteRes.Model
+            Serial         = $remoteRes.Serial
+            CPU            = $remoteRes.CPU
+            Cores          = $remoteRes.Cores
+            RAM_GB         = $ramGb
+            Disk_C_Free    = $cSummary
+            Disks          = $remoteRes.Disks
+            GPU            = $remoteRes.GPU
+            OS             = $remoteRes.OS
+            OSBuild        = $remoteRes.OSBuild
+            Last_Boot      = '-'
+            Uptime         = '-'
+            AD_LastLogon   = $ad.AD_LastLogon
+            AD_OU          = $ad.AD_OU
+            IP             = if ($remoteRes.IP) { $remoteRes.IP } else { $targetAddress }
+            MAC            = $remoteRes.MAC
+            Scan_Count     = 1
+            First_Seen     = Get-Date -Format 'yyyy-MM-dd HH:mm'
+            Last_Scan      = Get-Date -Format 'yyyy-MM-dd HH:mm'
+        }
+    } catch {
+        return $null
+    }
+}
+
+function Invoke-DeepPenetrationScan {
+    param(
+        [string]$pc,
+        [hashtable]$ad,
+        [object]$oldRecord,
+        [int]$prevFailCount = 0,
+        [string]$prevWinLicense = '-',
+        [string]$prevOfficeLicense = '-',
+        [string]$prevOfficeDetail = '-',
+        [hashtable]$masterDict = @{},
+        [bool]$wasError = $false
+    )
+
+    $shortName = ($pc -split '\.')[0]
+    $candidates = Resolve-PCTargets -pc $pc -adInfo $ad -masterDict $masterDict
+
+    # Smart Fast-Gate Check
+    $hasAlive = $false
+    $responsiveTarget = $null
+    if ($wasError) {
+        $hasAlive = $true
+    } else {
+        foreach ($cand in $candidates) {
+            if (Test-EndpointAlive -endpoint $cand.Address -timeoutMs 800) {
+                $hasAlive = $true
+                $responsiveTarget = $cand.Address
+                break
+            }
+        }
+    }
+
+    if (-not $hasAlive) {
+        return $null
+    }
+
+    $orderedTargets = [System.Collections.Generic.List[string]]::new()
+    if ($responsiveTarget) { $orderedTargets.Add($responsiveTarget) }
+    foreach ($c in $candidates) {
+        if (-not $orderedTargets.Contains($c.Address)) {
+            $orderedTargets.Add($c.Address)
+        }
+    }
+
+    # Stage 1: WinRM (WSMAN Port 5985)
+    foreach ($cand in $orderedTargets) {
+        try {
+            $opt = New-CimSessionOption -Protocol Wsman
+            $s = New-CimSession -ComputerName $cand -SessionOption $opt -OperationTimeoutSec 10 -ErrorAction Stop
+            $cs = Get-CimInstance Win32_ComputerSystem -CimSession $s -OperationTimeoutSec 10 -ErrorAction Stop
+            if ($cs -and $cs.Name -and ($cs.Name -ieq $shortName)) {
+                $rec = Get-HardwareFromCimSession -s $s -pcTarget $cand -isLocal $false `
+                    -prevWinLicense $prevWinLicense -prevOfficeLicense $prevOfficeLicense -prevOfficeDetail $prevOfficeDetail `
+                    -ad $ad -methodName '⚡ WinRM' -statusDetail "Rescued via WinRM (WSMAN:5985 on $cand)"
+                Remove-CimSession $s -ErrorAction SilentlyContinue
+                if ($rec) {
+                    $script:rescuedEndpoints[$pc.ToUpper()] = $cand
+                    return $rec
+                }
+            } else {
+                Remove-CimSession $s -ErrorAction SilentlyContinue
+            }
+        } catch { }
+    }
+
+    # Stage 2: Direct IPv4 via Legacy WMI / DCOM (Forces NTLM over Kerberos)
+    $ipCandidates = @($orderedTargets | Where-Object { $_ -match '^\d+\.\d+\.\d+\.\d+$' })
+    foreach ($ipCand in $ipCandidates) {
+        try {
+            $opt = New-CimSessionOption -Protocol Dcom
+            $s = New-CimSession -ComputerName $ipCand -SessionOption $opt -OperationTimeoutSec 12 -ErrorAction Stop
+            $cs = Get-CimInstance Win32_ComputerSystem -CimSession $s -OperationTimeoutSec 10 -ErrorAction Stop
+            if ($cs -and $cs.Name -and ($cs.Name -ieq $shortName)) {
+                $rec = Get-HardwareFromCimSession -s $s -pcTarget $ipCand -isLocal $false `
+                    -prevWinLicense $prevWinLicense -prevOfficeLicense $prevOfficeLicense -prevOfficeDetail $prevOfficeDetail `
+                    -ad $ad -methodName '⚡ IP-WMI' -statusDetail "Rescued via Direct IP DCOM ($ipCand)"
+                Remove-CimSession $s -ErrorAction SilentlyContinue
+                if ($rec) {
+                    $script:rescuedEndpoints[$pc.ToUpper()] = $ipCand
+                    return $rec
+                }
+            } else {
+                Remove-CimSession $s -ErrorAction SilentlyContinue
+            }
+        } catch { }
+    }
+
+    # Stage 3: PowerShell Remoting (Invoke-Command)
+    foreach ($cand in $orderedTargets) {
+        $rec = Get-HardwareFromPSRemoting -targetAddress $cand -expectedHost $pc `
+            -prevWinLicense $prevWinLicense -prevOfficeLicense $prevOfficeLicense -prevOfficeDetail $prevOfficeDetail -ad $ad
+        if ($rec) {
+            $script:rescuedEndpoints[$pc.ToUpper()] = $cand
+            return $rec
+        }
+    }
+
+    # Stage 4: Remote Registry over SMB Port 445
+    foreach ($cand in $orderedTargets) {
+        $rec = Get-HardwareFromRemoteRegistry -targetAddress $cand -expectedHost $pc `
+            -prevWinLicense $prevWinLicense -prevOfficeLicense $prevOfficeLicense -prevOfficeDetail $prevOfficeDetail -ad $ad
+        if ($rec) {
+            $script:rescuedEndpoints[$pc.ToUpper()] = $cand
+            return $rec
+        }
+    }
+
+    # Stage 5: Extended Timeout DCOM on AD FQDN
+    if ($ad.AD_DNSHostName) {
+        try {
+            $opt = New-CimSessionOption -Protocol Dcom
+            $s = New-CimSession -ComputerName $ad.AD_DNSHostName -SessionOption $opt -OperationTimeoutSec 20 -ErrorAction Stop
+            $cs = Get-CimInstance Win32_ComputerSystem -CimSession $s -OperationTimeoutSec 15 -ErrorAction Stop
+            if ($cs -and $cs.Name -and ($cs.Name -ieq $shortName)) {
+                $rec = Get-HardwareFromCimSession -s $s -pcTarget $ad.AD_DNSHostName -isLocal $false `
+                    -prevWinLicense $prevWinLicense -prevOfficeLicense $prevOfficeLicense -prevOfficeDetail $prevOfficeDetail `
+                    -ad $ad -methodName '⚡ FQDN-DCOM' -statusDetail "Rescued via Extended DCOM on FQDN ($($ad.AD_DNSHostName))"
+                Remove-CimSession $s -ErrorAction SilentlyContinue
+                if ($rec) {
+                    $script:rescuedEndpoints[$pc.ToUpper()] = $ad.AD_DNSHostName
+                    return $rec
+                }
+            } else {
+                Remove-CimSession $s -ErrorAction SilentlyContinue
+            }
+        } catch { }
+    }
+
+    return $null
+}
+
+# ================= 2) Hardware Scan (2-Pass: Fast Pass 1 -> Deep Penetration Pass 2) =================
 if (-not $SkipHardware) {
-    Write-Host '[STEP:2] Hardware Scan (WMI/CIM)...' -ForegroundColor Cyan
+    Write-Host '[STEP:2] Hardware Scan (Fast Pass 1 -> Deep Penetration Pass 2)...' -ForegroundColor Cyan
     Write-Host '--- Hardware scan ---'
 
     # Pre-load Master Database to track Fail_Count & preserve previous license/specs
@@ -658,6 +1280,7 @@ if (-not $SkipHardware) {
         }
     }
 
+    $stubbornQueue = [System.Collections.Generic.List[hashtable]]::new()
     $i = 0
     $hw = @(foreach ($pc in $pcs) {
         $i++
@@ -732,214 +1355,45 @@ if (-not $SkipHardware) {
             }
             $itemOffline = New-HardwareRecord $hData
             Write-Host ('[LIVE_PC] ' + ($itemOffline | ConvertTo-Json -Compress))
+            $stubbornQueue.Add(@{
+                PC         = $pc
+                OldRecord  = $oldRecord
+                Reason     = 'Offline'
+                PrevFail   = $prevFailCount
+                WinLic     = $prevWinLicense
+                OffLic     = $prevOfficeLicense
+                OffDet     = $prevOfficeDetail
+                AD         = $ad
+            })
             $itemOffline
             continue
         }
+
         try {
             $isLocal = ($pc -eq $env:COMPUTERNAME -or $pc -eq 'localhost' -or $pc -eq '127.0.0.1')
             $s = $null
-            if ($isLocal) {
-                $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
-                $bios = Get-CimInstance Win32_BIOS -ErrorAction Stop
-                $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
-                $cpu = Get-CimInstance Win32_Processor -ErrorAction Stop | Select-Object -First 1
-                $disk = Get-CimInstance Win32_DiskDrive -ErrorAction Stop
-                $gpu = Get-CimInstance Win32_VideoController -ErrorAction Stop
-                $ram = Get-CimInstance Win32_PhysicalMemory -ErrorAction Stop
-                $net = Get-CimInstance Win32_NetworkAdapterConfiguration -ErrorAction Stop | Where-Object IPEnabled
-                $cDrive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction SilentlyContinue
-            } else {
+            if (-not $isLocal) {
                 $opt = New-CimSessionOption -Protocol Dcom
                 $s = New-CimSession -ComputerName $pc -SessionOption $opt -OperationTimeoutSec 15 -ErrorAction Stop
-                $cs = Get-CimInstance Win32_ComputerSystem -CimSession $s
-                $bios = Get-CimInstance Win32_BIOS -CimSession $s
-                $os = Get-CimInstance Win32_OperatingSystem -CimSession $s
-                $cpu = Get-CimInstance Win32_Processor -CimSession $s | Select-Object -First 1
-                $disk = Get-CimInstance Win32_DiskDrive -CimSession $s
-                $gpu = Get-CimInstance Win32_VideoController -CimSession $s
-                $ram = Get-CimInstance Win32_PhysicalMemory -CimSession $s
-                $net = Get-CimInstance Win32_NetworkAdapterConfiguration -CimSession $s | Where-Object IPEnabled
-                $cDrive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'" -CimSession $s -ErrorAction SilentlyContinue
-            }
-
-            # Refresh oldRecord using resolved actual hostname ($cs.Name) when scanning by IP or alias
-            if ($cs -and $cs.Name) {
-                $realKey = $cs.Name.ToUpper()
-                if ((-not $oldRecord) -and $masterDict.Contains($realKey)) {
-                    $oldRecord = $masterDict[$realKey]
-                    if ($oldRecord.Fail_Count) { [int]::TryParse([string]$oldRecord.Fail_Count, [ref]$prevFailCount) | Out-Null }
-                    if ($oldRecord.Win_License -and $oldRecord.Win_License -ne '-') { $prevWinLicense = $oldRecord.Win_License }
-                    if ($oldRecord.Office_License -and $oldRecord.Office_License -notin @('-', 'None')) { $prevOfficeLicense = $oldRecord.Office_License }
-                    if ($oldRecord.Office_Detail -and $oldRecord.Office_Detail -notin @('-', 'No Microsoft Office installation detected')) { $prevOfficeDetail = $oldRecord.Office_Detail }
-                }
-            }
-
-            # Skip server if detected by OS ProductType (1=Workstation, 2=Domain Controller, 3=Server)
-            if ($SkipServers -and -not $isLocal -and $os -and $os.ProductType -and $os.ProductType -ne 1) {
-                Write-Host "  [SKIP SERVER] Skipping $pc (Detected Server OS: $($os.Caption))" -ForegroundColor Yellow
-                if ($s) { Remove-CimSession $s -ErrorAction SilentlyContinue }
-                continue
-            }
-            $lastBootStr = '-'
-            $uptimeStr = '-'
-            if ($os.LastBootUpTime) {
-                try {
-                    $bootDt = if ($os.LastBootUpTime -is [datetime]) { $os.LastBootUpTime } else { [datetime]$os.LastBootUpTime }
-                    $lastBootStr = $bootDt.ToString('yyyy-MM-dd HH:mm')
-                    $diff = (Get-Date) - $bootDt
-                    if ($diff.TotalDays -ge 1) {
-                        $uptimeStr = "$([math]::Floor($diff.TotalDays))d $([int]$diff.Hours)h"
-                    } else {
-                        $uptimeStr = "$([int]$diff.Hours)h $([int]$diff.Minutes)m"
-                    }
-                } catch {}
-            }
-
-            # Extended metrics: C: Free Space
-            $cDiskSummary = '-'
-            if ($cDrive -and $cDrive.Size -gt 0) {
-                try {
-                    $freeB = [double]$cDrive.FreeSpace
-                    $totalB = [double]$cDrive.Size
-                    $cFreeGB = [math]::Round($freeB / 1GB, 1)
-                    $cTotalGB = [math]::Round($totalB / 1GB, 0)
-                    $pct = [math]::Round(($freeB / $totalB) * 100, 0)
-                    $cDiskSummary = "$cFreeGB / $cTotalGB GB ($pct% free)"
-                } catch {}
             }
 
             $ad = Get-ADInfo $pc
-
-            # Query Windows & Office License Channel & Activation Status (with extended timeout & registry fallback)
-            $winLicenseStr = '-'
-            $officeLicenseStr = '-'
-            $officeDetailStr = '-'
-            try {
-                $slpItems = if ($isLocal) {
-                    @(Get-CimInstance SoftwareLicensingProduct -Filter "PartialProductKey is not null" -ErrorAction SilentlyContinue)
-                } elseif ($s) {
-                    @(Get-CimInstance SoftwareLicensingProduct -CimSession $s -Filter "PartialProductKey is not null" -OperationTimeoutSec 25 -ErrorAction SilentlyContinue)
-                } else { @() }
-
-                # 1. Windows License
-                $winLic = $slpItems | Where-Object { $_.ApplicationID -eq '55c92734-d682-4d71-983e-d6ec3f16059f' } | Sort-Object LicenseStatus -Descending | Select-Object -First 1
-                if (-not $winLic) {
-                    $winLic = $slpItems | Where-Object { $_.Name -match '(?i)Windows' -and $null -ne $_.LicenseStatus } | Sort-Object LicenseStatus -Descending | Select-Object -First 1
-                }
-                if ($winLic) {
-                    $rawChan = if ($winLic.ProductKeyChannel) { $winLic.ProductKeyChannel } else { [string]$winLic.Description }
-                    $chan = if ($rawChan -match '(?i)OEM') {
-                        'OEM'
-                    } elseif ($rawChan -match '(?i)VOLUME_KMS|Volume:GVLK|KMS') {
-                        'Volume (KMS)'
-                    } elseif ($rawChan -match '(?i)VOLUME_MAK|MAK') {
-                        'Volume (MAK)'
-                    } elseif ($rawChan -match '(?i)Volume') {
-                        'Volume'
-                    } elseif ($rawChan -match '(?i)RETAIL') {
-                        'Retail'
-                    } else {
-                        'OEM/Retail'
-                    }
-                    $actStatus = if ($winLic.LicenseStatus -eq 1) { 'Activated' } elseif ($winLic.LicenseStatus -eq 0) { 'Unlicensed' } else { 'Grace' }
-                    $winLicenseStr = "$chan ($actStatus)"
-                } else {
-                    # Fallback to SoftwareLicensingService OA3 key check if SoftwareLicensingProduct timed out
-                    try {
-                        $sls = if ($isLocal) {
-                            Get-CimInstance SoftwareLicensingService -ErrorAction SilentlyContinue
-                        } elseif ($s) {
-                            Get-CimInstance SoftwareLicensingService -CimSession $s -OperationTimeoutSec 10 -ErrorAction SilentlyContinue
-                        } else { $null }
-                        if ($sls) {
-                            if ($sls.OA3xOriginalProductKey) {
-                                $winLicenseStr = 'OEM (Activated)'
-                            } elseif ($sls.KeyManagementServiceMachine) {
-                                $winLicenseStr = 'Volume (KMS) (Activated)'
-                            }
-                        }
-                    } catch {}
-                }
-
-                if (($winLicenseStr -eq '-' -or [string]::IsNullOrWhiteSpace($winLicenseStr)) -and $prevWinLicense -ne '-') {
-                    $winLicenseStr = $prevWinLicense
-                }
-
-                # 2. Office License
-                $c2rProdIds = ''
-                if ($isLocal) {
-                    $c2r = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Office\ClickToRun\Configuration' -ErrorAction SilentlyContinue
-                    if ($c2r -and $c2r.ProductReleaseIds) { $c2rProdIds = [string]$c2r.ProductReleaseIds }
-                    if (-not $c2rProdIds) {
-                        $uninstPaths = @(
-                            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
-                            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
-                        )
-                        $offApp = Get-ItemProperty $uninstPaths -ErrorAction SilentlyContinue |
-                            Where-Object { $_.DisplayName -match '(?i)^(Microsoft 365|Microsoft Office (Professional|Standard|Home|Business|Enterprise|LTSC|365|20\d{2}))' -and $_.DisplayName -notmatch '(?i)MUI|Proof|Shared|Component|Viewer|Redistributable|Visio|Project|Connector' } |
-                            Select-Object -ExpandProperty DisplayName -First 1
-                        if ($offApp) { $c2rProdIds = [string]$offApp }
-                    }
-                } elseif ($s) {
-                    try {
-                        $c2rRes = Invoke-CimMethod -CimSession $s -Namespace 'root\default' -ClassName StdRegProv -MethodName GetStringValue -Arguments @{
-                            hDefKey     = [uint32]2147483650 # HKLM
-                            sSubKeyName = 'SOFTWARE\Microsoft\Office\ClickToRun\Configuration'
-                            sValueName  = 'ProductReleaseIds'
-                        } -OperationTimeoutSec 10 -ErrorAction SilentlyContinue
-                        if ($c2rRes -and $c2rRes.sValue) { $c2rProdIds = [string]$c2rRes.sValue }
-                    } catch {}
-                }
-
-                $officeSlp = @($slpItems | Where-Object { $_.Name -match 'Office|O16|O15|O14|0ff1ce15-a989-479d-af46-f275c6370663' })
-                $offParsed = Parse-OfficeLicenseInfo $c2rProdIds $officeSlp
-                $officeLicenseStr = $offParsed.Badge
-                $officeDetailStr  = $offParsed.Detail
-            } catch {}
+            $rec = Get-HardwareFromCimSession -s $s -pcTarget $pc -isLocal $isLocal `
+                -prevWinLicense $prevWinLicense -prevOfficeLicense $prevOfficeLicense -prevOfficeDetail $prevOfficeDetail `
+                -ad $ad -methodName (if ($script:lastConnInfo -and $script:lastConnInfo.Method) { $script:lastConnInfo.Method } else { 'DCOM' }) `
+                -statusDetail 'Hardware scan completed successfully' -skipServerCheck $SkipServers
 
             if ($s) { Remove-CimSession $s -ErrorAction SilentlyContinue }
 
-            if (($winLicenseStr -eq '-' -or [string]::IsNullOrWhiteSpace($winLicenseStr)) -and $prevWinLicense -ne '-') {
-                $winLicenseStr = $prevWinLicense
+            if ($rec -and $rec.SkipServer) {
+                continue
             }
-            if (($officeLicenseStr -in @('-', 'None') -or [string]::IsNullOrWhiteSpace($officeLicenseStr)) -and $prevOfficeLicense -notin @('-', 'None')) {
-                $officeLicenseStr = $prevOfficeLicense
-                $officeDetailStr  = if ($prevOfficeDetail -and $prevOfficeDetail -ne '-') { $prevOfficeDetail } else { $prevOfficeLicense }
+            if ($rec) {
+                Write-Host ('[LIVE_PC] ' + ($rec | ConvertTo-Json -Compress))
+                $rec
+            } else {
+                throw "CIM instance retrieval failed"
             }
-
-            $itemOk = New-HardwareRecord @{
-                PCName         = $cs.Name
-                Status         = 'OK'
-                Method         = if ($script:lastConnInfo -and $script:lastConnInfo.Method) { $script:lastConnInfo.Method } else { 'WMI' }
-                Status_Detail  = 'Hardware scan completed successfully'
-                Fail_Count     = 0
-                Win_License    = $winLicenseStr
-                Office_License = $officeLicenseStr
-                Office_Detail  = $officeDetailStr
-                User           = $cs.UserName
-                Maker          = $cs.Manufacturer
-                Model          = $cs.Model
-                Serial         = $bios.SerialNumber
-                CPU            = $cpu.Name
-                Cores          = $cpu.NumberOfCores
-                RAM_GB         = [math]::Round(($ram | Measure-Object Capacity -Sum).Sum / 1GB)
-                Disk_C_Free    = $cDiskSummary
-                Disks          = ($disk | ForEach-Object { "$($_.Model) $([math]::Round($_.Size/1GB))GB" }) -join '; '
-                GPU            = ($gpu.Name) -join '; '
-                OS             = $os.Caption
-                OSBuild        = $os.BuildNumber
-                Last_Boot      = $lastBootStr
-                Uptime         = $uptimeStr
-                AD_LastLogon   = $ad.AD_LastLogon
-                AD_OU          = $ad.AD_OU
-                IP             = ($net.IPAddress | Where-Object { $_ -match '^\d+\.' }) -join ', '
-                MAC            = ($net.MACAddress) -join ', '
-                Scan_Count     = 1
-                First_Seen     = Get-Date -Format 'yyyy-MM-dd HH:mm'
-                Last_Scan      = Get-Date -Format 'yyyy-MM-dd HH:mm'
-            }
-            Write-Host ('[LIVE_PC] ' + ($itemOk | ConvertTo-Json -Compress))
-            $itemOk
         }
         catch {
             if ($s) { Remove-CimSession $s -ErrorAction SilentlyContinue }
@@ -977,10 +1431,107 @@ if (-not $SkipHardware) {
             }
             $itemErr = New-HardwareRecord $hDataErr
             Write-Host ('[LIVE_PC] ' + ($itemErr | ConvertTo-Json -Compress))
+            $stubbornQueue.Add(@{
+                PC         = $pc
+                OldRecord  = $oldRecord
+                Reason     = 'Error'
+                PrevFail   = $prevFailCount
+                WinLic     = $prevWinLicense
+                OffLic     = $prevOfficeLicense
+                OffDet     = $prevOfficeDetail
+                ErrorMsg   = $_.Exception.Message
+                AD         = $ad
+            })
             $itemErr
         }
     })
     Write-Progress -Activity 'Hardware scan' -Completed
+
+    # ================= Pass 2: Automatic Deep Penetration ("Heavy Mode") =================
+    if ($stubbornQueue.Count -gt 0) {
+        Write-Host ""
+        Write-Host "[STEP:2.5] Pass 2: Automatic Deep Penetration Scan ('Heavy Mode') for $($stubbornQueue.Count) stubborn hosts..." -ForegroundColor Magenta
+        Write-Host "Flushing local DNS resolver cache (ipconfig /flushdns)..." -ForegroundColor Cyan
+        try { ipconfig /flushdns | Out-Null } catch {}
+
+        $sIdx = 0
+        foreach ($stub in $stubbornQueue) {
+            $sIdx++
+            $sPc = $stub.PC
+            Write-Host "[STAGE:DEEP|$sIdx|$($stubbornQueue.Count)] Deep probing stubborn host: $sPc ($sIdx/$($stubbornQueue.Count))..." -ForegroundColor Magenta
+
+            # Live UI indicator: ⚡ Deep Scan
+            $deepIndicator = New-HardwareRecord @{
+                PCName        = $sPc
+                Status        = 'Deep Scanning'
+                Method        = '⚡ Probing'
+                Status_Detail = 'Executing 5-stage penetration chain...'
+                Fail_Count    = $stub.PrevFail
+            }
+            Write-Host ('[LIVE_PC] ' + ($deepIndicator | ConvertTo-Json -Compress))
+
+            $rescued = Invoke-DeepPenetrationScan `
+                -pc $sPc `
+                -ad (if ($stub.AD) { $stub.AD } else { Get-ADInfo $sPc }) `
+                -oldRecord $stub.OldRecord `
+                -prevFailCount $stub.PrevFail `
+                -prevWinLicense $stub.WinLic `
+                -prevOfficeLicense $stub.OffLic `
+                -prevOfficeDetail $stub.OffDet `
+                -masterDict $masterDict `
+                -wasError ($stub.Reason -eq 'Error')
+
+            if ($rescued -and $rescued.Status -eq 'OK') {
+                Write-Host "  [RESCUED] $sPc penetrated successfully! Method: $($rescued.Method)" -ForegroundColor Green
+                for ($k = 0; $k -lt $hw.Count; $k++) {
+                    if ($hw[$k].PCName -ieq $sPc) {
+                        $hw[$k] = $rescued
+                        break
+                    }
+                }
+                $masterDict[$sPc.ToUpper()] = $rescued
+                Write-Host ('[LIVE_PC] ' + ($rescued | ConvertTo-Json -Compress))
+            } else {
+                Write-Host "  [OFFLINE] $sPc confirmed offline or unreachable." -ForegroundColor Gray
+                $finalOff = New-HardwareRecord @{
+                    PCName        = $sPc
+                    Status        = 'Offline'
+                    Method        = 'Offline'
+                    Status_Detail = if ($stub.Reason -eq 'Error') { "Error: $($stub.ErrorMsg) (Deep probe exhausted)" } else { 'Host unreachable (confirmed powered off or offline)' }
+                    Fail_Count    = ($stub.PrevFail + 1)
+                    Win_License   = $stub.WinLic
+                    Office_License= $stub.OffLic
+                    Office_Detail = $stub.OffDet
+                    AD_LastLogon  = if ($stub.AD) { $stub.AD.AD_LastLogon } else { '-' }
+                    AD_OU         = if ($stub.AD) { $stub.AD.AD_OU } else { '-' }
+                }
+                if ($stub.OldRecord -and ($stub.OldRecord.Status -eq 'OK' -or $stub.OldRecord.CPU)) {
+                    $finalOff.Maker       = $stub.OldRecord.Maker
+                    $finalOff.Model       = $stub.OldRecord.Model
+                    $finalOff.Serial      = $stub.OldRecord.Serial
+                    $finalOff.CPU         = $stub.OldRecord.CPU
+                    $finalOff.Cores       = $stub.OldRecord.Cores
+                    $finalOff.RAM_GB      = $stub.OldRecord.RAM_GB
+                    $finalOff.Disk_C_Free = $stub.OldRecord.Disk_C_Free
+                    $finalOff.Disks       = $stub.OldRecord.Disks
+                    $finalOff.GPU         = $stub.OldRecord.GPU
+                    $finalOff.OS          = $stub.OldRecord.OS
+                    $finalOff.OSBuild     = $stub.OldRecord.OSBuild
+                    $finalOff.IP          = $stub.OldRecord.IP
+                    $finalOff.User        = $stub.OldRecord.User
+                }
+                for ($k = 0; $k -lt $hw.Count; $k++) {
+                    if ($hw[$k].PCName -ieq $sPc) {
+                        $hw[$k] = $finalOff
+                        break
+                    }
+                }
+                $masterDict[$sPc.ToUpper()] = $finalOff
+                Write-Host ('[LIVE_PC] ' + ($finalOff | ConvertTo-Json -Compress))
+            }
+        }
+    }
+
 
     # --- Master Database Synchronization ---
     if ($MasterMode) {
@@ -1128,7 +1679,8 @@ if ($Software) {
         Write-Host 'Method A: WinRM ...'
         Write-Progress -Activity 'Software scan' -Status 'Scanning via WinRM (parallel)...' -PercentComplete 75
         $winrmErr = @()
-        $rows = @(Invoke-Command -ComputerName $pcs -ScriptBlock $remoteBlock `
+        $swTargets = @($(foreach ($p in $pcs) { if ($script:rescuedEndpoints -and $script:rescuedEndpoints.ContainsKey($p.ToUpper())) { $script:rescuedEndpoints[$p.ToUpper()] } else { $p } }) | Select-Object -Unique)
+        $rows = @(Invoke-Command -ComputerName $swTargets -ScriptBlock $remoteBlock `
                 -ArgumentList $IncludeUserInstalls.IsPresent, $IncludeHidden.IsPresent `
                 -ThrottleLimit $Throttle -ErrorAction SilentlyContinue -ErrorVariable winrmErr)
     }
