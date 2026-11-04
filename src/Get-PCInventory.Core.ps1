@@ -1433,9 +1433,10 @@ if (-not $SkipHardware) {
             }
 
             $ad = Get-ADInfo $pc
+            $connMethod = if ($script:lastConnInfo -and $script:lastConnInfo.Method) { $script:lastConnInfo.Method } else { 'DCOM' }
             $rec = Get-HardwareFromCimSession -s $s -pcTarget $pc -isLocal $isLocal `
                 -prevWinLicense $prevWinLicense -prevOfficeLicense $prevOfficeLicense -prevOfficeDetail $prevOfficeDetail `
-                -ad $ad -methodName (if ($script:lastConnInfo -and $script:lastConnInfo.Method) { $script:lastConnInfo.Method } else { 'DCOM' }) `
+                -ad $ad -methodName $connMethod `
                 -statusDetail 'Hardware scan completed successfully' -skipServerCheck $SkipServers
 
             if ($s) { Remove-CimSession $s -ErrorAction SilentlyContinue }
@@ -1525,9 +1526,10 @@ if (-not $SkipHardware) {
             }
             Write-Host ('[LIVE_PC] ' + ($deepIndicator | ConvertTo-Json -Compress))
 
+            $stubAd = if ($stub.AD) { $stub.AD } else { Get-ADInfo $sPc }
             $rescued = Invoke-DeepPenetrationScan `
                 -pc $sPc `
-                -ad (if ($stub.AD) { $stub.AD } else { Get-ADInfo $sPc }) `
+                -ad $stubAd `
                 -oldRecord $stub.OldRecord `
                 -prevFailCount $stub.PrevFail `
                 -prevWinLicense $stub.WinLic `
