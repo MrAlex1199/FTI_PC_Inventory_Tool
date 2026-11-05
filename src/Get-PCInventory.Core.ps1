@@ -641,8 +641,231 @@ if ($pcs.Count -eq 0) {
 
 # --- Global Rescued Endpoints Cache (Host -> IP/FQDN) ---
 $script:rescuedEndpoints = @{}
+$script:subnetHostMap = @{}
 
 # ================= Helper Functions for Deep Penetration & Hardware Extraction =================
+
+function Encode-NetBiosName([string]$name, [byte]$suffix = 0x00) {
+    $padded = $name.Trim().ToUpper().PadRight(15, ' ')
+    if ($padded.Length -gt 15) { $padded = $padded.Substring(0, 15) }
+    $raw = [System.Text.Encoding]::ASCII.GetBytes($padded)
+    $encoded = New-Object byte[] 32
+    for ($i = 0; $i -lt 15; $i++) {
+        $b = $raw[$i]
+        $encoded[$i * 2] = [byte]((($b -shr 4) -band 0x0F) + 0x41)
+        $encoded[$i * 2 + 1] = [byte](($b -band 0x0F) + 0x41)
+    }
+    $encoded[30] = [byte]((($suffix -shr 4) -band 0x0F) + 0x41)
+    $encoded[31] = [byte](($suffix -band 0x0F) + 0x41)
+    return $encoded
+}
+
+function Build-NetBiosNameQueryPacket([string]$name) {
+    $pkt = New-Object System.Collections.Generic.List[byte]
+    # Transaction ID (0x1234)
+    $pkt.Add(0x12); $pkt.Add(0x34)
+    # Flags: 0x0110 (Query, Recursion Desired, Broadcast)
+    $pkt.Add(0x01); $pkt.Add(0x10)
+    # Questions: 1
+    $pkt.Add(0x00); $pkt.Add(0x01)
+    # Answers, Authority, Additional: 0
+    $pkt.Add(0x00); $pkt.Add(0x00)
+    $pkt.Add(0x00); $pkt.Add(0x00)
+    $pkt.Add(0x00); $pkt.Add(0x00)
+    # Question Name: Length = 32
+    $pkt.Add(0x20)
+    $enc = Encode-NetBiosName -name $name -suffix 0x00
+    foreach ($b in $enc) { $pkt.Add($b) }
+    $pkt.Add(0x00) # Terminator
+    # Type: NB (0x0020), Class: IN (0x0001)
+    $pkt.Add(0x00); $pkt.Add(0x20)
+    $pkt.Add(0x00); $pkt.Add(0x01)
+    return $pkt.ToArray()
+}
+
+function Build-NetBiosNodeStatusPacket() {
+    $pkt = New-Object System.Collections.Generic.List[byte]
+    $pkt.Add(0xAB); $pkt.Add(0xCD) # Transaction ID
+    $pkt.Add(0x00); $pkt.Add(0x00) # Query
+    $pkt.Add(0x00); $pkt.Add(0x01) # Question: 1
+    $pkt.Add(0x00); $pkt.Add(0x00)
+    $pkt.Add(0x00); $pkt.Add(0x00)
+    $pkt.Add(0x00); $pkt.Add(0x00)
+    $pkt.Add(0x20) # Length 32
+    # Wildcard '*' (0x2A) padded with spaces
+    $enc = Encode-NetBiosName -name '*' -suffix 0x00
+    foreach ($b in $enc) { $pkt.Add($b) }
+    $pkt.Add(0x00)
+    $pkt.Add(0x00); $pkt.Add(0x21) # Type: NBSTAT (0x0021)
+    $pkt.Add(0x00); $pkt.Add(0x01) # Class: IN (0x0001)
+    return $pkt.ToArray()
+}
+
+function Resolve-NetBiosDirectQuery([string]$targetHostName, [string]$subnetPrefix = '') {
+    $cleanName = ($targetHostName -split '\.')[0].Trim()
+    if ([string]::IsNullOrWhiteSpace($cleanName)) { return $null }
+
+    $destEndpoints = [System.Collections.Generic.List[System.Net.IPEndPoint]]::new()
+    if (-not [string]::IsNullOrWhiteSpace($subnetPrefix)) {
+        try {
+            $destEndpoints.Add([System.Net.IPEndPoint]::new([System.Net.IPAddress]::Parse("$subnetPrefix.255"), 137))
+        } catch {}
+    }
+    $destEndpoints.Add([System.Net.IPEndPoint]::new([System.Net.IPAddress]::Broadcast, 137))
+
+    $pkt = Build-NetBiosNameQueryPacket -name $cleanName
+    $udp = $null
+    $foundIps = [System.Collections.Generic.List[string]]::new()
+    try {
+        $udp = New-Object System.Net.Sockets.UdpClient
+        $udp.EnableBroadcast = $true
+        $udp.Client.ReceiveTimeout = 400
+
+        foreach ($ep in $destEndpoints) {
+            try {
+                [void]$udp.Send($pkt, $pkt.Length, $ep)
+            } catch {}
+        }
+
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        while ($sw.ElapsedMilliseconds -lt 600) {
+            try {
+                $remoteEp = New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Any, 0)
+                $resp = $udp.Receive([ref]$remoteEp)
+                if ($resp -and $resp.Length -ge 12) {
+                    $rIp = $remoteEp.Address.ToString()
+                    if ($rIp -notmatch '^(127\.|169\.254\.)' -and -not $foundIps.Contains($rIp)) {
+                        $foundIps.Add($rIp)
+                    }
+                }
+            } catch {
+                break
+            }
+        }
+    } catch {}
+    finally {
+        if ($udp) {
+            try { $udp.Close() } catch {}
+        }
+    }
+
+    return $foundIps
+}
+
+function Map-SubnetLiveHosts([string]$subnetPrefix) {
+    if ([string]::IsNullOrWhiteSpace($subnetPrefix)) { return @{} }
+    if ($script:subnetHostMap.ContainsKey($subnetPrefix)) {
+        return $script:subnetHostMap[$subnetPrefix]
+    }
+
+    $map = @{}
+    $pkt = Build-NetBiosNodeStatusPacket
+    $udp = $null
+    try {
+        $udp = New-Object System.Net.Sockets.UdpClient
+        $udp.Client.ReceiveTimeout = 500
+
+        # Fast parallel blast: send Unicast NBSTAT query to all 254 hosts in the /24 subnet
+        for ($i = 1; $i -le 254; $i++) {
+            $destIp = "$subnetPrefix.$i"
+            try {
+                [void]$udp.Send($pkt, $pkt.Length, $destIp, 137)
+            } catch {}
+        }
+
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        while ($sw.ElapsedMilliseconds -lt 1200) {
+            try {
+                $remoteEp = New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Any, 0)
+                $resp = $udp.Receive([ref]$remoteEp)
+                if ($resp -and $resp.Length -gt 56) {
+                    $rIp = $remoteEp.Address.ToString()
+                    # Parse NetBIOS names count at offset 56
+                    $numNames = [int]$resp[56]
+                    $offset = 57
+                    for ($n = 0; $n -lt $numNames; $n++) {
+                        if (($offset + 18) -le $resp.Length) {
+                            $rawNameBytes = New-Object byte[] 15
+                            [System.Array]::Copy($resp, $offset, $rawNameBytes, 0, 15)
+                            $nameStr = ([System.Text.Encoding]::ASCII.GetString($rawNameBytes)).Trim()
+                            $suffixByte = $resp[$offset + 15]
+                            $nameFlags = [BitConverter]::ToUInt16($resp, $offset + 16)
+                            $isGroup = ($nameFlags -band 0x8000) -ne 0
+
+                            # Suffix 0x00 or 0x20 and not a group/workgroup name -> Machine Name!
+                            if (-not $isGroup -and ($suffixByte -eq 0x00 -or $suffixByte -eq 0x20) -and -not [string]::IsNullOrWhiteSpace($nameStr)) {
+                                $uName = $nameStr.ToUpper()
+                                if (-not $map.ContainsKey($uName)) {
+                                    $map[$uName] = $rIp
+                                }
+                            }
+                            $offset += 18
+                        }
+                    }
+                }
+            } catch {
+                break
+            }
+        }
+    } catch {}
+    finally {
+        if ($udp) {
+            try { $udp.Close() } catch {}
+        }
+    }
+
+    $script:subnetHostMap[$subnetPrefix] = $map
+    return $map
+}
+
+function Find-GhostDnsTrueIP([string]$targetHostName, [string]$staleIp = '') {
+    $shortName = ($targetHostName -split '\.')[0].Trim().ToUpper()
+    if ([string]::IsNullOrWhiteSpace($shortName)) { return $null }
+
+    $subnetPrefix = ''
+    if ($staleIp -match '^(\d+\.\d+\.\d+)\.\d+$') {
+        $subnetPrefix = $matches[1]
+    }
+
+    # Step 1: Direct UDP 137 NetBIOS Name Query
+    $directIps = Resolve-NetBiosDirectQuery -targetHostName $shortName -subnetPrefix $subnetPrefix
+    if ($directIps -and $directIps.Count -gt 0) {
+        foreach ($dIp in $directIps) {
+            if ($dIp -ne $staleIp) {
+                return $dIp
+            }
+        }
+        return $directIps[0]
+    }
+
+    # Step 2: Subnet Hostname Sweep Cache (/24 sweep via Unicast UDP 137 NBSTAT)
+    if (-not [string]::IsNullOrWhiteSpace($subnetPrefix)) {
+        $subMap = Map-SubnetLiveHosts -subnetPrefix $subnetPrefix
+        if ($subMap -and $subMap.ContainsKey($shortName)) {
+            return $subMap[$shortName]
+        }
+    }
+
+    return $null
+}
+
+function Invoke-RemoteDnsSelfHeal([string]$targetEndpoint) {
+    if ([string]::IsNullOrWhiteSpace($targetEndpoint)) { return }
+    try {
+        # Remote Trigger via CIM / WMI Win32_Process.Create
+        $opt = New-CimSessionOption -Protocol Dcom
+        $sess = New-CimSession -ComputerName $targetEndpoint -SessionOption $opt -OperationTimeoutSec 8 -ErrorAction Stop
+        [void](Invoke-CimMethod -CimSession $sess -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = 'cmd.exe /c ipconfig /registerdns & nbtstat -RR' } -ErrorAction SilentlyContinue)
+        Remove-CimSession $sess -ErrorAction SilentlyContinue
+    } catch {
+        # Fallback via PowerShell Remoting
+        try {
+            Invoke-Command -ComputerName $targetEndpoint -ScriptBlock {
+                Start-Process cmd.exe -ArgumentList '/c ipconfig /registerdns & nbtstat -RR' -WindowStyle Hidden -ErrorAction SilentlyContinue
+            } -OperationTimeoutSec 8 -ErrorAction SilentlyContinue
+        } catch {}
+    }
+}
 
 function Resolve-PCTargets([string]$pc, [hashtable]$adInfo = $null, [hashtable]$masterDict = $null) {
     $targets = [System.Collections.Generic.List[hashtable]]::new()
@@ -681,18 +904,15 @@ function Resolve-PCTargets([string]$pc, [hashtable]$adInfo = $null, [hashtable]$
         }
     } catch {}
 
-    # 4. NetBIOS Name Resolution via nbtstat -a
+    # 4. Direct NetBIOS / Subnet True-IP Discovery (Ghost DNS Buster)
     try {
-        $nbt = nbtstat -a $shortName 2>$null
-        if ($nbt) {
-            foreach ($line in ($nbt -split "`r?`n")) {
-                if ($line -match '\[([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\]') {
-                    $nbIp = $matches[1]
-                    if ($nbIp -notmatch '^(127\.|169\.254\.)') {
-                        & $addTarget $nbIp 'NetBIOS'
-                    }
-                }
-            }
+        $staleIpCandidate = ''
+        if ($ips -and $ips.Count -gt 0) {
+            $staleIpCandidate = $ips[0].ToString()
+        }
+        $trueIp = Find-GhostDnsTrueIP -targetHostName $shortName -staleIp $staleIpCandidate
+        if ($trueIp -and $trueIp -notmatch '^(127\.|169\.254\.)') {
+            & $addTarget $trueIp 'GhostDNS_Hunter'
         }
     } catch {}
 
@@ -1205,9 +1425,22 @@ function Invoke-DeepPenetrationScan {
             $s = New-CimSession -ComputerName $cand -SessionOption $opt -OperationTimeoutSec 10 -ErrorAction Stop
             $cs = Get-CimInstance Win32_ComputerSystem -CimSession $s -OperationTimeoutSec 10 -ErrorAction Stop
             if ($cs -and $cs.Name -and ($cs.Name -ieq $shortName)) {
+                $statusMsg = "Rescued via WinRM (WSMAN:5985 on $cand)"
+                $dnsRescued = $false
+                if ($cand -match '^\d+\.\d+\.\d+\.\d+$') {
+                    try {
+                        $dnsIps = @([System.Net.Dns]::GetHostAddresses($shortName) | Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork } | ForEach-Object { $_.ToString() })
+                        if ($dnsIps.Count -gt 0 -and ($dnsIps -notcontains $cand)) {
+                            $dnsRescued = $true
+                            $statusMsg = "Ghost DNS Rescued (DNS: $($dnsIps[0]) -> Live: $cand | Triggered /registerdns)"
+                            Invoke-RemoteDnsSelfHeal -targetEndpoint $cand
+                        }
+                    } catch {}
+                }
+
                 $rec = Get-HardwareFromCimSession -s $s -pcTarget $cand -isLocal $false `
                     -prevWinLicense $prevWinLicense -prevOfficeLicense $prevOfficeLicense -prevOfficeDetail $prevOfficeDetail `
-                    -ad $ad -methodName '⚡ WinRM' -statusDetail "Rescued via WinRM (WSMAN:5985 on $cand)"
+                    -ad $ad -methodName '⚡ WinRM' -statusDetail $statusMsg
                 Remove-CimSession $s -ErrorAction SilentlyContinue
                 if ($rec) {
                     $script:rescuedEndpoints[$pc.ToUpper()] = $cand
@@ -1227,9 +1460,20 @@ function Invoke-DeepPenetrationScan {
             $s = New-CimSession -ComputerName $ipCand -SessionOption $opt -OperationTimeoutSec 12 -ErrorAction Stop
             $cs = Get-CimInstance Win32_ComputerSystem -CimSession $s -OperationTimeoutSec 10 -ErrorAction Stop
             if ($cs -and $cs.Name -and ($cs.Name -ieq $shortName)) {
+                $statusMsg = "Rescued via Direct IP DCOM ($ipCand)"
+                $dnsRescued = $false
+                try {
+                    $dnsIps = @([System.Net.Dns]::GetHostAddresses($shortName) | Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork } | ForEach-Object { $_.ToString() })
+                    if ($dnsIps.Count -gt 0 -and ($dnsIps -notcontains $ipCand)) {
+                        $dnsRescued = $true
+                        $statusMsg = "Ghost DNS Rescued (DNS: $($dnsIps[0]) -> Live: $ipCand | Triggered /registerdns)"
+                        Invoke-RemoteDnsSelfHeal -targetEndpoint $ipCand
+                    }
+                } catch {}
+
                 $rec = Get-HardwareFromCimSession -s $s -pcTarget $ipCand -isLocal $false `
                     -prevWinLicense $prevWinLicense -prevOfficeLicense $prevOfficeLicense -prevOfficeDetail $prevOfficeDetail `
-                    -ad $ad -methodName '⚡ IP-WMI' -statusDetail "Rescued via Direct IP DCOM ($ipCand)"
+                    -ad $ad -methodName '⚡ IP-WMI' -statusDetail $statusMsg
                 Remove-CimSession $s -ErrorAction SilentlyContinue
                 if ($rec) {
                     $script:rescuedEndpoints[$pc.ToUpper()] = $ipCand
@@ -1774,18 +2018,31 @@ if ($Software) {
     $all = New-Object System.Collections.Generic.List[object]
     $status = New-Object System.Collections.Generic.List[object]
 
+    # Map IP endpoints back to original PC names if rescued via IP
+    $reverseRescued = @{}
+    if ($script:rescuedEndpoints) {
+        foreach ($origHost in $script:rescuedEndpoints.Keys) {
+            $rescuedTarget = $script:rescuedEndpoints[$origHost]
+            $reverseRescued[$rescuedTarget.ToUpper()] = $origHost
+        }
+    }
+
     foreach ($g in ($rows | Group-Object PSComputerName)) {
+        $canonicalHost = $g.Name
+        if ($reverseRescued.ContainsKey($canonicalHost.ToUpper())) {
+            $canonicalHost = $reverseRescued[$canonicalHost.ToUpper()]
+        }
         foreach ($r in $g.Group) {
             $all.Add([pscustomobject]@{
-                    PCName = $g.Name; Name = $r.Name; Version = $r.Version; Publisher = $r.Publisher
+                    PCName = $canonicalHost; Name = $r.Name; Version = $r.Version; Publisher = $r.Publisher
                     InstallDate = $r.InstallDate; InstallLocation = $r.InstallLocation; SizeMB = $r.SizeMB
                     Arch = $r.Arch; Scope = $r.Scope; RegistryKey = $r.RegistryKey
                 })
         }
-        $status.Add([pscustomobject]@{ PCName = $g.Name; Status = 'OK-WinRM'; Count = $g.Count })
+        $status.Add([pscustomobject]@{ PCName = $canonicalHost; Status = 'OK-WinRM'; Count = $g.Count })
     }
 
-    $okSet = @($rows | ForEach-Object { $_.PSComputerName } | Select-Object -Unique)
+    $okSet = @($all | ForEach-Object { $_.PCName } | Select-Object -Unique)
     if ($okSet.Count -gt 0) {
         Write-Host "[STAGE:SW|$($okSet.Count)|$($pcs.Count)] WinRM software scan completed for $($okSet.Count) PCs..."
     }
@@ -1865,13 +2122,17 @@ if ($Software) {
                     continue
                 } catch { }
             }
-            if (-not (Test-PCConnection $pc)) {
+            $dcomTarget = if ($script:rescuedEndpoints -and $script:rescuedEndpoints.ContainsKey($pc.ToUpper())) { $script:rescuedEndpoints[$pc.ToUpper()] } else { $pc }
+            if (-not (Test-PCConnection $dcomTarget)) {
                 $status.Add([pscustomobject]@{ PCName = $pc; Status = 'Offline'; Count = 0 })
                 continue
             }
             try {
-                $res = @(Get-SoftwareDcom -pc $pc -IncludeUser $IncludeUserInstalls.IsPresent -IncludeHidden $IncludeHidden.IsPresent)
-                foreach ($r in $res) { $all.Add($r) }
+                $res = @(Get-SoftwareDcom -pc $dcomTarget -IncludeUser $IncludeUserInstalls.IsPresent -IncludeHidden $IncludeHidden.IsPresent)
+                foreach ($r in $res) {
+                    $r.PCName = $pc
+                    $all.Add($r)
+                }
                 $status.Add([pscustomobject]@{ PCName = $pc; Status = 'OK-DCOM'; Count = $res.Count })
             }
             catch {
