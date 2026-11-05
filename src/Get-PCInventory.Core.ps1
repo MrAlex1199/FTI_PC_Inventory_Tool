@@ -28,7 +28,8 @@ param(
     [int]$PingProbes = 2,            # Number of ping probes/packets to send
     [int]$ThreadDelayMs = 20,        # Inter-host delay between starting threads in ms
     [switch]$ScanDeadHosts,          # Bypass reachability check and attempt scan on dead hosts
-    [switch]$SkipBroadcast = $true   # Skip *.0 and *.255 unassigned/broadcast addresses
+    [switch]$SkipBroadcast = $true,  # Skip *.0 and *.255 unassigned/broadcast addresses
+    [bool]$AutoHealDns = $true       # Auto trigger ipconfig /registerdns on rescued ghost DNS hosts
 )
 
 $Software = -not $NoSoftware
@@ -1385,7 +1386,8 @@ function Invoke-DeepPenetrationScan {
         [string]$prevOfficeLicense = '-',
         [string]$prevOfficeDetail = '-',
         [hashtable]$masterDict = @{},
-        [bool]$wasError = $false
+        [bool]$wasError = $false,
+        [bool]$healDns = $true
     )
 
     $shortName = ($pc -split '\.')[0]
@@ -1432,8 +1434,12 @@ function Invoke-DeepPenetrationScan {
                         $dnsIps = @([System.Net.Dns]::GetHostAddresses($shortName) | Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork } | ForEach-Object { $_.ToString() })
                         if ($dnsIps.Count -gt 0 -and ($dnsIps -notcontains $cand)) {
                             $dnsRescued = $true
-                            $statusMsg = "Ghost DNS Rescued (DNS: $($dnsIps[0]) -> Live: $cand | Triggered /registerdns)"
-                            Invoke-RemoteDnsSelfHeal -targetEndpoint $cand
+                            if ($healDns) {
+                                $statusMsg = "Ghost DNS Rescued (DNS: $($dnsIps[0]) -> Live: $cand | Triggered /registerdns)"
+                                Invoke-RemoteDnsSelfHeal -targetEndpoint $cand
+                            } else {
+                                $statusMsg = "Ghost DNS Rescued (DNS: $($dnsIps[0]) -> Live: $cand | DNS healing disabled)"
+                            }
                         }
                     } catch {}
                 }
@@ -1466,8 +1472,12 @@ function Invoke-DeepPenetrationScan {
                     $dnsIps = @([System.Net.Dns]::GetHostAddresses($shortName) | Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork } | ForEach-Object { $_.ToString() })
                     if ($dnsIps.Count -gt 0 -and ($dnsIps -notcontains $ipCand)) {
                         $dnsRescued = $true
-                        $statusMsg = "Ghost DNS Rescued (DNS: $($dnsIps[0]) -> Live: $ipCand | Triggered /registerdns)"
-                        Invoke-RemoteDnsSelfHeal -targetEndpoint $ipCand
+                        if ($healDns) {
+                            $statusMsg = "Ghost DNS Rescued (DNS: $($dnsIps[0]) -> Live: $ipCand | Triggered /registerdns)"
+                            Invoke-RemoteDnsSelfHeal -targetEndpoint $ipCand
+                        } else {
+                            $statusMsg = "Ghost DNS Rescued (DNS: $($dnsIps[0]) -> Live: $ipCand | DNS healing disabled)"
+                        }
                     }
                 } catch {}
 
@@ -1805,7 +1815,8 @@ if (-not $SkipHardware) {
                 -prevOfficeLicense $stub.OffLic `
                 -prevOfficeDetail $stub.OffDet `
                 -masterDict $masterDict `
-                -wasError ($stub.Reason -eq 'Error')
+                -wasError ($stub.Reason -eq 'Error') `
+                -healDns $AutoHealDns
 
             if ($rescued -and ($rescued.Status -eq 'OK' -or $rescued.Status -eq 'Online')) {
                 if ($rescued.Status -eq 'OK') {

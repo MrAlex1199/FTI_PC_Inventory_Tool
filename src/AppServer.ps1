@@ -734,6 +734,7 @@ function Start-ExecutionScan([hashtable]$params) {
     $threadDelayMs = if ($params.ContainsKey('threadDelayMs') -and [int]$params.threadDelayMs -ge 0) { [int]$params.threadDelayMs } else { 20 }
     $scanDeadHosts = if ($params.ContainsKey('scanDeadHosts')) { [bool]$params.scanDeadHosts } else { $false }
     $skipBroadcast = if ($params.ContainsKey('skipBroadcast')) { [bool]$params.skipBroadcast } else { $true }
+    $autoHealDns = if ($params.ContainsKey('autoHealDns')) { [bool]$params.autoHealDns } else { $true }
 
     [void]$script:psInstance.AddParameter('PingMethod', $pingMethod)
     [void]$script:psInstance.AddParameter('ProbePorts', $probePorts)
@@ -742,8 +743,9 @@ function Start-ExecutionScan([hashtable]$params) {
     [void]$script:psInstance.AddParameter('ThreadDelayMs', $threadDelayMs)
     [void]$script:psInstance.AddParameter('ScanDeadHosts', $scanDeadHosts)
     [void]$script:psInstance.AddParameter('SkipBroadcast', $skipBroadcast)
+    [void]$script:psInstance.AddParameter('AutoHealDns', $autoHealDns)
 
-    Write-SystemLog 'INFO' ("Network Probing: Method=$pingMethod, Ports=$probePorts, Timeout=${pingTimeoutMs}ms, Probes=$pingProbes, Delay=${threadDelayMs}ms, DeadHosts=$scanDeadHosts")
+    Write-SystemLog 'INFO' ("Network Probing: Method=$pingMethod, Ports=$probePorts, Timeout=${pingTimeoutMs}ms, Probes=$pingProbes, Delay=${threadDelayMs}ms, DeadHosts=$scanDeadHosts, AutoHealDns=$autoHealDns")
 
     if ($params.source -eq 'localhost') {
         [void]$script:psInstance.AddParameter('ScanLocalhost', $true)

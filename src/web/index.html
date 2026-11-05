@@ -8,7 +8,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>FTI PC Inventory Tool - v2026.11.05.1</title>
+  <title>FTI PC Inventory Tool - v2026.11.05.2</title>
 
   <script>
 
@@ -3741,7 +3741,7 @@
 
         <span>FTI PC Inventory Tool</span>
 
-        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-05 20:37:38" id="appVersionTag">v2026.11.05.1 Enterprise</span>
+        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-05 21:02:10" id="appVersionTag">v2026.11.05.2 Enterprise</span>
 
       </div>
 
@@ -4077,6 +4077,10 @@
               <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;">
                 <input type="checkbox" id="chkSkipBroadcast" checked style="accent-color: var(--accent-primary);">
                 <span>Skip unassigned IPs (*.0 and *.255)</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; cursor: pointer;" title="Trigger ipconfig /registerdns remotely when true IP is discovered for a ghost DNS entry">
+                <input type="checkbox" id="chkAutoHealDns" checked style="accent-color: var(--accent-primary);">
+                <span>Auto-heal stale DNS via /registerdns</span>
               </label>
             </div>
           </div>
@@ -7055,7 +7059,8 @@
         pingProbes: parseInt(document.getElementById('numPingProbes') ? document.getElementById('numPingProbes').value : '2', 10) || 2,
         threadDelayMs: parseInt(document.getElementById('numThreadDelay') ? document.getElementById('numThreadDelay').value : '20', 10) || 20,
         scanDeadHosts: document.getElementById('chkScanDeadHosts') ? document.getElementById('chkScanDeadHosts').checked : false,
-        skipBroadcast: document.getElementById('chkSkipBroadcast') ? document.getElementById('chkSkipBroadcast').checked : true
+        skipBroadcast: document.getElementById('chkSkipBroadcast') ? document.getElementById('chkSkipBroadcast').checked : true,
+        autoHealDns: document.getElementById('chkAutoHealDns') ? document.getElementById('chkAutoHealDns').checked : true
       };
 
       try {
