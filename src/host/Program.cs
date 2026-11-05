@@ -12,9 +12,9 @@ using System.Text;
 [assembly: AssemblyCopyright("Copyright © Function International 2026")]
 [assembly: AssemblyTrademark("FTI")]
 [assembly: AssemblyCulture("")]
-[assembly: AssemblyVersion("2026.11.05.2")]
-[assembly: AssemblyFileVersion("2026.11.05.2")]
-[assembly: AssemblyInformationalVersion("v2026.11.05.2 Enterprise (2026-11-05 21:02:10)")]
+[assembly: AssemblyVersion("2026.11.05.5")]
+[assembly: AssemblyFileVersion("2026.11.05.5")]
+[assembly: AssemblyInformationalVersion("v2026.11.05.5 Enterprise (2026-11-05 22:14:52)")]
 
 namespace FTI.PCInventory
 {
@@ -133,17 +133,20 @@ namespace FTI.PCInventory
                         if (isSilent)
                         {
                             proc.WaitForExit();
+                            RestoreLidActionFallback(appDir);
                             return proc.ExitCode;
                         }
                         else
                         {
                             // In interactive mode, wait for server process so launcher stays clean
                             proc.WaitForExit();
+                            RestoreLidActionFallback(appDir);
                             return proc.ExitCode;
                         }
                     }
                 }
 
+                RestoreLidActionFallback(appDir);
                 return 0;
             }
             catch (Exception ex)
@@ -151,13 +154,60 @@ namespace FTI.PCInventory
                 try
                 {
                     string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                    string logFile = Path.Combine(localAppData, "FTI_PC_Inventory_Tool", "launcher_error.log");
+                    string appDir = Path.Combine(localAppData, "FTI_PC_Inventory_Tool");
+                    RestoreLidActionFallback(appDir);
+                    string logFile = Path.Combine(appDir, "launcher_error.log");
                     File.AppendAllText(logFile, string.Format("[{0}] Launcher Exception: {1}\r\n", DateTime.Now, ex));
                 }
                 catch { }
 
                 return 1;
             }
+        }
+
+        private static void RestoreLidActionFallback(string appDir)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(appDir) || !Directory.Exists(appDir)) return;
+                string backupFile = Path.Combine(appDir, "lid_power_backup.json");
+                if (File.Exists(backupFile))
+                {
+                    string content = File.ReadAllText(backupFile);
+                    int acVal = 1;
+                    int dcVal = 1;
+                    int pAc = content.IndexOf("\"ac\":");
+                    if (pAc >= 0)
+                    {
+                        string s = content.Substring(pAc + 5).Trim();
+                        int end = s.IndexOfAny(new char[] { ',', '}', '\r', '\n' });
+                        if (end > 0) int.TryParse(s.Substring(0, end).Trim(), out acVal);
+                    }
+                    int pDc = content.IndexOf("\"dc\":");
+                    if (pDc >= 0)
+                    {
+                        string s = content.Substring(pDc + 5).Trim();
+                        int end = s.IndexOfAny(new char[] { ',', '}', '\r', '\n' });
+                        if (end > 0) int.TryParse(s.Substring(0, end).Trim(), out dcVal);
+                    }
+
+                    ProcessStartInfo psi = new ProcessStartInfo("powercfg.exe")
+                    {
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        WindowStyle = ProcessWindowStyle.Hidden
+                    };
+                    psi.Arguments = string.Format("/setacvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION {0}", acVal);
+                    using (Process p = Process.Start(psi)) { if (p != null) p.WaitForExit(1000); }
+                    psi.Arguments = string.Format("/setdcvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION {0}", dcVal);
+                    using (Process p = Process.Start(psi)) { if (p != null) p.WaitForExit(1000); }
+                    psi.Arguments = "/setactive SCHEME_CURRENT";
+                    using (Process p = Process.Start(psi)) { if (p != null) p.WaitForExit(1000); }
+
+                    File.Delete(backupFile);
+                }
+            }
+            catch { }
         }
     }
 }

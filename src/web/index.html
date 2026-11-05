@@ -8,7 +8,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>FTI PC Inventory Tool - v2026.11.05.2</title>
+  <title>FTI PC Inventory Tool - v2026.11.05.5</title>
 
   <script>
 
@@ -3741,7 +3741,7 @@
 
         <span>FTI PC Inventory Tool</span>
 
-        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-05 21:02:10" id="appVersionTag">v2026.11.05.2 Enterprise</span>
+        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-05 22:14:52" id="appVersionTag">v2026.11.05.5 Enterprise</span>
 
       </div>
 
@@ -7809,7 +7809,7 @@
 
     });
 
-    // Window Close Exit Beacon & Fast Heartbeat Ping
+    // Window Close Exit Beacon & Active Scan Exit Confirmation
     function notifyBackendExit() {
       if (window.__isReloading || window.__exitSent) return;
       window.__exitSent = true;
@@ -7822,15 +7822,32 @@
       }
     }
 
-    window.addEventListener('pagehide', notifyBackendExit);
-    window.addEventListener('beforeunload', notifyBackendExit);
+    // Confirmation prompt if user attempts to close window while a scan is actively running
+    window.addEventListener('beforeunload', (e) => {
+      if (window.__isReloading) return;
+      if (isScanning) {
+        e.preventDefault();
+        e.returnValue = 'A network inventory scan is currently running. Are you sure you want to exit?';
+        return e.returnValue;
+      }
+    });
 
-    // Lightweight 1.5s heartbeat ping to keep backend alive while window is open/minimized
-    setInterval(() => {
+    // Actual teardown beacon only fires after window close is confirmed
+    window.addEventListener('pagehide', notifyBackendExit);
+
+    // Resilient Heartbeat Ping: runs continuously and handles wake-up from sleep/screen-off
+    function sendHeartbeatPing() {
       if (!window.__isClosing) {
         fetch('/api/ping', { cache: 'no-store' }).catch(() => {});
       }
-    }, 1500);
+    }
+    setInterval(sendHeartbeatPing, 1500);
+
+    // Instant Wake-Up & Screen-On Re-sync
+    window.addEventListener('pageshow', () => {
+      sendHeartbeatPing();
+      if (typeof pollTick === 'function') pollTick();
+    });
 
     // Startup Initialization
 
