@@ -1243,7 +1243,12 @@ while ($running) {
                 if ($script:scanStartTime) {
                     $endTime = if ($script:scanEndTime) { $script:scanEndTime } else { [System.DateTime]::Now }
                     $ts = $endTime - $script:scanStartTime
-                    $elapsedStr = $ts.ToString('mm\:ss')
+                    $totalHours = [int][math]::Floor($ts.TotalHours)
+                    if ($totalHours -gt 0) {
+                        $elapsedStr = "{0:D2}:{1:D2}:{2:D2}" -f $totalHours, $ts.Minutes, $ts.Seconds
+                    } else {
+                        $elapsedStr = "{0:D2}:{1:D2}" -f $ts.Minutes, $ts.Seconds
+                    }
                 }
 
                 $newLogs = @()
@@ -1473,7 +1478,7 @@ while ($running) {
                 elseif ($action -eq 'registerWinTask') {
                     $mode = if ($params.mode) { [string]$params.mode } else { 'daily' }
                     $taskTime = if ($params.time) { [string]$params.time } else { '02:00' }
-                    $intervalMins = if ($params.intervalMinutes) { [int]$params.intervalMinutes } else { 15 }
+                    $intervalMins = if ($params.intervalMinutes) { [int]$params.intervalMinutes } elseif ($params.intervalHours) { [int]([double]$params.intervalHours * 60) } else { 60 }
                     if ($intervalMins -lt 1) { $intervalMins = 1 }
 
                     $exe = Get-FtiExecutablePath
@@ -1492,7 +1497,8 @@ while ($running) {
                         if ($mode -eq 'interval') {
                             $startStr = (Get-Date).ToString("HH:mm")
                             $trigger = New-ScheduledTaskTrigger -Once -At $startStr -RepetitionInterval (New-TimeSpan -Minutes $intervalMins) -RepetitionDuration (New-TimeSpan -Days 3650)
-                            $msg = "Registered Windows Task 'FTI_PC_Inventory_AutoScan' repeating every $intervalMins minute(s). (Executable: $exe)"
+                            $intervalLabel = if ($intervalMins -ge 60 -and ($intervalMins % 60 -eq 0)) { "$([int]($intervalMins / 60)) hour(s)" } else { "$intervalMins minute(s)" }
+                            $msg = "Registered Windows Task 'FTI_PC_Inventory_AutoScan' repeating every $intervalLabel. (Executable: $exe)"
                         } else {
                             $trigger = New-ScheduledTaskTrigger -Daily -At $taskTime
                             $msg = "Registered Windows Task 'FTI_PC_Inventory_AutoScan' at $taskTime daily. (Executable: $exe)"

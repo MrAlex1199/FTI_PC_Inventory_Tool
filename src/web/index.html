@@ -8,7 +8,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>FTI PC Inventory Tool - v2026.11.09.1</title>
+  <title>FTI PC Inventory Tool - v2026.11.09.2</title>
 
   <script>
 
@@ -4111,7 +4111,7 @@
 
         <span>FTI PC Inventory Tool</span>
 
-        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-09 21:03:05" id="appVersionTag">v2026.11.09.1 Enterprise</span>
+        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-09 21:29:27" id="appVersionTag">v2026.11.09.2 Enterprise</span>
 
       </div>
 
@@ -5264,12 +5264,26 @@
 
           </div>
 
-          <div style="margin-top: 8px;">
-
-            <span class="field-label">Repeat Interval (Minutes):</span>
-
-            <input type="number" id="numInAppInterval" value="240" min="5" max="1440" class="input-compact" style="width: 120px;">
-
+          <div style="margin-top: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+              <span class="field-label" style="margin-bottom: 0;">Repeat Interval:</span>
+              <div style="display: flex; gap: 4px; flex-wrap: wrap;" id="boxInAppPresets">
+                <button type="button" class="preset-chip" data-minutes="30" onclick="applyInAppPreset(30, 'minutes')">30m</button>
+                <button type="button" class="preset-chip" data-minutes="60" onclick="applyInAppPreset(1, 'hours')">1h</button>
+                <button type="button" class="preset-chip" data-minutes="120" onclick="applyInAppPreset(2, 'hours')">2h</button>
+                <button type="button" class="preset-chip active" data-minutes="240" onclick="applyInAppPreset(4, 'hours')">4h</button>
+                <button type="button" class="preset-chip" data-minutes="480" onclick="applyInAppPreset(8, 'hours')">8h</button>
+                <button type="button" class="preset-chip" data-minutes="1440" onclick="applyInAppPreset(24, 'hours')">24h</button>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input type="number" id="numInAppIntervalVal" value="4" min="0.1" step="any" class="input-compact" style="width: 90px;">
+              <select id="selInAppIntervalUnit" class="input-compact" style="width: 100px;">
+                <option value="hours" selected>Hours</option>
+                <option value="minutes">Minutes</option>
+              </select>
+              <span id="lblInAppEquiv" style="font-size: 0.72rem; color: var(--text-muted);">= 240 mins</span>
+            </div>
           </div>
 
         </div>
@@ -5302,12 +5316,26 @@
 
           </div>
 
-          <div style="margin-top: 8px; display: none;" id="boxWinTaskInterval">
-
-            <span class="field-label">Repeat Interval (Minutes):</span>
-
-            <input type="number" id="numWinTaskInterval" value="60" min="5" max="1440" class="input-compact" style="width: 120px;">
-
+          <div style="margin-top: 10px; display: none;" id="boxWinTaskInterval">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+              <span class="field-label" style="margin-bottom: 0;">Repeat Interval:</span>
+              <div style="display: flex; gap: 4px; flex-wrap: wrap;" id="boxWinTaskPresets">
+                <button type="button" class="preset-chip" data-minutes="30" onclick="applyWinTaskPreset(30, 'minutes')">30m</button>
+                <button type="button" class="preset-chip active" data-minutes="60" onclick="applyWinTaskPreset(1, 'hours')">1h</button>
+                <button type="button" class="preset-chip" data-minutes="120" onclick="applyWinTaskPreset(2, 'hours')">2h</button>
+                <button type="button" class="preset-chip" data-minutes="240" onclick="applyWinTaskPreset(4, 'hours')">4h</button>
+                <button type="button" class="preset-chip" data-minutes="480" onclick="applyWinTaskPreset(8, 'hours')">8h</button>
+                <button type="button" class="preset-chip" data-minutes="1440" onclick="applyWinTaskPreset(24, 'hours')">24h</button>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input type="number" id="numWinTaskIntervalVal" value="1" min="0.1" step="any" class="input-compact" style="width: 90px;">
+              <select id="selWinTaskIntervalUnit" class="input-compact" style="width: 100px;">
+                <option value="hours" selected>Hours</option>
+                <option value="minutes">Minutes</option>
+              </select>
+              <span id="lblWinTaskEquiv" style="font-size: 0.72rem; color: var(--text-muted);">= 60 mins</span>
+            </div>
           </div>
 
           <button class="btn-secondary" style="margin-top: 10px;" id="btnRegisterWinTask">Register / Update Windows Task</button>
@@ -6017,7 +6045,7 @@
             onmouseout="this.style.strokeWidth='24'; this.style.opacity='1';"
             onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')"
           >
-            <title>FTI PC Inventory Tool - v2026.11.09.1</title>
+            <title>FTI PC Inventory Tool - v2026.11.09.2</title>
           </circle>
         `;
       }).join('');
@@ -6398,10 +6426,20 @@
     let schedInAppEnabled = false;
     let schedTargetEpochMs = null;
     let schedNextRunStr = '-';
+    let schedInAppIntervalMins = 240;
     let schedWinTaskActive = false;
     let schedWinTaskLabel = '';
     let schedWinTaskTitle = '';
     let schedCountdownInterval = null;
+
+    function formatIntervalDisplay(minutes) {
+      const m = parseFloat(minutes) || 0;
+      if (m <= 0) return '0m';
+      if (m < 60) return m + 'm';
+      const h = m / 60;
+      if (Number.isInteger(h)) return h + 'h';
+      return parseFloat(h.toFixed(1)) + 'h';
+    }
 
     function renderCountdownTick() {
       if (!topScheduleBanner || !topSchedCountdown) return;
@@ -6418,8 +6456,9 @@
           const hh = String(Math.floor(sec / 3600)).padStart(2, '0');
           const mm = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
           const ss = String(sec % 60).padStart(2, '0');
-          topSchedCountdown.innerText = `${hh}:${mm}:${ss}`;
-          topScheduleBanner.title = `In-App schedule active. Next scan: ${schedNextRunStr} (~${sec}s remaining)`;
+          topSchedCountdown.innerText = (sec >= 3600) ? `${hh}:${mm}:${ss}` : `${mm}:${ss}`;
+          const intvTxt = schedInAppIntervalMins ? ` (Every ${formatIntervalDisplay(schedInAppIntervalMins)})` : '';
+          topScheduleBanner.title = `In-App schedule active${intvTxt}. Next scan: ${schedNextRunStr} (~${sec}s remaining)`;
         }
       } else if (schedWinTaskActive) {
         topScheduleBanner.style.display = 'inline-flex';
@@ -8017,6 +8056,7 @@
         if (data.inAppSchedule && data.inAppSchedule.enabled) {
           schedInAppEnabled = true;
           schedWinTaskActive = false;
+          schedInAppIntervalMins = data.inAppSchedule.intervalMinutes || 240;
           schedNextRunStr = data.inAppSchedule.nextRunAt || '-';
           if (data.inAppSchedule.nextRunEpochMs) {
             schedTargetEpochMs = data.inAppSchedule.nextRunEpochMs;
@@ -8027,7 +8067,7 @@
           schedInAppEnabled = false;
           schedWinTaskActive = true;
           schedWinTaskLabel = (data.winTaskInfo.mode === 'interval')
-            ? `Every ${data.winTaskInfo.intervalMinutes}m`
+            ? `Every ${formatIntervalDisplay(data.winTaskInfo.intervalMinutes)}`
             : `Daily at ${data.winTaskInfo.time}`;
           schedWinTaskTitle = `Windows Scheduled Task active: State ${data.winTaskInfo.state}`;
         } else {
@@ -8556,6 +8596,108 @@
 
     });
 
+    // Helper functions for Interval Unit & Presets
+    function setInAppIntervalInputs(minutes) {
+      const m = parseInt(minutes, 10) || 240;
+      const numInput = document.getElementById('numInAppIntervalVal');
+      const selUnit = document.getElementById('selInAppIntervalUnit');
+      if (m >= 60 && m % 60 === 0) {
+        if (numInput) numInput.value = m / 60;
+        if (selUnit) selUnit.value = 'hours';
+      } else {
+        if (numInput) numInput.value = m;
+        if (selUnit) selUnit.value = 'minutes';
+      }
+      updateInAppEquiv();
+    }
+
+    function updateInAppEquiv() {
+      const numInput = document.getElementById('numInAppIntervalVal');
+      const selUnit = document.getElementById('selInAppIntervalUnit');
+      const lblEquiv = document.getElementById('lblInAppEquiv');
+      if (!numInput || !selUnit || !lblEquiv) return;
+      const val = parseFloat(numInput.value) || 0;
+      const unit = selUnit.value;
+      const mins = (unit === 'hours') ? Math.round(val * 60) : Math.round(val);
+      if (unit === 'hours') {
+        lblEquiv.innerText = '= ' + mins + ' mins';
+      } else {
+        const hrs = (mins / 60).toFixed(1);
+        lblEquiv.innerText = (mins >= 60) ? ('= ' + hrs + ' hrs') : '';
+      }
+      const box = document.getElementById('boxInAppPresets');
+      if (box) {
+        box.querySelectorAll('.preset-chip').forEach(chip => {
+          const pMins = parseInt(chip.getAttribute('data-minutes'), 10);
+          chip.classList.toggle('active', pMins === mins);
+        });
+      }
+    }
+
+    function applyInAppPreset(val, unit) {
+      const numInput = document.getElementById('numInAppIntervalVal');
+      const selUnit = document.getElementById('selInAppIntervalUnit');
+      if (numInput) numInput.value = val;
+      if (selUnit) selUnit.value = unit;
+      updateInAppEquiv();
+    }
+
+    function setWinTaskIntervalInputs(minutes) {
+      const m = parseInt(minutes, 10) || 60;
+      const numInput = document.getElementById('numWinTaskIntervalVal');
+      const selUnit = document.getElementById('selWinTaskIntervalUnit');
+      if (m >= 60 && m % 60 === 0) {
+        if (numInput) numInput.value = m / 60;
+        if (selUnit) selUnit.value = 'hours';
+      } else {
+        if (numInput) numInput.value = m;
+        if (selUnit) selUnit.value = 'minutes';
+      }
+      updateWinTaskEquiv();
+    }
+
+    function updateWinTaskEquiv() {
+      const numInput = document.getElementById('numWinTaskIntervalVal');
+      const selUnit = document.getElementById('selWinTaskIntervalUnit');
+      const lblEquiv = document.getElementById('lblWinTaskEquiv');
+      if (!numInput || !selUnit || !lblEquiv) return;
+      const val = parseFloat(numInput.value) || 0;
+      const unit = selUnit.value;
+      const mins = (unit === 'hours') ? Math.round(val * 60) : Math.round(val);
+      if (unit === 'hours') {
+        lblEquiv.innerText = '= ' + mins + ' mins';
+      } else {
+        const hrs = (mins / 60).toFixed(1);
+        lblEquiv.innerText = (mins >= 60) ? ('= ' + hrs + ' hrs') : '';
+      }
+      const box = document.getElementById('boxWinTaskPresets');
+      if (box) {
+        box.querySelectorAll('.preset-chip').forEach(chip => {
+          const pMins = parseInt(chip.getAttribute('data-minutes'), 10);
+          chip.classList.toggle('active', pMins === mins);
+        });
+      }
+    }
+
+    function applyWinTaskPreset(val, unit) {
+      const numInput = document.getElementById('numWinTaskIntervalVal');
+      const selUnit = document.getElementById('selWinTaskIntervalUnit');
+      if (numInput) numInput.value = val;
+      if (selUnit) selUnit.value = unit;
+      updateWinTaskEquiv();
+    }
+
+    // Attach listeners for unit and value inputs
+    const numInAppValEl = document.getElementById('numInAppIntervalVal');
+    const selInAppUnitEl = document.getElementById('selInAppIntervalUnit');
+    if (numInAppValEl) numInAppValEl.addEventListener('input', updateInAppEquiv);
+    if (selInAppUnitEl) selInAppUnitEl.addEventListener('change', updateInAppEquiv);
+
+    const numWinTaskValEl = document.getElementById('numWinTaskIntervalVal');
+    const selWinTaskUnitEl = document.getElementById('selWinTaskIntervalUnit');
+    if (numWinTaskValEl) numWinTaskValEl.addEventListener('input', updateWinTaskEquiv);
+    if (selWinTaskUnitEl) selWinTaskUnitEl.addEventListener('change', updateWinTaskEquiv);
+
     async function fetchScheduleInfo() {
 
       try {
@@ -8568,7 +8710,9 @@
 
           document.getElementById('chkInAppSched').checked = !!data.inAppSchedule.enabled;
 
-          document.getElementById('numInAppInterval').value = data.inAppSchedule.intervalMinutes || 240;
+          schedInAppIntervalMins = data.inAppSchedule.intervalMinutes || 240;
+
+          setInAppIntervalInputs(schedInAppIntervalMins);
 
         }
 
@@ -8580,7 +8724,7 @@
 
           if (data.winTaskInfo.time) document.getElementById('timeWinTaskDaily').value = data.winTaskInfo.time;
 
-          if (data.winTaskInfo.intervalMinutes) document.getElementById('numWinTaskInterval').value = data.winTaskInfo.intervalMinutes;
+          if (data.winTaskInfo.intervalMinutes) setWinTaskIntervalInputs(data.winTaskInfo.intervalMinutes);
 
         }
 
@@ -8592,7 +8736,9 @@
 
       const enabled = document.getElementById('chkInAppSched').checked;
 
-      const intervalMinutes = parseInt(document.getElementById('numInAppInterval').value) || 240;
+      const val = parseFloat(document.getElementById('numInAppIntervalVal').value) || 4;
+      const unit = document.getElementById('selInAppIntervalUnit').value;
+      const intervalMinutes = (unit === 'hours') ? Math.max(1, Math.round(val * 60)) : Math.max(1, Math.round(val));
 
       try {
 
@@ -8608,7 +8754,9 @@
 
         const data = await res.json();
 
-        showToast('In-App scheduler settings updated.', 'success');
+        schedInAppIntervalMins = intervalMinutes;
+
+        showToast('In-App scheduler settings updated (' + formatIntervalDisplay(intervalMinutes) + ').', 'success');
 
         schedModalBackdrop.classList.remove('active');
 
@@ -8628,7 +8776,9 @@
 
       const time = document.getElementById('timeWinTaskDaily').value;
 
-      const intervalMinutes = parseInt(document.getElementById('numWinTaskInterval').value) || 60;
+      const val = parseFloat(document.getElementById('numWinTaskIntervalVal').value) || 1;
+      const unit = document.getElementById('selWinTaskIntervalUnit').value;
+      const intervalMinutes = (unit === 'hours') ? Math.max(1, Math.round(val * 60)) : Math.max(1, Math.round(val));
 
       try {
 
