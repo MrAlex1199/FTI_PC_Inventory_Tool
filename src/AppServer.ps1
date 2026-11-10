@@ -893,14 +893,14 @@ Write-Host "Computers to scan: 100"
 
 Write-Host "[STEP:2] Hardware Specification & Licensing Scan started..."
 $cpus = @(
-    "Intel Core i7-12700 (12 Cores)",
-    "Intel Core i5-11400 (6 Cores)",
-    "AMD Ryzen 7 5700G (8 Cores)",
-    "Intel Core i5-10400 (6 Cores)",
-    "AMD Ryzen 5 5600G (6 Cores)",
-    "Intel Core i3-10100 (4 Cores)"
+    "Intel Core Ultra 7 270K",
+    "14th Gen Intel(R) Core(TM) i5-14400",
+    "13th Gen Intel(R) Core(TM) i5-13500",
+    "Intel(R) Core(TM) i7-13700",
+    "Apple M2",
+    "Intel(R) Core(TM) i5-12400"
 )
-$rams = @(8, 16, 16, 32, 16, 8)
+$rams = @(8, 16, 32, 64, 16, 4)
 $winLicList = @(
     "OEM (Activated)",
     "Retail (Activated)",

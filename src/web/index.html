@@ -8,7 +8,7 @@
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>FTI PC Inventory Tool - v2026.11.09.2</title>
+  <title>FTI PC Inventory Tool - v2026.11.10.1</title>
 
   <script>
 
@@ -3957,6 +3957,35 @@
     .dash-bar-fill.gradient-rose { background: linear-gradient(90deg, #e11d48, #fb7185); }
     .dash-bar-fill.gradient-cyan { background: linear-gradient(90deg, #0891b2, #22d3ee); }
 
+    /* Unscanned / Unknown Separation Footer */
+    .dash-unscanned-footer {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.71rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 5px 6px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .dash-unscanned-footer:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-secondary);
+    }
+    .dash-unscanned-badge {
+      background: rgba(148, 163, 184, 0.12);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      color: var(--text-muted);
+      padding: 1px 6px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 0.67rem;
+    }
+
     /* Zone 4: Actionable Watchlist */
     .dash-watchlist-header {
       margin-top: 8px;
@@ -4111,7 +4140,7 @@
 
         <span>FTI PC Inventory Tool</span>
 
-        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-09 21:29:27" id="appVersionTag">v2026.11.09.2 Enterprise</span>
+        <span class="version-tag has-tooltip" data-tooltip="Build: 2026-11-10 21:43:56" id="appVersionTag">v2026.11.10.1 Enterprise</span>
 
       </div>
 
@@ -4796,17 +4825,18 @@
                 </div>
               </div>
 
-              <!-- Card 4: Reachability Method -->
-              <div class="dash-kpi-card" onclick="switchGridTab('hardware')" title="Click to view all connection methods">
+              <!-- Card 4: Spec Data Coverage (Scanned vs Not Scanned) -->
+              <div class="dash-kpi-card" onclick="applyDashboardDrilldown('unscanned', 'true', 'Not Scanned PCs')" title="Click to view PCs requiring scan">
                 <div class="dash-kpi-inner">
                   <div class="dash-icon-box purple">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                   </div>
                   <div class="dash-kpi-details">
-                    <span class="dash-kpi-label">Reachability Method</span>
-                    <div class="dash-kpi-val" id="dashKpiTopMethod">-</div>
-                    <div class="dash-kpi-sub" id="dashKpiMethodSub">
-                      <span>Online Ratio: <strong id="dashKpiOnlineRatio">0%</strong></span>
+                    <span class="dash-kpi-label">Spec Data Coverage</span>
+                    <div class="dash-kpi-val" id="dashKpiCoveragePct">0%</div>
+                    <div class="dash-kpi-sub" id="dashKpiCoverageSub">
+                      <span>Scanned: <strong id="dashKpiScannedCount">0</strong></span>
+                      <span>Pending: <strong id="dashKpiPendingCount">0</strong></span>
                     </div>
                   </div>
                 </div>
@@ -4822,9 +4852,8 @@
                     <span class="dash-card-title">Processor (CPU) Breakdown</span>
                   </div>
                   <div class="dash-seg-toggle">
-                    <button type="button" id="btnCpuModeTier" class="dash-seg-btn active" onclick="setCpuViewMode('tier')">Tier</button>
-                    <button type="button" id="btnCpuModeGen" class="dash-seg-btn" onclick="setCpuViewMode('gen')">Generation</button>
-                    <button type="button" id="btnCpuModeModel" class="dash-seg-btn" onclick="setCpuViewMode('model')">Exact Model</button>
+                    <button type="button" id="btnCpuModeModel" class="dash-seg-btn active" onclick="setCpuViewMode('model')">Exact Model</button>
+                    <button type="button" id="btnCpuModeSeries" class="dash-seg-btn" onclick="setCpuViewMode('series')">Series</button>
                   </div>
                   <div class="dash-chart-tools" id="chartTools_cpu"></div>
                 </div>
@@ -5505,7 +5534,7 @@
     }
 
     // Analytics Dashboard State
-    let cpuViewMode = 'tier'; // 'tier' | 'gen' | 'model'
+    let cpuViewMode = 'model'; // 'model' | 'series'
     let osViewMode = 'ver';   // 'ver' | 'build'
     let netViewMode = 'ou';   // 'ou' | 'subnet'
     let activeDrilldownCategory = null;
@@ -5775,12 +5804,10 @@
 
     function setCpuViewMode(mode) {
       cpuViewMode = mode;
-      const bTier = document.getElementById('btnCpuModeTier');
-      const bGen = document.getElementById('btnCpuModeGen');
       const bModel = document.getElementById('btnCpuModeModel');
-      if (bTier) bTier.classList.toggle('active', mode === 'tier');
-      if (bGen) bGen.classList.toggle('active', mode === 'gen');
+      const bSeries = document.getElementById('btnCpuModeSeries');
       if (bModel) bModel.classList.toggle('active', mode === 'model');
+      if (bSeries) bSeries.classList.toggle('active', mode === 'series');
       renderDashboard();
     }
 
@@ -5803,62 +5830,8 @@
     }
 
     // --- Classification Utilities ---
-    function classifyCpuTier(cpu) {
-      if (!cpu || cpu === '-') return 'Other / Unknown';
-      const c = cpu.toLowerCase();
-      if (c.includes('i9') || c.includes('ryzen 9') || c.includes('threadripper')) return 'Core i9 / Ryzen 9';
-      if (c.includes('i7') || c.includes('ryzen 7')) return 'Core i7 / Ryzen 7';
-      if (c.includes('i5') || c.includes('ryzen 5')) return 'Core i5 / Ryzen 5';
-      if (c.includes('i3') || c.includes('ryzen 3')) return 'Core i3 / Ryzen 3';
-      if (c.includes('pentium') || c.includes('celeron') || c.includes('athlon')) return 'Pentium / Celeron';
-      if (c.includes('xeon') || c.includes('epyc')) return 'Server (Xeon / Epyc)';
-      return 'Other / Entry';
-    }
-
-    function classifyCpuGen(cpu) {
-      if (!cpu || cpu === '-') return 'Unknown CPU';
-      const c = cpu.toLowerCase();
-      if (c.includes('ryzen')) {
-        const rm = c.match(/ryzen\s*\d?\s*(\d{4})/i);
-        if (rm) {
-          const s = parseInt(rm[1]);
-          if (s >= 7000) return 'AMD Ryzen 7000+ (Win11)';
-          if (s >= 5000) return 'AMD Ryzen 5000 (Win11)';
-          if (s >= 3000) return 'AMD Ryzen 3000 (Win11)';
-          if (s >= 2000) return 'AMD Ryzen 2000 (Win11)';
-          return 'AMD Legacy (<2000) (Win11 ⚠️)';
-        }
-        return 'AMD Ryzen (Win11)';
-      }
-      const m = c.match(/i[3579]-(\d{1,2})\d{3}/i) || c.match(/i[3579]\s+(\d{1,2})\d{3}/i);
-      if (m) {
-        const gen = parseInt(m[1]);
-        if (gen >= 12) return 'Intel Gen ' + gen + ' (12-14th) (Win11)';
-        if (gen >= 10) return 'Intel Gen ' + gen + ' (10-11th) (Win11)';
-        if (gen >= 8) return 'Intel Gen ' + gen + ' (8-9th) (Win11)';
-        return 'Intel Gen ' + gen + ' (≤7th) (Win11 ⚠️)';
-      }
-      if (c.includes('ultra')) return 'Intel Core Ultra (Win11)';
-      return 'Legacy / Other CPU';
-    }
-
-    function classifyRam(ramGb) {
-      const r = parseFloat(ramGb) || 0;
-      if (r >= 32) return '32 GB+ (Power)';
-      if (r >= 16) return '16 GB (Standard)';
-      if (r >= 8) return '8 GB (Basic)';
-      if (r > 0) return '≤ 4 GB (Upgrade Needed)';
-      return 'Unknown RAM';
-    }
-
-    function getDiskFreePercent(diskStr) {
-      if (!diskStr || diskStr === '-') return null;
-      const m = diskStr.match(/(\d+)%\s+free/i);
-      return m ? parseInt(m[1]) : null;
-    }
-
     function classifyCpuModel(cpu) {
-      if (!cpu || cpu === '-') return 'Unknown CPU';
+      if (!cpu || cpu === '-' || cpu.trim() === '') return '__UNSCANNED__';
       let clean = cpu
         .replace(/@\s*[\d\.]+\s*GHz/gi, '')
         .replace(/\(R\)/gi, '')
@@ -5874,14 +5847,89 @@
         .replace(/\s+/g, ' ')
         .trim();
       clean = clean.replace(/^(\d+th Gen)\s+/i, '');
-      return clean || cpu;
+
+      // MacBook / Apple Silicon
+      if (/apple\s*m\d+/i.test(clean) || /m[1-4]\s*(pro|max|ultra)?/i.test(clean)) {
+        const m = clean.match(/apple\s*m[1-4](\s*(pro|max|ultra))?/i) || clean.match(/m[1-4](\s*(pro|max|ultra))?/i);
+        if (m) {
+          const val = m[0].trim();
+          return val.toLowerCase().startsWith('apple') ? val : 'Apple ' + val;
+        }
+        return 'Apple MacBook';
+      }
+
+      // Intel Core Ultra (e.g., Intel Core Ultra 7 270K, Ultra 5 245K, Ultra 7 155H)
+      const ultraMatch = clean.match(/(?:intel\s+)?core\s+ultra\s+([3579])\s+([0-9a-zA-Z]+)/i);
+      if (ultraMatch) {
+        return 'Intel Core Ultra ' + ultraMatch[1] + ' ' + ultraMatch[2];
+      }
+
+      // Intel Core i3/i5/i7/i9 (e.g., Intel Core i5-14400, Core i7-13700)
+      const coreMatch = clean.match(/(?:intel\s+)?(?:core\s+)?(i[3579])\s*[- ]\s*([0-9a-zA-Z]+)/i);
+      if (coreMatch) {
+        return 'Intel Core ' + coreMatch[1].toLowerCase() + '-' + coreMatch[2];
+      }
+
+      // General Intel processors
+      if (/xeon/i.test(clean)) return 'Intel Xeon';
+      if (/pentium/i.test(clean)) return 'Intel Pentium';
+      if (/celeron/i.test(clean)) return 'Intel Celeron';
+
+      return clean || 'Intel Processor';
+    }
+
+    function classifyCpuSeries(cpu) {
+      if (!cpu || cpu === '-' || cpu.trim() === '') return '__UNSCANNED__';
+      const c = cpu.toLowerCase();
+      if (c.includes('apple') || c.includes('m1') || c.includes('m2') || c.includes('m3') || c.includes('m4') || c.includes('macbook')) {
+        return 'Apple MacBook';
+      }
+      if (c.includes('ultra')) return 'Intel Core Ultra';
+      if (c.includes('i9')) return 'Intel Core i9';
+      if (c.includes('i7')) return 'Intel Core i7';
+      if (c.includes('i5')) return 'Intel Core i5';
+      if (c.includes('i3')) return 'Intel Core i3';
+      if (c.includes('xeon')) return 'Intel Xeon';
+      if (c.includes('pentium') || c.includes('celeron')) return 'Intel Entry';
+      return 'Intel Other';
+    }
+
+    function classifyRam(ramGb) {
+      if (!ramGb || ramGb === '-' || ramGb === '0') return '__UNSCANNED__';
+      const r = parseFloat(ramGb);
+      if (isNaN(r) || r <= 0) return '__UNSCANNED__';
+
+      // Snap to standard memory module boundaries (4, 8, 12, 16, 24, 32, 48, 64, 128 GB)
+      if (r >= 120) return '128 GB';
+      if (r >= 58 && r <= 70) return '64 GB';
+      if (r >= 44 && r < 58) return '48 GB';
+      if (r >= 28 && r < 44) return '32 GB';
+      if (r >= 22 && r < 28) return '24 GB';
+      if (r >= 14 && r < 22) return '16 GB';
+      if (r >= 11 && r < 14) return '12 GB';
+      if (r >= 7 && r < 11) return '8 GB';
+      if (r >= 3 && r < 7) return '4 GB';
+      return Math.round(r) + ' GB';
+    }
+
+    function getDiskFreePercent(diskStr) {
+      if (!diskStr || diskStr === '-') return null;
+      const m = diskStr.match(/(\d+)%\s+free/i);
+      return m ? parseInt(m[1]) : null;
     }
 
     function classifyOs(os, osBuild, mode = osViewMode) {
-      if (!os || os === '-') return 'Unknown OS';
+      if (!os || os === '-' || os.trim() === '') return '__UNSCANNED__';
       const o = os.toLowerCase();
       const b = parseInt(osBuild) || 0;
       const displayBuild = (osBuild && osBuild !== '-') ? osBuild : (b ? String(b) : '');
+
+      if (o.includes('mac') || o.includes('darwin') || o.includes('os x')) {
+        return 'macOS';
+      }
+      if (o.includes('linux') || o.includes('ubuntu') || o.includes('redhat') || o.includes('debian')) {
+        return 'Linux';
+      }
 
       if (mode === 'build') {
         if (b > 0) {
@@ -5924,16 +5972,17 @@
     }
 
     function classifyBrand(maker) {
-      if (!maker || maker === '-') return 'Other / Custom';
+      if (!maker || maker === '-' || maker.trim() === '') return '__UNSCANNED__';
       const m = maker.toLowerCase();
+      if (m.includes('apple')) return 'Apple (MacBook)';
+      if (m.includes('lenovo')) return 'Lenovo';
       if (m.includes('dell')) return 'Dell';
       if (m.includes('hp') || m.includes('hewlett')) return 'HP';
-      if (m.includes('lenovo')) return 'Lenovo';
       if (m.includes('asus')) return 'ASUS';
       if (m.includes('acer')) return 'Acer';
-      if (m.includes('apple')) return 'Apple';
-      if (m.includes('microsoft')) return 'Microsoft';
-      return 'Other / Custom';
+      if (m.includes('intel')) return 'Intel NUC / Mini PC';
+      if (m.includes('microsoft')) return 'Microsoft Surface';
+      return 'Other Maker';
     }
 
     function classifyOffice(offLic) {
@@ -5989,156 +6038,206 @@
     function renderBarGroup(containerId, mapData, drilldownType, gradientClass) {
       const el = document.getElementById(containerId);
       if (!el) return;
-      const entries = Object.entries(mapData).sort((a, b) => b[1] - a[1]);
+      const unscannedCount = mapData['__UNSCANNED__'] || 0;
+      const entries = Object.entries(mapData).filter(([k]) => k !== '__UNSCANNED__').sort((a, b) => b[1] - a[1]);
       const maxVal = entries.length > 0 ? entries[0][1] : 1;
       const total = entries.reduce((acc, curr) => acc + curr[1], 0) || 1;
 
+      let barsHtml = '';
       if (entries.length === 0) {
-        el.innerHTML = '<div style="color:var(--text-muted); font-size:0.75rem; text-align:center; padding:18px;">No data available</div>';
-        return;
+        barsHtml = '<div style="color:var(--text-muted); font-size:0.75rem; text-align:center; padding:18px;">No scanned spec data available</div>';
+      } else {
+        barsHtml = entries.map(([name, count]) => {
+          const pct = Math.round((count / total) * 100);
+          const barWidth = Math.max(3, Math.round((count / maxVal) * 100));
+          return `
+            <div class="dash-bar-row" onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')">
+              <div class="dash-bar-label-wrap">
+                <span class="dash-bar-label" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+                <span class="dash-bar-count">${count} <span style="font-weight:400; color:var(--text-muted); font-size:0.68rem;">(${pct}%)</span></span>
+              </div>
+              <div class="dash-bar-track">
+                <div class="dash-bar-fill ${gradientClass}" style="width: ${barWidth}%;"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
       }
 
-      el.innerHTML = entries.map(([name, count]) => {
-        const pct = Math.round((count / total) * 100);
-        const barWidth = Math.max(3, Math.round((count / maxVal) * 100));
-        return `
-          <div class="dash-bar-row" onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')">
-            <div class="dash-bar-label-wrap">
-              <span class="dash-bar-label" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
-              <span class="dash-bar-count">${count} <span style="font-weight:400; color:var(--text-muted); font-size:0.68rem;">(${pct}%)</span></span>
-            </div>
-            <div class="dash-bar-track">
-              <div class="dash-bar-fill ${gradientClass}" style="width: ${barWidth}%;"></div>
-            </div>
+      let footerHtml = '';
+      if (unscannedCount > 0) {
+        footerHtml = `
+          <div class="dash-unscanned-footer" onclick="applyDashboardDrilldown('${drilldownType}', '__UNSCANNED__', 'Not Scanned / Spec Missing')" title="Click to view PCs requiring scan">
+            <span><span style="opacity:0.7;">⚠️</span> Not Scanned / Spec Missing</span>
+            <span class="dash-unscanned-badge">${unscannedCount} PCs</span>
           </div>
         `;
-      }).join('');
+      }
+
+      el.innerHTML = barsHtml + footerHtml;
     }
 
     function renderDonutChart(containerId, mapData, drilldownType, palette) {
       const el = document.getElementById(containerId);
       if (!el) return;
-      const entries = Object.entries(mapData).sort((a, b) => b[1] - a[1]);
+      const unscannedCount = mapData['__UNSCANNED__'] || 0;
+      const entries = Object.entries(mapData).filter(([k]) => k !== '__UNSCANNED__').sort((a, b) => b[1] - a[1]);
       const total = entries.reduce((acc, curr) => acc + curr[1], 0) || 0;
 
+      let chartBody = '';
       if (entries.length === 0 || total === 0) {
-        el.innerHTML = '<div style="color:var(--text-muted); font-size:0.75rem; text-align:center; padding:18px;">No data available</div>';
-        return;
-      }
+        chartBody = '<div style="color:var(--text-muted); font-size:0.75rem; text-align:center; padding:18px;">No scanned spec data available</div>';
+      } else {
+        const radius = 60;
+        const circumference = 2 * Math.PI * radius; // ~376.99
+        let accumulatedPct = 0;
+        const svgSlices = entries.map(([name, count], idx) => {
+          const pct = count / total;
+          const strokeDash = (pct * circumference).toFixed(2);
+          const strokeOffset = (circumference - (accumulatedPct * circumference)).toFixed(2);
+          accumulatedPct += pct;
+          const color = palette[idx % palette.length];
+          return `
+            <circle r="${radius}" cx="80" cy="80" fill="transparent"
+              stroke="${color}" stroke-width="24"
+              stroke-dasharray="${strokeDash} ${(circumference - strokeDash).toFixed(2)}"
+              stroke-dashoffset="${strokeOffset}"
+              style="cursor:pointer; transition:stroke-width 0.2s ease, opacity 0.2s ease;"
+              onmouseover="this.style.strokeWidth='28'; this.style.opacity='0.9';"
+              onmouseout="this.style.strokeWidth='24'; this.style.opacity='1';"
+              onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')"
+            >
+              <title>FTI PC Inventory Tool - v2026.11.10.1</title>
+            </circle>
+          `;
+        }).join('');
 
-      const radius = 60;
-      const circumference = 2 * Math.PI * radius; // ~376.99
-      let accumulatedPct = 0;
-      const svgSlices = entries.map(([name, count], idx) => {
-        const pct = count / total;
-        const strokeDash = (pct * circumference).toFixed(2);
-        const strokeOffset = (circumference - (accumulatedPct * circumference)).toFixed(2);
-        accumulatedPct += pct;
-        const color = palette[idx % palette.length];
-        return `
-          <circle r="${radius}" cx="80" cy="80" fill="transparent"
-            stroke="${color}" stroke-width="24"
-            stroke-dasharray="${strokeDash} ${(circumference - strokeDash).toFixed(2)}"
-            stroke-dashoffset="${strokeOffset}"
-            style="cursor:pointer; transition:stroke-width 0.2s ease, opacity 0.2s ease;"
-            onmouseover="this.style.strokeWidth='28'; this.style.opacity='0.9';"
-            onmouseout="this.style.strokeWidth='24'; this.style.opacity='1';"
-            onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')"
-          >
-            <title>FTI PC Inventory Tool - v2026.11.09.2</title>
-          </circle>
-        `;
-      }).join('');
+        const legendItems = entries.map(([name, count], idx) => {
+          const pct = Math.round((count / total) * 100);
+          const color = palette[idx % palette.length];
+          return `
+            <div class="dash-donut-legend-item" onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')" title="${escapeHtml(name)}">
+              <span class="dash-donut-legend-dot" style="background:${color};"></span>
+              <span class="dash-donut-legend-label">${escapeHtml(name)}</span>
+              <span class="dash-donut-legend-val">${count} (${pct}%)</span>
+            </div>
+          `;
+        }).join('');
 
-      const legendItems = entries.map(([name, count], idx) => {
-        const pct = Math.round((count / total) * 100);
-        const color = palette[idx % palette.length];
-        return `
-          <div class="dash-donut-legend-item" onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')" title="${escapeHtml(name)}">
-            <span class="dash-donut-legend-dot" style="background:${color};"></span>
-            <span class="dash-donut-legend-label">${escapeHtml(name)}</span>
-            <span class="dash-donut-legend-val">${count} (${pct}%)</span>
-          </div>
-        `;
-      }).join('');
-
-      el.innerHTML = `
-        <div class="dash-donut-wrap">
-          <div class="dash-donut-svg-box">
-            <svg width="160" height="160" viewBox="0 0 160 160" style="transform: rotate(-90deg); filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));">
-              <circle r="${radius}" cx="80" cy="80" fill="transparent" stroke="var(--bg-track)" stroke-width="24" />
-              ${svgSlices}
-            </svg>
-            <div class="dash-donut-center">
-              <span class="dash-donut-total">${total}</span>
-              <span class="dash-donut-sub">Total</span>
+        chartBody = `
+          <div class="dash-donut-wrap">
+            <div class="dash-donut-svg-box">
+              <svg width="160" height="160" viewBox="0 0 160 160" style="transform: rotate(-90deg); filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));">
+                <circle r="${radius}" cx="80" cy="80" fill="transparent" stroke="var(--bg-track)" stroke-width="24" />
+                ${svgSlices}
+              </svg>
+              <div class="dash-donut-center">
+                <span class="dash-donut-total">${total}</span>
+                <span class="dash-donut-sub">Scanned</span>
+              </div>
+            </div>
+            <div class="dash-donut-legend">
+              ${legendItems}
             </div>
           </div>
-          <div class="dash-donut-legend">
-            ${legendItems}
+        `;
+      }
+
+      let footerHtml = '';
+      if (unscannedCount > 0) {
+        footerHtml = `
+          <div class="dash-unscanned-footer" onclick="applyDashboardDrilldown('${drilldownType}', '__UNSCANNED__', 'Not Scanned / Spec Missing')" title="Click to view PCs requiring scan">
+            <span><span style="opacity:0.7;">⚠️</span> Not Scanned / Spec Missing</span>
+            <span class="dash-unscanned-badge">${unscannedCount} PCs</span>
           </div>
-        </div>
-      `;
+        `;
+      }
+
+      el.innerHTML = chartBody + footerHtml;
     }
 
     function renderColumnChart(containerId, mapData, drilldownType, palette) {
       const el = document.getElementById(containerId);
       if (!el) return;
-      const entries = Object.entries(mapData).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      const unscannedCount = mapData['__UNSCANNED__'] || 0;
+      const entries = Object.entries(mapData).filter(([k]) => k !== '__UNSCANNED__').sort((a, b) => b[1] - a[1]).slice(0, 8);
       const total = entries.reduce((acc, curr) => acc + curr[1], 0) || 1;
       const maxVal = entries.length > 0 ? entries[0][1] : 1;
 
+      let colsContent = '';
       if (entries.length === 0) {
-        el.innerHTML = '<div style="color:var(--text-muted); font-size:0.75rem; text-align:center; padding:18px;">No data available</div>';
-        return;
+        colsContent = '<div style="color:var(--text-muted); font-size:0.75rem; text-align:center; padding:18px;">No scanned spec data available</div>';
+      } else {
+        const colsHtml = entries.map(([name, count], idx) => {
+          const pct = Math.round((count / total) * 100);
+          const heightPct = Math.max(8, Math.round((count / maxVal) * 100));
+          const color = palette[idx % palette.length];
+          return `
+            <div class="dash-col-item" onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')" title="${escapeHtml(name)}: ${count} (${pct}%)">
+              <span class="dash-col-val">${count}</span>
+              <div class="dash-col-bar-wrap">
+                <div class="dash-col-fill" style="height:${heightPct}%; background:${color};"></div>
+              </div>
+              <span class="dash-col-label" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+            </div>
+          `;
+        }).join('');
+        colsContent = `<div class="dash-col-chart">${colsHtml}</div>`;
       }
 
-      const colsHtml = entries.map(([name, count], idx) => {
-        const pct = Math.round((count / total) * 100);
-        const heightPct = Math.max(8, Math.round((count / maxVal) * 100));
-        const color = palette[idx % palette.length];
-        return `
-          <div class="dash-col-item" onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')" title="${escapeHtml(name)}: ${count} (${pct}%)">
-            <span class="dash-col-val">${count}</span>
-            <div class="dash-col-bar-wrap">
-              <div class="dash-col-fill" style="height:${heightPct}%; background:${color};"></div>
-            </div>
-            <span class="dash-col-label" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
+      let footerHtml = '';
+      if (unscannedCount > 0) {
+        footerHtml = `
+          <div class="dash-unscanned-footer" onclick="applyDashboardDrilldown('${drilldownType}', '__UNSCANNED__', 'Not Scanned / Spec Missing')" title="Click to view PCs requiring scan">
+            <span><span style="opacity:0.7;">⚠️</span> Not Scanned / Spec Missing</span>
+            <span class="dash-unscanned-badge">${unscannedCount} PCs</span>
           </div>
         `;
-      }).join('');
+      }
 
-      el.innerHTML = `<div class="dash-col-chart">${colsHtml}</div>`;
+      el.innerHTML = colsContent + footerHtml;
     }
 
     function renderTreemapGrid(containerId, mapData, drilldownType, palette) {
       const el = document.getElementById(containerId);
       if (!el) return;
-      const entries = Object.entries(mapData).sort((a, b) => b[1] - a[1]);
+      const unscannedCount = mapData['__UNSCANNED__'] || 0;
+      const entries = Object.entries(mapData).filter(([k]) => k !== '__UNSCANNED__').sort((a, b) => b[1] - a[1]);
       const total = entries.reduce((acc, curr) => acc + curr[1], 0) || 1;
 
+      let gridContent = '';
       if (entries.length === 0) {
-        el.innerHTML = '<div style="color:var(--text-muted); font-size:0.75rem; text-align:center; padding:18px;">No data available</div>';
-        return;
+        gridContent = '<div style="color:var(--text-muted); font-size:0.75rem; text-align:center; padding:18px;">No scanned spec data available</div>';
+      } else {
+        const tilesHtml = entries.map(([name, count], idx) => {
+          const pct = Math.round((count / total) * 100);
+          const color = palette[idx % palette.length];
+          const weight = Math.max(1, count);
+          return `
+            <div class="dash-treemap-tile" style="flex: ${weight} 1 ${Math.min(180, Math.max(85, count * 18))}px; border-left: 4px solid ${color};"
+              onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')" title="${escapeHtml(name)}: ${count} (${pct}%)">
+              <div class="dash-treemap-tile-header">
+                <span class="dash-treemap-name">${escapeHtml(name)}</span>
+                <span class="dash-treemap-pct" style="color:${color};">${pct}%</span>
+              </div>
+              <div class="dash-treemap-count">${count} PCs</div>
+            </div>
+          `;
+        }).join('');
+        gridContent = `<div class="dash-treemap-grid">${tilesHtml}</div>`;
       }
 
-      const tilesHtml = entries.map(([name, count], idx) => {
-        const pct = Math.round((count / total) * 100);
-        const color = palette[idx % palette.length];
-        const weight = Math.max(1, count);
-        return `
-          <div class="dash-treemap-tile" style="flex: ${weight} 1 ${Math.min(180, Math.max(85, count * 18))}px; border-left: 4px solid ${color};"
-            onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')" title="${escapeHtml(name)}: ${count} (${pct}%)">
-            <div class="dash-treemap-tile-header">
-              <span class="dash-treemap-name">${escapeHtml(name)}</span>
-              <span class="dash-treemap-pct" style="color:${color};">${pct}%</span>
-            </div>
-            <div class="dash-treemap-count">${count} PCs</div>
+      let footerHtml = '';
+      if (unscannedCount > 0) {
+        footerHtml = `
+          <div class="dash-unscanned-footer" onclick="applyDashboardDrilldown('${drilldownType}', '__UNSCANNED__', 'Not Scanned / Spec Missing')" title="Click to view PCs requiring scan">
+            <span><span style="opacity:0.7;">⚠️</span> Not Scanned / Spec Missing</span>
+            <span class="dash-unscanned-badge">${unscannedCount} PCs</span>
           </div>
         `;
-      }).join('');
+      }
 
-      el.innerHTML = `<div class="dash-treemap-grid">${tilesHtml}</div>`;
+      el.innerHTML = gridContent + footerHtml;
     }
 
     function getChartToolsHtml(cardKey) {
@@ -6296,23 +6395,23 @@
       if (dashKpiRamLow) dashKpiRamLow.innerText = ramLowCount;
       if (dashKpiDiskLow) dashKpiDiskLow.innerText = diskLowCount;
 
-      // 4. Zone 1: Dominant Reachability Method
-      const methodCounts = {};
-      pcs.forEach(p => {
-        const m = p.Method || (p.Status === 'OK' ? 'Localhost' : 'Offline');
-        methodCounts[m] = (methodCounts[m] || 0) + 1;
-      });
-      const topMethodEntry = Object.entries(methodCounts).sort((a, b) => b[1] - a[1])[0];
-      const dashKpiTopMethod = document.getElementById('dashKpiTopMethod');
-      const dashKpiOnlineRatio = document.getElementById('dashKpiOnlineRatio');
-      if (dashKpiTopMethod) dashKpiTopMethod.innerText = topMethodEntry ? topMethodEntry[0] : '-';
-      if (dashKpiOnlineRatio) dashKpiOnlineRatio.innerText = healthPct + '%';
+      // 4. Zone 1: Spec Data Coverage (Scanned vs Not Scanned)
+      const scannedSpecCount = pcs.filter(p => p.CPU && p.CPU !== '-' && p.RAM_GB && p.RAM_GB !== '-' && p.RAM_GB !== '0').length;
+      const pendingSpecCount = totalPcs - scannedSpecCount;
+      const coveragePct = totalPcs > 0 ? Math.round((scannedSpecCount / totalPcs) * 100) : 0;
+
+      const dashKpiCoveragePct = document.getElementById('dashKpiCoveragePct');
+      const dashKpiScannedCount = document.getElementById('dashKpiScannedCount');
+      const dashKpiPendingCount = document.getElementById('dashKpiPendingCount');
+      if (dashKpiCoveragePct) dashKpiCoveragePct.innerText = coveragePct + '%';
+      if (dashKpiScannedCount) dashKpiScannedCount.innerText = scannedSpecCount;
+      if (dashKpiPendingCount) dashKpiPendingCount.innerText = pendingSpecCount;
 
       // 5. Zone 2: CPU Breakdown
       const cpuMap = {};
-      const cpuDrillType = (cpuViewMode === 'model') ? 'cpuModel' : ((cpuViewMode === 'gen') ? 'cpuGen' : 'cpuTier');
+      const cpuDrillType = (cpuViewMode === 'model') ? 'cpuModel' : 'cpuSeries';
       pcs.forEach(p => {
-        const key = (cpuViewMode === 'model') ? classifyCpuModel(p.CPU) : ((cpuViewMode === 'gen') ? classifyCpuGen(p.CPU) : classifyCpuTier(p.CPU));
+        const key = (cpuViewMode === 'model') ? classifyCpuModel(p.CPU) : classifyCpuSeries(p.CPU);
         cpuMap[key] = (cpuMap[key] || 0) + 1;
       });
       renderCardChart('cpu', 'dashCpuBarsContainer', cpuMap, cpuDrillType, 'gradient-cyan');
@@ -7173,30 +7272,41 @@
         // Apply Drill-down Smart Filter if active
         if (activeDrilldownCategory) {
           const { type, value } = activeDrilldownCategory;
-          if (type === 'status' && pc.Status !== value) return false;
-          if (type === 'ram' && classifyRam(pc.RAM_GB) !== value) return false;
-          if (type === 'cpuTier' && classifyCpuTier(pc.CPU) !== value) return false;
-          if (type === 'cpuGen' && classifyCpuGen(pc.CPU) !== value) return false;
-          if (type === 'cpuModel' && classifyCpuModel(pc.CPU) !== value) return false;
-          if (type === 'os' && classifyOs(pc.OS, pc.OSBuild, osViewMode) !== value) return false;
-          if (type === 'brand' && classifyBrand(pc.Maker) !== value) return false;
-          if (type === 'office' && classifyOffice(pc.Office_License) !== value) return false;
-          if (type === 'winLic' && classifyWinLicense(pc.Win_License) !== value) return false;
-          if (type === 'subnet' && classifySubnet(pc.IP) !== value) return false;
-          if (type === 'ou' && (classifyOU(pc.AD_OU) || 'No OU Assigned') !== value) return false;
-          if (type === 'diskCritical') {
-            const free = getDiskFreePercent(pc.Disk_C_Free);
-            if (free === null || free > 15) return false;
-          }
-          if (type === 'ramLow') {
-            const r = parseFloat(pc.RAM_GB) || 0;
-            if (r >= 8) return false;
-          }
-          if (type === 'unlicensed') {
-            const w = (pc.Win_License || '').toLowerCase();
-            const o = (pc.Office_License || '').toLowerCase();
-            const fails = parseInt(pc.Fail_Count) || 0;
-            if (!w.includes('unlicensed') && !w.includes('grace') && !o.includes('unlicensed') && !o.includes('grace') && fails < 3) return false;
+          if (type === 'unscanned') {
+            const hasSpec = pc.CPU && pc.CPU !== '-' && pc.RAM_GB && pc.RAM_GB !== '-' && pc.RAM_GB !== '0';
+            if (hasSpec) return false;
+          } else if (value === '__UNSCANNED__') {
+            if (type === 'ram' && classifyRam(pc.RAM_GB) !== '__UNSCANNED__') return false;
+            if (type === 'cpuModel' && classifyCpuModel(pc.CPU) !== '__UNSCANNED__') return false;
+            if (type === 'cpuSeries' && classifyCpuSeries(pc.CPU) !== '__UNSCANNED__') return false;
+            if (type === 'os' && classifyOs(pc.OS, pc.OSBuild, osViewMode) !== '__UNSCANNED__') return false;
+            if (type === 'brand' && classifyBrand(pc.Maker) !== '__UNSCANNED__') return false;
+            if (type === 'office' && classifyOffice(pc.Office_License) !== '__UNSCANNED__') return false;
+          } else {
+            if (type === 'status' && pc.Status !== value) return false;
+            if (type === 'ram' && classifyRam(pc.RAM_GB) !== value) return false;
+            if (type === 'cpuModel' && classifyCpuModel(pc.CPU) !== value) return false;
+            if (type === 'cpuSeries' && classifyCpuSeries(pc.CPU) !== value) return false;
+            if (type === 'os' && classifyOs(pc.OS, pc.OSBuild, osViewMode) !== value) return false;
+            if (type === 'brand' && classifyBrand(pc.Maker) !== value) return false;
+            if (type === 'office' && classifyOffice(pc.Office_License) !== value) return false;
+            if (type === 'winLic' && classifyWinLicense(pc.Win_License) !== value) return false;
+            if (type === 'subnet' && classifySubnet(pc.IP) !== value) return false;
+            if (type === 'ou' && (classifyOU(pc.AD_OU) || 'No OU Assigned') !== value) return false;
+            if (type === 'diskCritical') {
+              const free = getDiskFreePercent(pc.Disk_C_Free);
+              if (free === null || free > 15) return false;
+            }
+            if (type === 'ramLow') {
+              const r = parseFloat(pc.RAM_GB) || 0;
+              if (r >= 8) return false;
+            }
+            if (type === 'unlicensed') {
+              const w = (pc.Win_License || '').toLowerCase();
+              const o = (pc.Office_License || '').toLowerCase();
+              const fails = parseInt(pc.Fail_Count) || 0;
+              if (!w.includes('unlicensed') && !w.includes('grace') && !o.includes('unlicensed') && !o.includes('grace') && fails < 3) return false;
+            }
           }
         }
         return true;
@@ -8294,7 +8404,7 @@
           if (activeGridTab === 'hardware') {
             renderTable();
           } else if (activeGridTab === 'dashboard') {
-            renderDashboard();
+            if (!isScanning) renderDashboard();
           }
         }
 
@@ -8335,6 +8445,9 @@
             updateStepperUI(5, 'Completed', true);
 
             fetchMasterStatus();
+            if (activeGridTab === 'dashboard' || activeDataSource === 'latest') {
+              renderDashboard();
+            }
 
             showToast('Network inventory scan completed successfully!', 'success');
 
@@ -8459,6 +8572,15 @@
         if (lblMasterBadge) lblMasterBadge.innerText = masterHwPCs.length;
         const lblLatestBadge = document.getElementById('lblSourceLatestCount');
         if (lblLatestBadge) lblLatestBadge.innerText = allScannedPCs.length;
+
+        // Auto-select Master Database if records exist and latest scan has not run yet
+        if (activeDataSource === 'latest' && allScannedPCs.length === 0 && masterHwPCs.length > 0) {
+          activeDataSource = 'master';
+          const bLatest = document.getElementById('btnSourceLatest');
+          const bMaster = document.getElementById('btnSourceMaster');
+          if (bLatest) bLatest.classList.remove('active');
+          if (bMaster) bMaster.classList.add('active');
+        }
 
         if (activeDataSource === 'master') {
           if (activeGridTab === 'hardware') renderTable();
