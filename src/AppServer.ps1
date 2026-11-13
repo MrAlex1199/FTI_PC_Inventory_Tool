@@ -8,8 +8,7 @@ param(
 
 # --- 1. Resolve Core Engine & Web UI Assets ---
 if (-not $CoreScript) {
-    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot }
-if ($CoreScript) { $CoreScript = $CoreScript.TrimStart([char]0xFEFF) } else { (Get-Location).Path }
+    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
     $corePath = Join-Path $scriptDir 'Get-PCInventory.Core.ps1'
     if (-not (Test-Path $corePath)) { $corePath = Join-Path $scriptDir 'src\Get-PCInventory.Core.ps1' }
     if (Test-Path $corePath) {
@@ -18,6 +17,7 @@ if ($CoreScript) { $CoreScript = $CoreScript.TrimStart([char]0xFEFF) } else { (G
         $CoreScript = ''
     }
 }
+if ($CoreScript) { $CoreScript = $CoreScript.TrimStart([char]0xFEFF) }
 
 # --- Silent Mode for Scheduled Tasks / CLI Background Run ---
 if ($Silent -or $ScheduledRun) {
@@ -103,6 +103,7 @@ try {
 } catch {}
 
 # --- Laptop Lid-Close Awake Guard with Automatic Restore ---
+$localApp = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { [Environment]::GetFolderPath('LocalApplicationData') }
 $script:lidBackupFile = Join-Path $localApp 'FTI_PC_Inventory_Tool\lid_power_backup.json'
 
 function Enable-LidCloseAwakeGuard {
@@ -1051,7 +1052,6 @@ Write-Host "[STEP:5] Demo simulation completed successfully!"
 # --- 6. Launch Standalone Edge / Chrome App Window ---
 $pf86 = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::ProgramFilesX86)
 $pf = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::ProgramFiles)
-$localApp = [System.Environment]::GetFolderPath([System.Environment+SpecialFolder]::LocalApplicationData)
 
 $browserPaths = @(
     (Join-Path $pf86 'Microsoft\Edge\Application\msedge.exe'),
