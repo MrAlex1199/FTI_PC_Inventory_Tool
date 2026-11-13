@@ -31,3 +31,7 @@ scratch/
 # Exported chat database binaries (keep markdown docs)
 chat_memory_export/*.db*
 chat_memory_export/*.zip
+
+# Superpowers SDD & Worktrees
+.worktrees/
+.superpowers/
