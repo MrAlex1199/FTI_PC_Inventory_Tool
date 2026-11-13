@@ -30,7 +30,25 @@
 
       }
 
-      b.innerHTML = '<span>⚠️ Script Error: ' + (e.message || 'Unknown') + ' (Line ' + e.lineno + ')</span><button onclick="this.parentElement.remove()" style="background:transparent;border:none;color:#fff;cursor:pointer;font-size:16px;">✖</button>';
+      b.textContent = '';
+
+      var msgSpan = document.createElement('span');
+
+      msgSpan.textContent = '⚠️ Script Error: ' + (e.message || 'Unknown') + ' (Line ' + (e.lineno || '?') + ')';
+
+      var closeBtn = document.createElement('button');
+
+      closeBtn.type = 'button';
+
+      closeBtn.textContent = '✖';
+
+      closeBtn.style.cssText = 'background:transparent;border:none;color:#fff;cursor:pointer;font-size:16px;';
+
+      closeBtn.addEventListener('click', function() { b.remove(); });
+
+      b.appendChild(msgSpan);
+
+      b.appendChild(closeBtn);
 
     });
 
@@ -6070,7 +6088,7 @@
           const pct = Math.round((count / total) * 100);
           const barWidth = Math.max(3, Math.round((count / maxVal) * 100));
           return `
-            <div class="dash-bar-row" onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')">
+            <div class="dash-bar-row" data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="${escapeHtml(name)}" data-drill-label="${escapeHtml(name)}">
               <div class="dash-bar-label-wrap">
                 <span class="dash-bar-label" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
                 <span class="dash-bar-count">${count} <span style="font-weight:400; color:var(--text-muted); font-size:0.68rem;">(${pct}%)</span></span>
@@ -6086,7 +6104,7 @@
       let footerHtml = '';
       if (unscannedCount > 0) {
         footerHtml = `
-          <div class="dash-unscanned-footer" onclick="applyDashboardDrilldown('${drilldownType}', '__UNSCANNED__', 'Not Scanned / Spec Missing')" title="Click to view PCs requiring scan">
+          <div class="dash-unscanned-footer" data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="__UNSCANNED__" data-drill-label="Not Scanned / Spec Missing" title="Click to view PCs requiring scan">
             <span><span style="opacity:0.7;">⚠️</span> Not Scanned / Spec Missing</span>
             <span class="dash-unscanned-badge">${unscannedCount} PCs</span>
           </div>
@@ -6124,7 +6142,7 @@
               style="cursor:pointer; transition:stroke-width 0.2s ease, opacity 0.2s ease;"
               onmouseover="this.style.strokeWidth='28'; this.style.opacity='0.9';"
               onmouseout="this.style.strokeWidth='24'; this.style.opacity='1';"
-              onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')"
+              data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="${escapeHtml(name)}" data-drill-label="${escapeHtml(name)}"
             >
               <title>FTI PC Inventory Tool - v2026.11.10.1</title>
             </circle>
@@ -6135,7 +6153,7 @@
           const pct = Math.round((count / total) * 100);
           const color = palette[idx % palette.length];
           return `
-            <div class="dash-donut-legend-item" onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')" title="${escapeHtml(name)}">
+            <div class="dash-donut-legend-item" data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="${escapeHtml(name)}" data-drill-label="${escapeHtml(name)}" title="${escapeHtml(name)}">
               <span class="dash-donut-legend-dot" style="background:${color};"></span>
               <span class="dash-donut-legend-label">${escapeHtml(name)}</span>
               <span class="dash-donut-legend-val">${count} (${pct}%)</span>
@@ -6165,7 +6183,7 @@
       let footerHtml = '';
       if (unscannedCount > 0) {
         footerHtml = `
-          <div class="dash-unscanned-footer" onclick="applyDashboardDrilldown('${drilldownType}', '__UNSCANNED__', 'Not Scanned / Spec Missing')" title="Click to view PCs requiring scan">
+          <div class="dash-unscanned-footer" data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="__UNSCANNED__" data-drill-label="Not Scanned / Spec Missing" title="Click to view PCs requiring scan">
             <span><span style="opacity:0.7;">⚠️</span> Not Scanned / Spec Missing</span>
             <span class="dash-unscanned-badge">${unscannedCount} PCs</span>
           </div>
@@ -6192,7 +6210,7 @@
           const heightPct = Math.max(8, Math.round((count / maxVal) * 100));
           const color = palette[idx % palette.length];
           return `
-            <div class="dash-col-item" onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')" title="${escapeHtml(name)}: ${count} (${pct}%)">
+            <div class="dash-col-item" data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="${escapeHtml(name)}" data-drill-label="${escapeHtml(name)}" title="${escapeHtml(name)}: ${count} (${pct}%)">
               <span class="dash-col-val">${count}</span>
               <div class="dash-col-bar-wrap">
                 <div class="dash-col-fill" style="height:${heightPct}%; background:${color};"></div>
@@ -6207,7 +6225,7 @@
       let footerHtml = '';
       if (unscannedCount > 0) {
         footerHtml = `
-          <div class="dash-unscanned-footer" onclick="applyDashboardDrilldown('${drilldownType}', '__UNSCANNED__', 'Not Scanned / Spec Missing')" title="Click to view PCs requiring scan">
+          <div class="dash-unscanned-footer" data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="__UNSCANNED__" data-drill-label="Not Scanned / Spec Missing" title="Click to view PCs requiring scan">
             <span><span style="opacity:0.7;">⚠️</span> Not Scanned / Spec Missing</span>
             <span class="dash-unscanned-badge">${unscannedCount} PCs</span>
           </div>
@@ -6234,7 +6252,7 @@
           const weight = Math.max(1, count);
           return `
             <div class="dash-treemap-tile" style="flex: ${weight} 1 ${Math.min(180, Math.max(85, count * 18))}px; border-left: 4px solid ${color};"
-              onclick="applyDashboardDrilldown('${drilldownType}', '${escapeHtml(name)}', '${escapeHtml(name)}')" title="${escapeHtml(name)}: ${count} (${pct}%)">
+              data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="${escapeHtml(name)}" data-drill-label="${escapeHtml(name)}" title="${escapeHtml(name)}: ${count} (${pct}%)">
               <div class="dash-treemap-tile-header">
                 <span class="dash-treemap-name">${escapeHtml(name)}</span>
                 <span class="dash-treemap-pct" style="color:${color};">${pct}%</span>
@@ -6249,7 +6267,7 @@
       let footerHtml = '';
       if (unscannedCount > 0) {
         footerHtml = `
-          <div class="dash-unscanned-footer" onclick="applyDashboardDrilldown('${drilldownType}', '__UNSCANNED__', 'Not Scanned / Spec Missing')" title="Click to view PCs requiring scan">
+          <div class="dash-unscanned-footer" data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="__UNSCANNED__" data-drill-label="Not Scanned / Spec Missing" title="Click to view PCs requiring scan">
             <span><span style="opacity:0.7;">⚠️</span> Not Scanned / Spec Missing</span>
             <span class="dash-unscanned-badge">${unscannedCount} PCs</span>
           </div>
@@ -6497,7 +6515,7 @@
           return;
         }
         el.innerHTML = items.slice(0, 8).map(it => `
-          <div class="dash-watchlist-item" onclick="applyDashboardDrilldown('${drilldownType}', 'true', '${escapeHtml(it.pc)}')">
+          <div class="dash-watchlist-item" data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="true" data-drill-label="${escapeHtml(it.pc)}">
             <div>
               <span class="dash-wl-pc">${escapeHtml(it.pc)}</span>
               <span class="dash-wl-sub">${escapeHtml(it.user || '-')}</span>
@@ -6622,6 +6640,36 @@
     const btnCancelScan = document.getElementById('btnCancelScan');
 
     const btnRetryOffline = document.getElementById('btnRetryOffline');
+
+    const btnRunDemo = document.getElementById('btnRunDemo');
+
+    const dashboardContainerEl = document.getElementById('dashboardContainer');
+    if (dashboardContainerEl) {
+      dashboardContainerEl.addEventListener('click', (e) => {
+        const target = e.target.closest('[data-drill-type]');
+        if (!target) return;
+        const type = target.getAttribute('data-drill-type');
+        const val = target.getAttribute('data-drill-val');
+        const label = target.getAttribute('data-drill-label');
+        applyDashboardDrilldown(type, val, label);
+      });
+    }
+
+    const swTableBodyEl = document.getElementById('swTableBody');
+    if (swTableBodyEl) {
+      swTableBodyEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-view-sw[data-pc-name]');
+        if (btn) {
+          e.stopPropagation();
+          openPcSoftwareModal(btn.getAttribute('data-pc-name'));
+          return;
+        }
+        const row = e.target.closest('tr.sw-row-clickable[data-pc-name]');
+        if (row) {
+          openPcSoftwareModal(row.getAttribute('data-pc-name'));
+        }
+      });
+    }
 
     const badgeOfflineCount = document.getElementById('badgeOfflineCount');
 
@@ -6985,7 +7033,11 @@
 
       t.className = `toast ${type}`;
 
-      t.innerHTML = `<span>${msg}</span>`;
+      const span = document.createElement('span');
+
+      span.textContent = msg == null ? '' : String(msg);
+
+      t.appendChild(span);
 
       document.getElementById('toastContainer').appendChild(t);
 
@@ -7005,7 +7057,23 @@
 
       div.className = 'log-line';
 
-      div.innerHTML = `<span class="log-ts">[${ts}]</span> <span class="${colorClass}">${msg}</span>`;
+      const tsSpan = document.createElement('span');
+
+      tsSpan.className = 'log-ts';
+
+      tsSpan.textContent = `[${ts}]`;
+
+      const msgSpan = document.createElement('span');
+
+      if (colorClass) msgSpan.className = colorClass;
+
+      msgSpan.textContent = msg == null ? '' : String(msg);
+
+      div.appendChild(tsSpan);
+
+      div.appendChild(document.createTextNode(' '));
+
+      div.appendChild(msgSpan);
 
       container.appendChild(div);
 
@@ -7496,14 +7564,14 @@
         const countBadge = `<span class="nav-badge" style="background:rgba(2,132,199,0.15); color:var(--accent-primary); font-weight:700;">${pc.SoftwareCount || 0} Apps</span>`;
 
         return `
-          <tr class="sw-row-clickable" onclick="openPcSoftwareModal('${escapeHtml(pc.PCName)}')">
+          <tr class="sw-row-clickable" data-pc-name="${escapeHtml(pc.PCName || '')}">
             <td>${statusBadge}</td>
             <td style="font-size:0.72rem; color:var(--text-secondary);">${pc.Method && pc.Method.includes('⚡') ? `<span class="method-badge method-deep">${escapeHtml(pc.Method)}</span>` : escapeHtml(pc.Method || '-')}</td>
             <td><span class="pc-name-bold">${escapeHtml(pc.PCName || '-')}</span></td>
             <td style="text-align:center;">${countBadge}</td>
             <td style="font-size:0.75rem; color:var(--text-secondary); max-width:400px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(pc.KeySoftware || '-')}">${escapeHtml(pc.KeySoftware || '-')}</td>
             <td style="text-align:center;">
-              <button class="btn-view-sw" onclick="event.stopPropagation(); openPcSoftwareModal('${escapeHtml(pc.PCName)}')">
+              <button class="btn-view-sw" data-pc-name="${escapeHtml(pc.PCName || '')}">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 <span>View</span>
               </button>
@@ -7733,7 +7801,7 @@
 
         if (data.error && (!data.items || data.items.length === 0)) {
 
-          fsItemsList.innerHTML = `<div style="padding:28px 16px; text-align:center; color:var(--accent-rose); font-size:0.8rem;">⚠️ ${data.error}</div>`;
+          fsItemsList.innerHTML = `<div style="padding:28px 16px; text-align:center; color:var(--accent-rose); font-size:0.8rem;">⚠️ ${escapeHtml(data.error)}</div>`;
 
           return;
 
@@ -7761,7 +7829,21 @@
 
           leftCol.style = 'display:flex; align-items:center; gap:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
 
-          leftCol.innerHTML = `<span style="font-size:15px; flex-shrink:0;">${isDir ? '📁' : '📄'}</span><span style="font-weight:${isDir ? '700' : '500'}; color:var(--text-main);">${item.name}</span>`;
+          const iconSpan = document.createElement('span');
+
+          iconSpan.style.cssText = 'font-size:15px; flex-shrink:0;';
+
+          iconSpan.textContent = isDir ? '📁' : '📄';
+
+          const nameSpan = document.createElement('span');
+
+          nameSpan.style.cssText = `font-weight:${isDir ? '700' : '500'}; color:var(--text-main);`;
+
+          nameSpan.textContent = item.name || '';
+
+          leftCol.appendChild(iconSpan);
+
+          leftCol.appendChild(nameSpan);
 
           const rightCol = document.createElement('div');
 
@@ -7815,7 +7897,7 @@
 
       } catch (err) {
 
-        fsItemsList.innerHTML = `<div style="padding:28px 16px; text-align:center; color:var(--accent-rose); font-size:0.8rem;">❌ Error: ${err.message}</div>`;
+        fsItemsList.innerHTML = `<div style="padding:28px 16px; text-align:center; color:var(--accent-rose); font-size:0.8rem;">❌ Error: ${escapeHtml(err.message)}</div>`;
 
       }
 
@@ -8486,7 +8568,6 @@
     
     
     // Demo 100 PCs Simulation Handler
-    const btnRunDemo = document.getElementById('btnRunDemo');
     if (btnRunDemo) {
       btnRunDemo.addEventListener('click', async () => {
         if (isScanning) {
