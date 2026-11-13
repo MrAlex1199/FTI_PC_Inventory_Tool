@@ -5497,6 +5497,25 @@
 
   <script>
 
+    // Per-session API token & fetch wrapper for CSRF/token protection
+    const _metaTokenEl = document.querySelector('meta[name="fti-api-token"]');
+    const FTI_API_TOKEN = (_metaTokenEl && _metaTokenEl.getAttribute('content')) || '';
+    if (typeof window.fetch === 'function' && FTI_API_TOKEN) {
+      const _origFetch = window.fetch.bind(window);
+      window.fetch = function(input, init) {
+        const url = typeof input === 'string' ? input : (input && typeof input.url === 'string' ? input.url : '');
+        const isApiCall = url.indexOf('/api/') === 0 || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/api\//i.test(url);
+        if (isApiCall) {
+          const opts = Object.assign({}, init || {});
+          const hdrs = new Headers(opts.headers || (input instanceof Request ? input.headers : undefined));
+          hdrs.set('X-FTI-Token', FTI_API_TOKEN);
+          opts.headers = hdrs;
+          return _origFetch(input, opts);
+        }
+        return _origFetch(input, init);
+      };
+    }
+
     // State Variables
 
     let isScanning = false;
@@ -8937,10 +8956,8 @@
       window.__isClosing = true;
       if (pollTimer) clearInterval(pollTimer);
       try {
-        navigator.sendBeacon('/api/exit', '');
-      } catch (e) {
-        try { fetch('/api/exit', { method: 'POST', keepalive: true }); } catch (err) {}
-      }
+        fetch('/api/exit', { method: 'POST', keepalive: true }).catch(() => {});
+      } catch (err) {}
     }
 
     // Confirmation prompt if user attempts to close window while a scan is actively running

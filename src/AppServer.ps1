@@ -213,6 +213,28 @@ $script:scanStepText    = 'Ready'
 $script:systemLogs      = [System.Collections.Generic.List[string]]::new()
 $script:sentSystemLogIndex = 0
 
+# Per-session cryptographically random API token (32 bytes -> 64 hex chars)
+$tokenBytes = New-Object byte[] 32
+$rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
+try {
+    $rng.GetBytes($tokenBytes)
+} finally {
+    $rng.Dispose()
+}
+$script:ApiSessionToken = [System.BitConverter]::ToString($tokenBytes).Replace('-', '').ToLowerInvariant()
+
+function Test-SafeLocalPath([string]$PathToCheck) {
+    if ([string]::IsNullOrWhiteSpace($PathToCheck)) { return $false }
+    if ($PathToCheck -match '[\x00-\x1F]') { return $false }
+    if ($PathToCheck -match '^\\\\') { return $false }
+    try {
+        $null = [System.IO.Path]::GetFullPath($PathToCheck)
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 function Write-SystemLog([string]$level, [string]$message) {
     $ts = [System.DateTime]::Now.ToString('HH:mm:ss')
     $entry = "[$ts][$level] $message"
@@ -1224,8 +1246,43 @@ while ($running) {
         }
 
         try {
+            if ($path.StartsWith('/api/')) {
+                $hostHdr = $req.Headers['Host']
+                if ([string]::IsNullOrWhiteSpace($hostHdr)) { $hostHdr = $req.UserHostName }
+                $validHost = (-not [string]::IsNullOrWhiteSpace($hostHdr)) -and ($hostHdr -match '^(127\.0\.0\.1|localhost)(:\d+)?$')
+
+                $originHdr = $req.Headers['Origin']
+                $validOrigin = $true
+                if ($method -in @('POST', 'PUT', 'DELETE')) {
+                    if (-not [string]::IsNullOrWhiteSpace($originHdr)) {
+                        $validOrigin = $originHdr -match '^http://(127\.0\.0\.1|localhost):\d+$'
+                    }
+                    $secFetchSite = $req.Headers['Sec-Fetch-Site']
+                    if (-not [string]::IsNullOrWhiteSpace($secFetchSite)) {
+                        if ($secFetchSite -ne 'same-origin' -and $secFetchSite -ne 'none') {
+                            $validOrigin = $false
+                        }
+                    }
+                }
+
+                $tokenHdr = $req.Headers['X-FTI-Token']
+                $validToken = (-not [string]::IsNullOrWhiteSpace($tokenHdr)) -and ($tokenHdr -ceq $script:ApiSessionToken)
+
+                if (-not ($validHost -and $validOrigin -and $validToken)) {
+                    $res.StatusCode = 403
+                    $errJson = '{"error":"Forbidden: Invalid or missing API session token","status":403}'
+                    $buf = [System.Text.Encoding]::UTF8.GetBytes($errJson)
+                    $res.ContentType = 'application/json; charset=utf-8'
+                    $res.ContentLength64 = $buf.Length
+                    $res.OutputStream.Write($buf, 0, $buf.Length)
+                    continue
+                }
+            }
+
             if ($path -eq '/' -or $path -eq '/index.html') {
-                $buf = [System.Text.Encoding]::UTF8.GetBytes($HtmlContent)
+                $metaTag = "<meta name=`"fti-api-token`" content=`"$($script:ApiSessionToken)`">"
+                $htmlWithToken = ([regex]'(?i)<head>').Replace($HtmlContent, "<head>`r`n  $metaTag", 1)
+                $buf = [System.Text.Encoding]::UTF8.GetBytes($htmlWithToken)
                 $res.ContentType = 'text/html; charset=utf-8'
                 $res.ContentLength64 = $buf.Length
                 $res.OutputStream.Write($buf, 0, $buf.Length)
@@ -1493,7 +1550,13 @@ while ($running) {
                     }
 
                     try {
-                        $taskAction = New-ScheduledTaskAction -Execute $exe -Argument "-Silent -OutDir `"$($script:lastOutDir)`""
+                        $safeOutDir = if ($script:lastOutDir) { [string]$script:lastOutDir } else { 'C:\Inventory' }
+                        if ($safeOutDir -match '^[a-zA-Z]:\\?$') {
+                            $safeOutDir = $safeOutDir.Substring(0, 2) + '\.'
+                        } else {
+                            $safeOutDir = $safeOutDir.TrimEnd('\')
+                        }
+                        $taskAction = New-ScheduledTaskAction -Execute $exe -Argument "-Silent -OutDir `"$safeOutDir`""
                         if ($mode -eq 'interval') {
                             $startStr = (Get-Date).ToString("HH:mm")
                             $trigger = New-ScheduledTaskTrigger -Once -At $startStr -RepetitionInterval (New-TimeSpan -Minutes $intervalMins) -RepetitionDuration (New-TimeSpan -Days 3650)
@@ -1561,6 +1624,16 @@ while ($running) {
                 if ([string]::IsNullOrWhiteSpace($outDirParam)) {
                     $outDirParam = if ($script:lastOutDir) { $script:lastOutDir } else { 'C:\Inventory' }
                 }
+                if (-not (Test-SafeLocalPath $outDirParam)) {
+                    $res.StatusCode = 400
+                    $errJson = '{"error":"Invalid output directory path","status":400}'
+                    $buf = [System.Text.Encoding]::UTF8.GetBytes($errJson)
+                    $res.ContentType = 'application/json; charset=utf-8'
+                    $res.ContentLength64 = $buf.Length
+                    $res.OutputStream.Write($buf, 0, $buf.Length)
+                    continue
+                }
+                $outDirParam = [System.IO.Path]::GetFullPath($outDirParam)
 
                 $hwMasterPath   = Join-Path $outDirParam 'Hardware_Master.csv'
                 $swMasterPath   = Join-Path $outDirParam 'Software_Master.csv'
@@ -1700,6 +1773,16 @@ while ($running) {
                 if ([string]::IsNullOrWhiteSpace($outDirParam)) {
                     $outDirParam = if ($script:lastOutDir) { $script:lastOutDir } else { 'C:\Inventory' }
                 }
+                if (-not (Test-SafeLocalPath $outDirParam)) {
+                    $res.StatusCode = 400
+                    $errJson = '{"error":"Invalid output directory path","status":400}'
+                    $buf = [System.Text.Encoding]::UTF8.GetBytes($errJson)
+                    $res.ContentType = 'application/json; charset=utf-8'
+                    $res.ContentLength64 = $buf.Length
+                    $res.OutputStream.Write($buf, 0, $buf.Length)
+                    continue
+                }
+                $outDirParam = [System.IO.Path]::GetFullPath($outDirParam)
 
                 $hwMasterPath = Join-Path $outDirParam 'Hardware_Master.csv'
                 $swMasterPath = Join-Path $outDirParam 'Software_Master.csv'
@@ -1843,14 +1926,24 @@ while ($running) {
                 } catch {}
 
                 if ([string]::IsNullOrWhiteSpace($targetPath)) {
-                    $targetPath = if (Test-Path 'C:\') { 'C:\' } elseif ($drives.Count -gt 0) { $drives[0].root } else { [System.Environment]::GetFolderPath('Desktop') }
+                    $targetPath = if (Test-Path -LiteralPath 'C:\') { 'C:\' } elseif ($drives.Count -gt 0) { $drives[0].root } else { [System.Environment]::GetFolderPath('Desktop') }
                 }
 
                 if ($targetPath -match '^[a-zA-Z]:$') {
                     $targetPath = "$targetPath\"
                 }
 
-                $normPath = try { [System.IO.Path]::GetFullPath($targetPath) } catch { $targetPath }
+                if (-not (Test-SafeLocalPath $targetPath)) {
+                    $res.StatusCode = 400
+                    $errJson = '{"error":"Invalid local path","status":400}'
+                    $buf = [System.Text.Encoding]::UTF8.GetBytes($errJson)
+                    $res.ContentType = 'application/json; charset=utf-8'
+                    $res.ContentLength64 = $buf.Length
+                    $res.OutputStream.Write($buf, 0, $buf.Length)
+                    continue
+                }
+
+                $normPath = [System.IO.Path]::GetFullPath($targetPath)
 
                 # If targetPath is actually a file, point to its containing directory
                 if (Test-Path -LiteralPath $normPath -PathType Leaf) {
@@ -1941,20 +2034,25 @@ while ($running) {
                 $err = $null
 
                 try {
-                    if ([string]::IsNullOrWhiteSpace($parentPath) -or -not (Test-Path -LiteralPath $parentPath)) {
-                        $err = "Parent directory not found"
-                    } elseif ([string]::IsNullOrWhiteSpace($folderName)) {
-                        $err = "Folder name cannot be empty"
+                    if (-not (Test-SafeLocalPath $parentPath)) {
+                        $err = "Invalid parent directory path"
                     } else {
-                        $cleanName = $folderName -replace '[\\/:*?"<>|]', ''
-                        if ([string]::IsNullOrWhiteSpace($cleanName)) {
-                            $err = "Invalid folder name"
+                        $parentPath = [System.IO.Path]::GetFullPath($parentPath)
+                        if (-not (Test-Path -LiteralPath $parentPath -PathType Container)) {
+                            $err = "Parent directory not found"
+                        } elseif ([string]::IsNullOrWhiteSpace($folderName)) {
+                            $err = "Folder name cannot be empty"
                         } else {
-                            $newPath = Join-Path $parentPath $cleanName
-                            if (-not (Test-Path -LiteralPath $newPath)) {
-                                [void](New-Item -ItemType Directory -Path $newPath -Force)
+                            $cleanName = $folderName -replace '[\\/:*?"<>|]', ''
+                            if ([string]::IsNullOrWhiteSpace($cleanName)) {
+                                $err = "Invalid folder name"
+                            } else {
+                                $newPath = Join-Path $parentPath $cleanName
+                                if (-not (Test-Path -LiteralPath $newPath)) {
+                                    [void](New-Item -ItemType Directory -Path $newPath -Force)
+                                }
+                                $success = $true
                             }
-                            $success = $true
                         }
                     }
                 } catch {
@@ -1971,12 +2069,38 @@ while ($running) {
                 $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)
                 $body = $reader.ReadToEnd()
                 $params = $body | ConvertFrom-Json
-                $dir = if ($params.folder) { $params.folder } else { 'C:\Inventory' }
+                $dir = if ($params.folder) { [string]$params.folder } else { 'C:\Inventory' }
 
-                if (-not (Test-Path $dir)) {
+                if (-not (Test-SafeLocalPath $dir)) {
+                    $res.StatusCode = 400
+                    $errJson = '{"error":"Invalid folder path","status":400}'
+                    $buf = [System.Text.Encoding]::UTF8.GetBytes($errJson)
+                    $res.ContentType = 'application/json; charset=utf-8'
+                    $res.ContentLength64 = $buf.Length
+                    $res.OutputStream.Write($buf, 0, $buf.Length)
+                    continue
+                }
+                $dir = [System.IO.Path]::GetFullPath($dir)
+
+                if (-not (Test-Path -LiteralPath $dir)) {
                     try { New-Item -ItemType Directory -Path $dir -Force | Out-Null } catch {}
                 }
-                [System.Diagnostics.Process]::Start('explorer.exe', $dir) | Out-Null
+                if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
+                    $res.StatusCode = 404
+                    $errJson = '{"error":"Folder not found","status":404}'
+                    $buf = [System.Text.Encoding]::UTF8.GetBytes($errJson)
+                    $res.ContentType = 'application/json; charset=utf-8'
+                    $res.ContentLength64 = $buf.Length
+                    $res.OutputStream.Write($buf, 0, $buf.Length)
+                    continue
+                }
+
+                $safeExplorerDir = if ($dir -match '^[a-zA-Z]:\\$') { $dir + '.' } else { $dir.TrimEnd('\') }
+                $psi = New-Object System.Diagnostics.ProcessStartInfo
+                $psi.FileName = 'explorer.exe'
+                $psi.Arguments = "`"$safeExplorerDir`""
+                $psi.UseShellExecute = $true
+                [System.Diagnostics.Process]::Start($psi) | Out-Null
 
                 $json = @{ status = 'opened' } | ConvertTo-Json
                 $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
