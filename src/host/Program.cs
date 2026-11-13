@@ -2,6 +2,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 
 [assembly: AssemblyTitle("FTI PC Inventory Tool")]
@@ -26,22 +28,62 @@ namespace FTI.PCInventory
             try
             {
                 string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                string appDir = Path.Combine(localAppData, "FTI_PC_Inventory_Tool");
-                if (!Directory.Exists(appDir))
-                {
-                    Directory.CreateDirectory(appDir);
-                }
+                string localAppDir = Path.Combine(localAppData, "FTI_PC_Inventory_Tool");
 
-                string scriptPath = Path.Combine(appDir, "app_engine.ps1");
+                string programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+                string engineDir = Path.Combine(programData, "FTI_PC_Inventory_Tool");
+
+                EnsureSecureDirectory(engineDir);
+
+                string scriptPath = Path.Combine(engineDir, "app_engine.ps1");
 
                 // Extract embedded PowerShell engine
                 using (Stream resStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("FTI.Engine"))
                 {
                     if (resStream != null)
                     {
+                        try
+                        {
+                            if (File.Exists(scriptPath))
+                            {
+                                File.Delete(scriptPath);
+                            }
+                        }
+                        catch { }
+
                         using (FileStream fs = new FileStream(scriptPath, FileMode.Create, FileAccess.Write, FileShare.None))
                         {
                             resStream.CopyTo(fs);
+                        }
+
+                        SecurityIdentifier adminSid = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
+                        SecurityIdentifier systemSid = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
+
+                        FileSecurity fileSec = new FileSecurity();
+                        fileSec.SetAccessRuleProtection(true, false);
+                        fileSec.SetOwner(adminSid);
+
+                        fileSec.AddAccessRule(new FileSystemAccessRule(
+                            adminSid,
+                            FileSystemRights.FullControl,
+                            AccessControlType.Allow));
+
+                        fileSec.AddAccessRule(new FileSystemAccessRule(
+                            systemSid,
+                            FileSystemRights.FullControl,
+                            AccessControlType.Allow));
+
+                        try
+                        {
+                            File.SetAccessControl(scriptPath, fileSec);
+                        }
+                        catch (Exception)
+                        {
+                            FileSecurity fallbackFileSec = new FileSecurity();
+                            fallbackFileSec.SetAccessRuleProtection(true, false);
+                            fallbackFileSec.AddAccessRule(new FileSystemAccessRule(adminSid, FileSystemRights.FullControl, AccessControlType.Allow));
+                            fallbackFileSec.AddAccessRule(new FileSystemAccessRule(systemSid, FileSystemRights.FullControl, AccessControlType.Allow));
+                            File.SetAccessControl(scriptPath, fallbackFileSec);
                         }
                     }
                     else if (!File.Exists(scriptPath))
@@ -79,22 +121,14 @@ namespace FTI.PCInventory
                 // Prepare PowerShell launcher arguments
                 StringBuilder argBuilder = new StringBuilder();
                 argBuilder.Append("-NoProfile -STA -ExecutionPolicy Bypass -WindowStyle Hidden -File ");
-                argBuilder.Append("\"").Append(scriptPath).Append("\"");
+                argBuilder.Append(EscapeProcessArgument(scriptPath));
 
                 // Forward command line arguments
                 if (args != null && args.Length > 0)
                 {
                     foreach (string arg in args)
                     {
-                        argBuilder.Append(" ");
-                        if (arg.Contains(" ") && !arg.StartsWith("\""))
-                        {
-                            argBuilder.Append("\"").Append(arg).Append("\"");
-                        }
-                        else
-                        {
-                            argBuilder.Append(arg);
-                        }
+                        argBuilder.Append(" ").Append(EscapeProcessArgument(arg));
                     }
                 }
 
@@ -133,20 +167,20 @@ namespace FTI.PCInventory
                         if (isSilent)
                         {
                             proc.WaitForExit();
-                            RestoreLidActionFallback(appDir);
+                            RestoreLidActionFallback(localAppDir);
                             return proc.ExitCode;
                         }
                         else
                         {
                             // In interactive mode, wait for server process so launcher stays clean
                             proc.WaitForExit();
-                            RestoreLidActionFallback(appDir);
+                            RestoreLidActionFallback(localAppDir);
                             return proc.ExitCode;
                         }
                     }
                 }
 
-                RestoreLidActionFallback(appDir);
+                RestoreLidActionFallback(localAppDir);
                 return 0;
             }
             catch (Exception ex)
@@ -154,9 +188,13 @@ namespace FTI.PCInventory
                 try
                 {
                     string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                    string appDir = Path.Combine(localAppData, "FTI_PC_Inventory_Tool");
-                    RestoreLidActionFallback(appDir);
-                    string logFile = Path.Combine(appDir, "launcher_error.log");
+                    string localAppDir = Path.Combine(localAppData, "FTI_PC_Inventory_Tool");
+                    RestoreLidActionFallback(localAppDir);
+                    if (!Directory.Exists(localAppDir))
+                    {
+                        Directory.CreateDirectory(localAppDir);
+                    }
+                    string logFile = Path.Combine(localAppDir, "launcher_error.log");
                     File.AppendAllText(logFile, string.Format("[{0}] Launcher Exception: {1}\r\n", DateTime.Now, ex));
                 }
                 catch { }
@@ -165,12 +203,138 @@ namespace FTI.PCInventory
             }
         }
 
-        private static void RestoreLidActionFallback(string appDir)
+        private static void EnsureSecureDirectory(string dirPath)
+        {
+            if (Directory.Exists(dirPath))
+            {
+                if ((File.GetAttributes(dirPath) & FileAttributes.ReparsePoint) != 0)
+                {
+                    Directory.Delete(dirPath, false);
+                }
+            }
+
+            DirectorySecurity dSecurity = new DirectorySecurity();
+            dSecurity.SetAccessRuleProtection(true, false);
+
+            SecurityIdentifier adminSid = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
+            SecurityIdentifier systemSid = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
+
+            dSecurity.SetOwner(adminSid);
+
+            FileSystemAccessRule adminRule = new FileSystemAccessRule(
+                adminSid,
+                FileSystemRights.FullControl,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                PropagationFlags.None,
+                AccessControlType.Allow);
+
+            FileSystemAccessRule systemRule = new FileSystemAccessRule(
+                systemSid,
+                FileSystemRights.FullControl,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                PropagationFlags.None,
+                AccessControlType.Allow);
+
+            dSecurity.AddAccessRule(adminRule);
+            dSecurity.AddAccessRule(systemRule);
+
+            if (!Directory.Exists(dirPath))
+            {
+                try
+                {
+                    Directory.CreateDirectory(dirPath, dSecurity);
+                }
+                catch (Exception)
+                {
+                    Directory.CreateDirectory(dirPath);
+                }
+            }
+            DirectoryInfo di = new DirectoryInfo(dirPath);
+            try
+            {
+                di.SetAccessControl(dSecurity);
+            }
+            catch (Exception)
+            {
+                DirectorySecurity fallbackSec = new DirectorySecurity();
+                fallbackSec.SetAccessRuleProtection(true, false);
+                fallbackSec.AddAccessRule(adminRule);
+                fallbackSec.AddAccessRule(systemRule);
+                di.SetAccessControl(fallbackSec);
+            }
+        }
+
+        private static string EscapeProcessArgument(string arg)
+        {
+            if (string.IsNullOrEmpty(arg))
+            {
+                return "\"\"";
+            }
+
+            bool needsQuotes = false;
+            for (int i = 0; i < arg.Length; i++)
+            {
+                char c = arg[i];
+                if (c == ' ' || c == '\t' || c == '"')
+                {
+                    needsQuotes = true;
+                    break;
+                }
+            }
+
+            if (!needsQuotes)
+            {
+                return arg;
+            }
+
+            StringBuilder sb = new StringBuilder();
+            sb.Append('"');
+            int backslashCount = 0;
+
+            for (int i = 0; i < arg.Length; i++)
+            {
+                char c = arg[i];
+                if (c == '\\')
+                {
+                    backslashCount++;
+                }
+                else if (c == '"')
+                {
+                    sb.Append(new string('\\', backslashCount * 2 + 1));
+                    sb.Append('"');
+                    backslashCount = 0;
+                }
+                else
+                {
+                    if (backslashCount > 0)
+                    {
+                        sb.Append(new string('\\', backslashCount));
+                        backslashCount = 0;
+                    }
+                    sb.Append(c);
+                }
+            }
+
+            if (backslashCount > 0)
+            {
+                sb.Append(new string('\\', backslashCount * 2));
+            }
+            sb.Append('"');
+
+            return sb.ToString();
+        }
+
+        private static void RestoreLidActionFallback(string localAppDir)
         {
             try
             {
-                if (string.IsNullOrEmpty(appDir) || !Directory.Exists(appDir)) return;
-                string backupFile = Path.Combine(appDir, "lid_power_backup.json");
+                if (string.IsNullOrEmpty(localAppDir))
+                {
+                    string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                    localAppDir = Path.Combine(localAppData, "FTI_PC_Inventory_Tool");
+                }
+                if (!Directory.Exists(localAppDir)) return;
+                string backupFile = Path.Combine(localAppDir, "lid_power_backup.json");
                 if (File.Exists(backupFile))
                 {
                     string content = File.ReadAllText(backupFile);
