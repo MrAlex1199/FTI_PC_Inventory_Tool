@@ -85,7 +85,11 @@ $verJsonContent = $verObj | ConvertTo-Json -Depth 4
 [System.IO.File]::WriteAllText($versionFile, $verJsonContent, $utf8NoBom)
 Write-Host "      Build Version: $displayVersion ($nowTimestamp)" -ForegroundColor Green
 
-# Update Web UI Title & Version Tag in src/web/index.html
+# Stage and inject version strings into temp copies (leaving tracked source files clean)
+$stagedHtml = Join-Path $tempDir 'index.html'
+$stagedCs   = Join-Path $tempDir 'Program.cs'
+
+# Prepare Staged Web UI Title & Version Tag in $stagedHtml
 $htmlContentRaw = [System.IO.File]::ReadAllText($srcHtml, [System.Text.Encoding]::UTF8)
 $htmlContentRaw = [System.Text.RegularExpressions.Regex]::Replace(
     $htmlContentRaw,
@@ -97,9 +101,9 @@ $htmlContentRaw = [System.Text.RegularExpressions.Regex]::Replace(
     '<span class="version-tag[^"]*".*?</span>',
     "<span class=""version-tag has-tooltip"" data-tooltip=""Build: $nowTimestamp"" id=""appVersionTag"">$displayVersion</span>"
 )
-[System.IO.File]::WriteAllText($srcHtml, $htmlContentRaw, $utf8NoBom)
+[System.IO.File]::WriteAllText($stagedHtml, $htmlContentRaw, $utf8NoBom)
 
-# Update Assembly Version Attributes in src/host/Program.cs
+# Prepare Staged Assembly Version Attributes in $stagedCs
 $csContentRaw = [System.IO.File]::ReadAllText($srcCs, [System.Text.Encoding]::UTF8)
 $csContentRaw = [System.Text.RegularExpressions.Regex]::Replace(
     $csContentRaw,
@@ -120,7 +124,7 @@ if ($csContentRaw -match '\[assembly:\s*AssemblyInformationalVersion\(".*?"\)\]'
 } else {
     $csContentRaw = $csContentRaw -replace '(\[assembly:\s*AssemblyFileVersion\(.*?\);?\])', "`$1`r`n[assembly: AssemblyInformationalVersion(`"$displayVersion ($nowTimestamp)`")]"
 }
-[System.IO.File]::WriteAllText($srcCs, $csContentRaw, $utf8NoBom)
+[System.IO.File]::WriteAllText($stagedCs, $csContentRaw, $utf8NoBom)
 
 
 # 2. Locate C# Compiler (csc.exe)
@@ -141,43 +145,111 @@ if (-not $cscPath) {
 }
 Write-Host "      Compiler found: $cscPath" -ForegroundColor Green
 
-# 3. Validate Web UI & JavaScript Syntax Integrity
-Write-Host '[2/7] Validating Web UI & JavaScript syntax integrity...' -ForegroundColor Yellow
+# 3. Validate Web UI, JavaScript & PowerShell Syntax Integrity
+Write-Host '[2/7] Validating Web UI, JavaScript & PowerShell syntax integrity...' -ForegroundColor Yellow
+
+# 3a. Validate PowerShell AST Syntax for Core & Server scripts
+Write-Host '      Validating PowerShell AST syntax (Core & Server)...' -ForegroundColor Gray
+$psFilesToValidate = @(
+    @{ Name = 'Core Engine'; Path = $srcCore },
+    @{ Name = 'App Server';  Path = $srcServer }
+)
+foreach ($psItem in $psFilesToValidate) {
+    $tokens = $null
+    $parseErrors = $null
+    [System.Management.Automation.Language.Parser]::ParseFile($psItem.Path, [ref]$tokens, [ref]$parseErrors) | Out-Null
+    if ($parseErrors -and $parseErrors.Count -gt 0) {
+        $errDetails = ($parseErrors | ForEach-Object { "  Line $($_.Extent.StartLineNumber): $($_.Message)" }) -join "`n"
+        throw "PowerShell AST validation failed for $($psItem.Name) ($($psItem.Path)):`n$errDetails"
+    }
+}
+Write-Host '      PowerShell AST syntax verified (0 syntax errors).' -ForegroundColor Green
+
+# 3b. Validate Web UI & JavaScript Syntax Integrity (Chromium headless with Node.js fallback)
 $browserPaths = @(
     'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
     'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
     "$env:LOCALAPPDATA\Microsoft\Edge\Application\msedge.exe",
     'C:\Program Files\Google\Chrome\Application\chrome.exe',
-    'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'
+    'C:\Program Files\Chrome\Application\chrome.exe',
+    'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
+    "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
 )
 $headlessBrowser = $browserPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+$nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+
+$uiVerified = $false
+$engineFailures = @()
 
 if ($headlessBrowser) {
+    Write-Host "      Testing Web UI via headless Chromium ($headlessBrowser)..." -ForegroundColor Gray
     $tempDump = Join-Path $tempDir 'syntax_test_dom.txt'
-    $htmlUri = "file:///$($srcHtml.Replace('\', '/'))"
+    $htmlUri = "file:///$($stagedHtml.Replace('\', '/'))"
     & cmd.exe /c "`"$headlessBrowser`" --headless --disable-gpu --dump-dom `"$htmlUri`" 2>nul" | Out-File -FilePath $tempDump -Encoding utf8
 
     if (Test-Path $tempDump) {
         $domContent = Get-Content -Path $tempDump -Raw
         Remove-Item $tempDump -Force -ErrorAction SilentlyContinue
 
-        $hasFatalBanner = $domContent.Contains('<div id="fatalJsBanner"')
-        $hasJsLoaded = $domContent.Contains('data-js-loaded="true"')
+        if ([string]::IsNullOrWhiteSpace($domContent)) {
+            $engineFailures += "Headless browser DOM dump was empty."
+        } else {
+            $hasFatalBanner = $domContent.Contains('<div id="fatalJsBanner"')
+            $hasJsLoaded = $domContent.Contains('data-js-loaded="true"')
 
-        if ($hasFatalBanner -or -not $hasJsLoaded) {
-            $errMsg = "JavaScript execution or syntax error detected in $srcHtml."
-            if ($domContent -match 'id="fatalJsBanner"[^>]*><span>(.*?)</span>') {
-                $errMsg += " Details: $($matches[1])"
+            if ($hasFatalBanner -or -not $hasJsLoaded) {
+                $errMsg = "JavaScript execution or syntax error detected in $stagedHtml."
+                if ($domContent -match 'id="fatalJsBanner"[^>]*><span>(.*?)</span>') {
+                    $errMsg += " Details: $($matches[1])"
+                }
+                Write-Host "      [ERROR] $errMsg" -ForegroundColor Red
+                throw $errMsg
             }
+            $uiVerified = $true
+            Write-Host '      Web UI syntax integrity verified via headless browser (Zero syntax errors, full execution confirmed).' -ForegroundColor Green
+        }
+    } else {
+        $engineFailures += "Could not capture headless browser DOM dump from $headlessBrowser."
+    }
+}
+
+if (-not $uiVerified -and $nodeCmd) {
+    Write-Host '      Validating JavaScript syntax via Node.js (--check)...' -ForegroundColor Gray
+    try {
+        $rawHtml = [System.IO.File]::ReadAllText($stagedHtml, [System.Text.Encoding]::UTF8)
+        $scriptMatches = [System.Text.RegularExpressions.Regex]::Matches($rawHtml, '(?s)<script(?:\s+[^>]*?)?>(.*?)</script>')
+        $allJs = ($scriptMatches | ForEach-Object { $_.Groups[1].Value }) -join "`n"
+        $tempJs = Join-Path $tempDir 'syntax_test_node.js'
+        [System.IO.File]::WriteAllText($tempJs, $allJs, $utf8NoBom)
+
+        $nodeOutput = & $nodeCmd.Source --check $tempJs 2>&1
+        $nodeExit = $LASTEXITCODE
+        Remove-Item $tempJs -Force -ErrorAction SilentlyContinue
+
+        if ($nodeExit -ne 0) {
+            $errMsg = "JavaScript syntax error detected via Node.js in ${stagedHtml}: $nodeOutput"
             Write-Host "      [ERROR] $errMsg" -ForegroundColor Red
             throw $errMsg
         }
-        Write-Host "      Web UI syntax integrity verified (Zero syntax errors, full execution confirmed)." -ForegroundColor Green
-    } else {
-        Write-Warning "      Could not capture headless browser DOM dump; skipping automated UI validation."
+        $uiVerified = $true
+        Write-Host '      JavaScript syntax integrity verified via Node.js (0 syntax errors).' -ForegroundColor Green
+    } catch [System.Management.Automation.RuntimeException] {
+        if ($_.Exception.Message -match 'JavaScript syntax error detected') {
+            throw
+        }
+        $engineFailures += "Node.js syntax check error: $($_.Exception.Message)"
+    } catch {
+        $engineFailures += "Node.js syntax check error: $($_.Exception.Message)"
     }
-} else {
-    Write-Warning "      No supported Chromium browser found for headless verification; skipping."
+}
+
+if (-not $uiVerified) {
+    $errSummary = if ($engineFailures.Count -gt 0) {
+        $engineFailures -join ' | '
+    } else {
+        'No supported headless verification engine (Edge, Chrome, or Node.js) available on this system.'
+    }
+    throw "Fail-Fast verification failed: $errSummary. Web UI integrity could not be verified."
 }
 
 # 4. Generate App Icon in Temp
@@ -253,7 +325,7 @@ Write-Host "      Icon generated at $tempIcon" -ForegroundColor Green
 Write-Host '[4/7] Merging Core, Web UI, and Server into unified engine...' -ForegroundColor Yellow
 $coreBytes   = [System.IO.File]::ReadAllBytes($srcCore)
 $coreB64     = [System.Convert]::ToBase64String($coreBytes)
-$htmlBytes   = [System.IO.File]::ReadAllBytes($srcHtml)
+$htmlBytes   = [System.IO.File]::ReadAllBytes($stagedHtml)
 $htmlB64     = [System.Convert]::ToBase64String($htmlBytes)
 $serverCode  = [System.IO.File]::ReadAllText($srcServer, [System.Text.Encoding]::UTF8)
 
@@ -287,6 +359,16 @@ $tempMerged = Join-Path $tempDir 'engine_merged.ps1'
 [System.IO.File]::WriteAllBytes($tempMerged, $mergedBytes)
 Write-Host "      Engine script merged ($($mergedBytes.Length) bytes)" -ForegroundColor Green
 
+# Validate merged engine script syntax via AST
+$tokens = $null
+$parseErrors = $null
+[System.Management.Automation.Language.Parser]::ParseFile($tempMerged, [ref]$tokens, [ref]$parseErrors) | Out-Null
+if ($parseErrors -and $parseErrors.Count -gt 0) {
+    $errDetails = ($parseErrors | ForEach-Object { "  Line $($_.Extent.StartLineNumber): $($_.Message)" }) -join "`n"
+    throw "Merged engine script AST validation failed:`n$errDetails"
+}
+Write-Host '      Merged engine script AST syntax verified (0 syntax errors).' -ForegroundColor Green
+
 # 6. Compile Native C# WinExe Launcher with Embedded Resource
 Write-Host '[5/7] Compiling Native C# WinExe Launcher with Embedded Engine & Manifest...' -ForegroundColor Yellow
 
@@ -310,7 +392,7 @@ $compileArgs = @(
     "/win32manifest:$srcManifest",
     "/resource:$tempMerged,FTI.Engine",
     "/out:$targetExeInTemp",
-    $srcCs
+    $stagedCs
 )
 
 & $cscPath $compileArgs
@@ -408,15 +490,7 @@ try {
     }
 } catch {}
 
-# Secondary optional deployment: Drive Root
-try {
-    $driveRoot = (Split-Path $PSScriptRoot -Qualifier) + '\'
-    $rootExe = Join-Path $driveRoot 'FTI_PC_Inventory.exe'
-    Copy-Item $finalTargetExe $rootExe -Force -ErrorAction SilentlyContinue
-    if (Test-Path $rootExe) {
-        Write-Host "      Drive Root Copy: $rootExe" -ForegroundColor Cyan
-    }
-} catch {}
+# (Drive root copy removed - deployment is strictly contained within OutputDir)
 
 Write-Host ''
 Write-Host '===================================================' -ForegroundColor Green
