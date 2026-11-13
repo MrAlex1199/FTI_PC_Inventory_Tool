@@ -44,7 +44,7 @@ namespace FTI.PCInventory
                     {
                         try
                         {
-                            if (File.Exists(scriptPath) || (File.GetAttributes(scriptPath) & FileAttributes.ReparsePoint) != 0)
+                            if (File.Exists(scriptPath))
                             {
                                 File.Delete(scriptPath);
                             }
