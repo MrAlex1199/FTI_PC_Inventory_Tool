@@ -304,7 +304,26 @@ function Save-CsvAtomic {
             if ($dir -and -not (Test-Path -LiteralPath $dir)) {
                 [void](New-Item -ItemType Directory -Path $dir -Force)
             }
-            @($Data) | Export-Csv -LiteralPath $tmp -NoTypeInformation -Encoding UTF8
+            $rowsToWrite = @($Data)
+            if ($rowsToWrite.Count -gt 0) {
+                $rowsToWrite | Export-Csv -LiteralPath $tmp -NoTypeInformation -Encoding UTF8
+            } else {
+                $headerLine = $null
+                if (Test-Path -LiteralPath $Path) {
+                    $sr = $null
+                    try {
+                        $sr = New-Object System.IO.StreamReader($Path, [System.Text.Encoding]::UTF8)
+                        $headerLine = $sr.ReadLine()
+                    } finally {
+                        if ($sr) { try { $sr.Dispose() } catch {} }
+                    }
+                }
+                if (-not [string]::IsNullOrEmpty($headerLine)) {
+                    [System.IO.File]::WriteAllText($tmp, $headerLine + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+                } else {
+                    [System.IO.File]::WriteAllText($tmp, '', [System.Text.UTF8Encoding]::new($false))
+                }
+            }
             if (Test-Path -LiteralPath $Path) {
                 [System.IO.File]::Replace($tmp, $Path, [NullString]::Value)
             } else {

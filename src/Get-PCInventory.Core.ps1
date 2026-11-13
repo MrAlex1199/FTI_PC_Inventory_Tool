@@ -130,7 +130,26 @@ function Save-CsvAtomic {
         if ($dir -and -not (Test-Path -LiteralPath $dir)) {
             [void](New-Item -ItemType Directory -Path $dir -Force)
         }
-        @($Data) | Export-Csv -LiteralPath $tmp -NoTypeInformation -Encoding UTF8
+        $rowsToWrite = @($Data)
+        if ($rowsToWrite.Count -gt 0) {
+            $rowsToWrite | Export-Csv -LiteralPath $tmp -NoTypeInformation -Encoding UTF8
+        } else {
+            $headerLine = $null
+            if (Test-Path -LiteralPath $Path) {
+                $sr = $null
+                try {
+                    $sr = New-Object System.IO.StreamReader($Path, [System.Text.Encoding]::UTF8)
+                    $headerLine = $sr.ReadLine()
+                } finally {
+                    if ($sr) { try { $sr.Dispose() } catch {} }
+                }
+            }
+            if (-not [string]::IsNullOrEmpty($headerLine)) {
+                [System.IO.File]::WriteAllText($tmp, $headerLine + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
+            } else {
+                [System.IO.File]::WriteAllText($tmp, '', [System.Text.UTF8Encoding]::new($false))
+            }
+        }
         if (Test-Path -LiteralPath $Path) {
             [System.IO.File]::Replace($tmp, $Path, [NullString]::Value)
         } else {
@@ -1868,6 +1887,8 @@ if (-not $SkipHardware) {
         )
         $script:ParsedProbePorts = $ParsedProbePorts
         $script:lastConnInfo = $null
+        $script:rescuedEndpoints = @{}
+        $script:subnetHostMap = @{}
         $adCache = @{}
 
         $sPc = $stub.PC
@@ -1884,10 +1905,12 @@ if (-not $SkipHardware) {
             -wasError ($stub.Reason -eq 'Error') `
             -healDns $AutoHealDns
 
+        $rescuedEp = if ($script:rescuedEndpoints.ContainsKey($sPc.ToUpper())) { $script:rescuedEndpoints[$sPc.ToUpper()] } else { $null }
         return @{
-            PC      = $sPc
-            Stub    = $stub
-            Rescued = $rescued
+            PC              = $sPc
+            Stub            = $stub
+            Rescued         = $rescued
+            RescuedEndpoint = $rescuedEp
         }
     }
 
@@ -1970,11 +1993,15 @@ if (-not $SkipHardware) {
                     Write-Host "[STAGE:HW|$doneCount|$($pcs.Count)] Scanning $($job.PC) ($doneCount/$($pcs.Count))..."
                     try {
                         $out = $job.PS.EndInvoke($job.Handle)
-                        $resItem = if ($out -and $out.Count -gt 0) { $out[$out.Count - 1] } else { $null }
+                        foreach ($inf in $job.PS.Streams.Information) { Write-Host ([string]$inf.MessageData) }
+                        foreach ($wrn in $job.PS.Streams.Warning) { Write-Warning ([string]$wrn.Message) }
+                        foreach ($vrb in $job.PS.Streams.Verbose) { Write-Verbose ([string]$vrb.Message) }
+                        $resItem = $out | Where-Object { $_ -is [hashtable] -and $_.ContainsKey('Record') } | Select-Object -Last 1
                         if ($resItem -and (-not $resItem.Skipped)) {
-                            if ($resItem.Record) {
-                                Write-Host ('[LIVE_PC] ' + ($resItem.Record | ConvertTo-Json -Compress))
-                                $hwList.Add($resItem.Record)
+                            $rec = $resItem.Record
+                            if ($rec -is [PSCustomObject] -and $null -ne $rec.PSObject.Properties['PCName']) {
+                                Write-Host ('[LIVE_PC] ' + ($rec | ConvertTo-Json -Compress))
+                                $hwList.Add($rec)
                             }
                             if ($resItem.Stub) {
                                 $stubbornQueue.Add($resItem.Stub)
@@ -1989,7 +2016,7 @@ if (-not $SkipHardware) {
                 }
             }
             if (-not $anyDone -and $pass1Jobs.Count -gt 0) {
-                Start-Sleep -Milliseconds 30
+                Start-Sleep -Milliseconds 100
             }
         }
         Write-Progress -Activity 'Hardware scan' -Completed
@@ -2058,8 +2085,18 @@ if (-not $SkipHardware) {
                         $rescued = $null
                         try {
                             $out = $job.PS.EndInvoke($job.Handle)
-                            $resItem = if ($out -and $out.Count -gt 0) { $out[$out.Count - 1] } else { $null }
-                            if ($resItem) { $rescued = $resItem.Rescued }
+                            foreach ($inf in $job.PS.Streams.Information) { Write-Host ([string]$inf.MessageData) }
+                            foreach ($wrn in $job.PS.Streams.Warning) { Write-Warning ([string]$wrn.Message) }
+                            foreach ($vrb in $job.PS.Streams.Verbose) { Write-Verbose ([string]$vrb.Message) }
+                            $resItem = $out | Where-Object { $_ -is [hashtable] -and $_.ContainsKey('Rescued') } | Select-Object -Last 1
+                            if ($resItem) {
+                                if ($resItem.Rescued -is [PSCustomObject] -and $null -ne $resItem.Rescued.PSObject.Properties['PCName']) {
+                                    $rescued = $resItem.Rescued
+                                }
+                                if ($resItem.RescuedEndpoint) {
+                                    $script:rescuedEndpoints[$sPc.ToUpper()] = $resItem.RescuedEndpoint
+                                }
+                            }
                         } catch {
                             Write-Warning "Pass 2 worker failed for ${sPc}: $($_.Exception.Message)"
                         } finally {
@@ -2122,7 +2159,7 @@ if (-not $SkipHardware) {
                     }
                 }
                 if (-not $anyDeepDone -and $pass2Jobs.Count -gt 0) {
-                    Start-Sleep -Milliseconds 30
+                    Start-Sleep -Milliseconds 100
                 }
             }
         }
