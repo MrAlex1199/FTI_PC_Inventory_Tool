@@ -107,6 +107,51 @@ function New-HardwareRecord($h) {
     }
 }
 
+# --- Helper: Atomic CSV Persistence with Named Mutex ---
+function Save-CsvAtomic {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $false)]$Data = @()
+    )
+    $mtx = $null
+    $acquired = $false
+    $tmp = "$Path.tmp.$PID.$([System.Guid]::NewGuid().ToString('N').Substring(0, 8))"
+    try {
+        $mtx = New-Object System.Threading.Mutex($false, 'Local\FTI_PC_Inventory_MasterCsvMutex')
+        try {
+            $acquired = $mtx.WaitOne(15000)
+        } catch [System.Threading.AbandonedMutexException] {
+            $acquired = $true
+        }
+        if (-not $acquired) {
+            throw "Timed out waiting for Master CSV mutex on '$Path'"
+        }
+        $dir = [System.IO.Path]::GetDirectoryName($Path)
+        if ($dir -and -not (Test-Path -LiteralPath $dir)) {
+            [void](New-Item -ItemType Directory -Path $dir -Force)
+        }
+        @($Data) | Export-Csv -LiteralPath $tmp -NoTypeInformation -Encoding UTF8
+        if (Test-Path -LiteralPath $Path) {
+            [System.IO.File]::Replace($tmp, $Path, [NullString]::Value)
+        } else {
+            [System.IO.File]::Move($tmp, $Path)
+        }
+    } catch {
+        Write-Verbose "Save-CsvAtomic failed for '$Path': $($_.Exception.Message)"
+        if (Test-Path -LiteralPath $tmp) {
+            try { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue } catch {}
+        }
+        throw
+    } finally {
+        if ($acquired -and $mtx) {
+            try { $mtx.ReleaseMutex() } catch {}
+        }
+        if ($mtx) {
+            try { $mtx.Dispose() } catch {}
+        }
+    }
+}
+
 # --- Helper: Parse Office License & Channel ---
 function Parse-OfficeLicenseInfo([string]$c2rProd, $slpList) {
     $foundName = ''
@@ -271,6 +316,7 @@ function Test-PCConnection([string]$computer) {
     # Helper: .NET ICMP Ping probe with retry
     $testIcmp = {
         for ($p = 1; $p -le $probes; $p++) {
+            $pinger = $null
             try {
                 $pinger = New-Object System.Net.NetworkInformation.Ping
                 $reply = $pinger.Send($computer, $timeoutMs)
@@ -278,7 +324,11 @@ function Test-PCConnection([string]$computer) {
                     $rtt = $reply.RoundtripTime
                     return @{ Success = $true; Detail = "ICMP Ping ($($rtt)ms, probe $p/$probes)" }
                 }
-            } catch { }
+            } catch {
+                Write-Verbose "ICMP ping error for ${computer}: $($_.Exception.Message)"
+            } finally {
+                if ($pinger) { try { $pinger.Dispose() } catch {} }
+            }
         }
         return @{ Success = $false; Detail = "ICMP ping timed out ($probes probes @ " + $timeoutMs + "ms)" }
     }
@@ -421,12 +471,18 @@ function Test-PCConnection([string]$computer) {
 # --- Cache and Helper for Active Directory metadata (Logon, OU) ---
 $adCache = @{}
 
+function Escape-LdapFilterValue([string]$Value) {
+    if ([string]::IsNullOrEmpty($Value)) { return '' }
+    return $Value.Replace('\', '\5c').Replace('*', '\2a').Replace('(', '\28').Replace(')', '\29').Replace([string][char]0, '\00')
+}
+
 function Get-ADInfo([string]$pc) {
     if ($adCache.ContainsKey($pc.ToUpper())) {
         return $adCache[$pc.ToUpper()]
     }
     try {
-        $searcher = [adsisearcher]"(&(objectCategory=computer)(name=$pc))"
+        $escapedPc = Escape-LdapFilterValue $pc
+        $searcher = [adsisearcher]"(&(objectCategory=computer)(name=$escapedPc))"
         [void]$searcher.PropertiesToLoad.Add('lastlogontimestamp')
         [void]$searcher.PropertiesToLoad.Add('distinguishedname')
         $one = $searcher.FindOne()
@@ -963,13 +1019,18 @@ function Test-EndpointAlive([string]$endpoint, [int]$timeoutMs = 1000) {
         } catch {}
     }
 
+    $pinger = $null
     try {
         $pinger = New-Object System.Net.NetworkInformation.Ping
         $reply = $pinger.Send($endpoint, $timeoutMs)
         if ($reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) {
             return $true
         }
-    } catch {}
+    } catch {
+        Write-Verbose "Test-EndpointAlive ping error for ${endpoint}: $($_.Exception.Message)"
+    } finally {
+        if ($pinger) { try { $pinger.Dispose() } catch {} }
+    }
 
     return $false
 }
@@ -1043,6 +1104,7 @@ function Get-HardwareFromCimSession {
         }
 
         $osBuildStr = [string]$os.BuildNumber
+        $ntKey = $null
         try {
             if ($isLocal) {
                 $ntKey = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SOFTWARE\Microsoft\Windows NT\CurrentVersion')
@@ -1051,7 +1113,6 @@ function Get-HardwareFromCimSession {
                     if ($null -ne $ubr) {
                         $osBuildStr = '{0}.{1}' -f $os.BuildNumber, $ubr
                     }
-                    $ntKey.Close()
                 }
             } elseif ($s) {
                 $regParams = @{
@@ -1063,7 +1124,11 @@ function Get-HardwareFromCimSession {
                     $osBuildStr = '{0}.{1}' -f $os.BuildNumber, $ubrRes.uValue
                 }
             }
-        } catch {}
+        } catch {
+            Write-Verbose "Failed to read UBR for ${pcTarget}: $($_.Exception.Message)"
+        } finally {
+            if ($ntKey) { try { $ntKey.Dispose() } catch {} }
+        }
 
         $winLicenseStr = '-'
         $officeLicenseStr = '-'
@@ -1184,6 +1249,7 @@ function Get-HardwareFromCimSession {
             Last_Scan      = Get-Date -Format 'yyyy-MM-dd HH:mm'
         }
     } catch {
+        Write-Verbose "Get-HardwareFromCimSession failed for ${pcTarget}: $($_.Exception.Message)"
         return $null
     }
 }
@@ -1197,6 +1263,14 @@ function Get-HardwareFromRemoteRegistry {
         [string]$prevOfficeDetail = '-',
         [hashtable]$ad = @{}
     )
+    $reg = $null
+    $compKey = $null
+    $cpuKey = $null
+    $cpuRoot = $null
+    $biosKey = $null
+    $ntKey = $null
+    $userKey = $null
+    $c2rKey = $null
     try {
         $reg = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey([Microsoft.Win32.RegistryHive]::LocalMachine, $targetAddress)
         if (-not $reg) { return $null }
@@ -1204,11 +1278,9 @@ function Get-HardwareFromRemoteRegistry {
         # Verify hostname to prevent DHCP collision
         $compKey = $reg.OpenSubKey('SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName')
         $actualName = if ($compKey) { [string]$compKey.GetValue('ComputerName') } else { '' }
-        if ($compKey) { $compKey.Close() }
 
         $expectedShort = ($expectedHost -split '\.')[0]
         if ($actualName -and ($actualName -inotmatch "^$([regex]::Escape($expectedShort))$")) {
-            $reg.Close()
             return $null
         }
         $reportedName = if ($actualName) { $actualName } else { $expectedShort }
@@ -1216,11 +1288,9 @@ function Get-HardwareFromRemoteRegistry {
         # CPU & Cores
         $cpuKey = $reg.OpenSubKey('HARDWARE\DESCRIPTION\System\CentralProcessor\0')
         $cpuName = if ($cpuKey) { [string]$cpuKey.GetValue('ProcessorNameString') } else { '-' }
-        if ($cpuKey) { $cpuKey.Close() }
 
         $cpuRoot = $reg.OpenSubKey('HARDWARE\DESCRIPTION\System\CentralProcessor')
         $cores = if ($cpuRoot) { ($cpuRoot.GetSubKeyNames()).Count } else { 0 }
-        if ($cpuRoot) { $cpuRoot.Close() }
 
         # BIOS
         $biosKey = $reg.OpenSubKey('HARDWARE\DESCRIPTION\System\BIOS')
@@ -1231,7 +1301,6 @@ function Get-HardwareFromRemoteRegistry {
             if (-not $s) { $s = [string]$biosKey.GetValue('SystemSerialNumber') }
             $s
         } else { '-' }
-        if ($biosKey) { $biosKey.Close() }
 
         # OS & Build
         $ntKey = $reg.OpenSubKey('SOFTWARE\Microsoft\Windows NT\CurrentVersion')
@@ -1239,21 +1308,16 @@ function Get-HardwareFromRemoteRegistry {
         $currentBuild = if ($ntKey) { [string]$ntKey.GetValue('CurrentBuild') } else { '-' }
         $ubr = if ($ntKey) { $ntKey.GetValue('UBR') } else { $null }
         $osBuild = if ($null -ne $ubr -and $currentBuild -ne '-') { '{0}.{1}' -f $currentBuild, $ubr } else { $currentBuild }
-        if ($ntKey) { $ntKey.Close() }
 
         # User
         $userKey = $reg.OpenSubKey('SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI')
         $lastUser = if ($userKey) { [string]$userKey.GetValue('LastLoggedOnUser') } else { '-' }
-        if ($userKey) { $userKey.Close() }
 
         # Office ClickToRun
         $c2rKey = $reg.OpenSubKey('SOFTWARE\Microsoft\Office\ClickToRun\Configuration')
         $c2rProds = if ($c2rKey) { [string]$c2rKey.GetValue('ProductReleaseIds') } else { '' }
-        if ($c2rKey) { $c2rKey.Close() }
 
         $offParsed = if ($c2rProds) { Parse-OfficeLicenseInfo $c2rProds @() } else { @{ Badge = $prevOfficeLicense; Detail = $prevOfficeDetail } }
-
-        $reg.Close()
 
         return New-HardwareRecord @{
             PCName         = $reportedName
@@ -1287,7 +1351,12 @@ function Get-HardwareFromRemoteRegistry {
             Last_Scan      = Get-Date -Format 'yyyy-MM-dd HH:mm'
         }
     } catch {
+        Write-Verbose "Get-HardwareFromRemoteRegistry failed for ${targetAddress}: $($_.Exception.Message)"
         return $null
+    } finally {
+        foreach ($rk in @($c2rKey, $userKey, $ntKey, $biosKey, $cpuRoot, $cpuKey, $compKey, $reg)) {
+            if ($rk) { try { $rk.Dispose() } catch {} }
+        }
     }
 }
 
@@ -1372,6 +1441,7 @@ function Get-HardwareFromPSRemoting {
             Last_Scan      = Get-Date -Format 'yyyy-MM-dd HH:mm'
         }
     } catch {
+        Write-Verbose "Get-HardwareFromPSRemoting failed for ${targetAddress}: $($_.Exception.Message)"
         return $null
     }
 }
@@ -1615,43 +1685,44 @@ if (-not $SkipHardware) {
     }
 
     $stubbornQueue = [System.Collections.Generic.List[hashtable]]::new()
-    $i = 0
-    $hw = @(foreach ($pc in $pcs) {
-        $i++
-        Write-Progress -Activity 'Hardware scan' -Status "$pc ($i/$($pcs.Count))" -PercentComplete (10 + [math]::Round(55 * $i / $pcs.Count))
-        Write-Host "[STAGE:HW|$i|$($pcs.Count)] Scanning $pc ($i/$($pcs.Count))..."
+    $hwList = [System.Collections.Generic.List[object]]::new()
+    $effectiveThrottle = [Math]::Max(1, [Math]::Min(50, $Throttle))
 
-        $key = $pc.ToUpper()
-        $shortKey = ($key -split '\.')[0]
-        $prevFailCount = 0
-        $prevWinLicense = '-'
-        $prevOfficeLicense = '-'
-        $prevOfficeDetail = '-'
-        $oldRecord = $null
-
-        if ($masterDict.Contains($key)) {
-            $oldRecord = $masterDict[$key]
-        } elseif ($masterDict.Contains($shortKey)) {
-            $oldRecord = $masterDict[$shortKey]
-        } else {
-            foreach ($mVal in $masterDict.Values) {
-                if ($mVal.IP -and ($mVal.IP -split ',\s*') -contains $pc) {
-                    $oldRecord = $mVal
-                    break
-                }
-            }
+    $workerFuncNames = @(
+        'New-HardwareRecord', 'Parse-OfficeLicenseInfo', 'Test-PCConnection',
+        'Escape-LdapFilterValue', 'Get-ADInfo', 'Get-HardwareFromCimSession',
+        'Encode-NetBiosName', 'Build-NetBiosNameQueryPacket', 'Build-NetBiosNodeStatusPacket',
+        'Resolve-NetBiosDirectQuery', 'Map-SubnetLiveHosts', 'Find-GhostDnsTrueIP',
+        'Invoke-RemoteDnsSelfHeal', 'Resolve-PCTargets', 'Test-EndpointAlive',
+        'Get-HardwareFromRemoteRegistry', 'Get-HardwareFromPSRemoting', 'Invoke-DeepPenetrationScan'
+    )
+    $iss = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+    foreach ($fn in $workerFuncNames) {
+        $cmd = Get-Command -Name $fn -CommandType Function -ErrorAction SilentlyContinue
+        if ($cmd) {
+            $iss.Commands.Add((New-Object System.Management.Automation.Runspaces.SessionStateFunctionEntry($fn, $cmd.Definition)))
         }
+    }
 
-        if ($oldRecord) {
-            if ($oldRecord.Fail_Count) { [int]::TryParse([string]$oldRecord.Fail_Count, [ref]$prevFailCount) | Out-Null }
-            if ($oldRecord.Win_License -and $oldRecord.Win_License -ne '-') { $prevWinLicense = $oldRecord.Win_License }
-            if ($oldRecord.Office_License -and $oldRecord.Office_License -notin @('-', 'None')) { $prevOfficeLicense = $oldRecord.Office_License }
-            if ($oldRecord.Office_Detail -and $oldRecord.Office_Detail -notin @('-', 'No Microsoft Office installation detected')) { $prevOfficeDetail = $oldRecord.Office_Detail }
-        }
-
-        if ($ThreadDelayMs -gt 0 -and $i -gt 1) {
-            Start-Sleep -Milliseconds $ThreadDelayMs
-        }
+    $pass1Script = {
+        param(
+            [string]$pc,
+            $oldRecord,
+            [int]$prevFailCount,
+            [string]$prevWinLicense,
+            [string]$prevOfficeLicense,
+            [string]$prevOfficeDetail,
+            [string]$PingMethod,
+            [int]$PingTimeoutMs,
+            [int]$PingProbes,
+            $ParsedProbePorts,
+            [bool]$ScanDeadHosts,
+            [bool]$SkipBroadcast,
+            [bool]$SkipServers
+        )
+        $script:ParsedProbePorts = $ParsedProbePorts
+        $script:lastConnInfo = $null
+        $adCache = @{}
 
         if (-not (Test-PCConnection $pc)) {
             $ad = Get-ADInfo $pc
@@ -1688,24 +1759,25 @@ if (-not $SkipHardware) {
                 $hData.User        = $oldRecord.User
             }
             $itemOffline = New-HardwareRecord $hData
-            Write-Host ('[LIVE_PC] ' + ($itemOffline | ConvertTo-Json -Compress))
-            $stubbornQueue.Add(@{
-                PC         = $pc
-                OldRecord  = $oldRecord
-                Reason     = 'Offline'
-                PrevFail   = $prevFailCount
-                WinLic     = $prevWinLicense
-                OffLic     = $prevOfficeLicense
-                OffDet     = $prevOfficeDetail
-                AD         = $ad
-            })
-            $itemOffline
-            continue
+            return @{
+                Skipped = $false
+                Record  = $itemOffline
+                Stub    = @{
+                    PC         = $pc
+                    OldRecord  = $oldRecord
+                    Reason     = 'Offline'
+                    PrevFail   = $prevFailCount
+                    WinLic     = $prevWinLicense
+                    OffLic     = $prevOfficeLicense
+                    OffDet     = $prevOfficeDetail
+                    AD         = $ad
+                }
+            }
         }
 
+        $s = $null
         try {
             $isLocal = ($pc -eq $env:COMPUTERNAME -or $pc -eq 'localhost' -or $pc -eq '127.0.0.1')
-            $s = $null
             if (-not $isLocal) {
                 $opt = New-CimSessionOption -Protocol Dcom
                 $s = New-CimSession -ComputerName $pc -SessionOption $opt -OperationTimeoutSec 15 -ErrorAction Stop
@@ -1718,20 +1790,15 @@ if (-not $SkipHardware) {
                 -ad $ad -methodName $connMethod `
                 -statusDetail 'Hardware scan completed successfully' -skipServerCheck $SkipServers
 
-            if ($s) { Remove-CimSession $s -ErrorAction SilentlyContinue }
-
             if ($rec -and $rec.SkipServer) {
-                continue
+                return @{ Skipped = $true; Record = $null; Stub = $null }
             }
             if ($rec) {
-                Write-Host ('[LIVE_PC] ' + ($rec | ConvertTo-Json -Compress))
-                $rec
-            } else {
-                throw "CIM instance retrieval failed"
+                return @{ Skipped = $false; Record = $rec; Stub = $null }
             }
+            throw "CIM instance retrieval failed"
         }
         catch {
-            if ($s) { Remove-CimSession $s -ErrorAction SilentlyContinue }
             $ad = Get-ADInfo $pc
             $newFail = $prevFailCount + 1
             $hDataErr = @{
@@ -1765,111 +1832,310 @@ if (-not $SkipHardware) {
                 $hDataErr.User        = $oldRecord.User
             }
             $itemErr = New-HardwareRecord $hDataErr
-            Write-Host ('[LIVE_PC] ' + ($itemErr | ConvertTo-Json -Compress))
-            $stubbornQueue.Add(@{
-                PC         = $pc
-                OldRecord  = $oldRecord
-                Reason     = 'Error'
-                PrevFail   = $prevFailCount
-                WinLic     = $prevWinLicense
-                OffLic     = $prevOfficeLicense
-                OffDet     = $prevOfficeDetail
-                ErrorMsg   = $_.Exception.Message
-                AD         = $ad
-            })
-            $itemErr
+            return @{
+                Skipped = $false
+                Record  = $itemErr
+                Stub    = @{
+                    PC         = $pc
+                    OldRecord  = $oldRecord
+                    Reason     = 'Error'
+                    PrevFail   = $prevFailCount
+                    WinLic     = $prevWinLicense
+                    OffLic     = $prevOfficeLicense
+                    OffDet     = $prevOfficeDetail
+                    ErrorMsg   = $_.Exception.Message
+                    AD         = $ad
+                }
+            }
         }
-    })
-    Write-Progress -Activity 'Hardware scan' -Completed
+        finally {
+            if ($s) { Remove-CimSession $s -ErrorAction SilentlyContinue }
+        }
+    }
 
-    # ================= Pass 2: Automatic Deep Penetration ("Heavy Mode") =================
-    if ($stubbornQueue.Count -gt 0) {
-        Write-Host ""
-        Write-Host "[STEP:2.5] Pass 2: Automatic Deep Penetration Scan ('Heavy Mode') for $($stubbornQueue.Count) stubborn hosts..." -ForegroundColor Magenta
-        Write-Host "Flushing local DNS resolver cache (ipconfig /flushdns)..." -ForegroundColor Cyan
-        try { ipconfig /flushdns | Out-Null } catch {}
+    $pass2Script = {
+        param(
+            [hashtable]$stub,
+            [hashtable]$masterDict,
+            [bool]$AutoHealDns,
+            [string]$PingMethod,
+            [int]$PingTimeoutMs,
+            [int]$PingProbes,
+            $ParsedProbePorts,
+            [bool]$ScanDeadHosts,
+            [bool]$SkipBroadcast,
+            [bool]$SkipServers
+        )
+        $script:ParsedProbePorts = $ParsedProbePorts
+        $script:lastConnInfo = $null
+        $adCache = @{}
 
-        $sIdx = 0
-        foreach ($stub in $stubbornQueue) {
-            $sIdx++
-            $sPc = $stub.PC
-            Write-Host "[STAGE:DEEP|$sIdx|$($stubbornQueue.Count)] Deep probing stubborn host: $sPc ($sIdx/$($stubbornQueue.Count))..." -ForegroundColor Magenta
+        $sPc = $stub.PC
+        $stubAd = if ($stub.AD) { $stub.AD } else { Get-ADInfo $sPc }
+        $rescued = Invoke-DeepPenetrationScan `
+            -pc $sPc `
+            -ad $stubAd `
+            -oldRecord $stub.OldRecord `
+            -prevFailCount $stub.PrevFail `
+            -prevWinLicense $stub.WinLic `
+            -prevOfficeLicense $stub.OffLic `
+            -prevOfficeDetail $stub.OffDet `
+            -masterDict $masterDict `
+            -wasError ($stub.Reason -eq 'Error') `
+            -healDns $AutoHealDns
 
-            # Live UI indicator: ⚡ Deep Scan
-            $deepIndicator = New-HardwareRecord @{
-                PCName        = $sPc
-                Status        = 'Deep Scanning'
-                Method        = '⚡ Probing'
-                Status_Detail = 'Executing 5-stage penetration chain...'
-                Fail_Count    = $stub.PrevFail
-            }
-            Write-Host ('[LIVE_PC] ' + ($deepIndicator | ConvertTo-Json -Compress))
+        return @{
+            PC      = $sPc
+            Stub    = $stub
+            Rescued = $rescued
+        }
+    }
 
-            $stubAd = if ($stub.AD) { $stub.AD } else { Get-ADInfo $sPc }
-            $rescued = Invoke-DeepPenetrationScan `
-                -pc $sPc `
-                -ad $stubAd `
-                -oldRecord $stub.OldRecord `
-                -prevFailCount $stub.PrevFail `
-                -prevWinLicense $stub.WinLic `
-                -prevOfficeLicense $stub.OffLic `
-                -prevOfficeDetail $stub.OffDet `
-                -masterDict $masterDict `
-                -wasError ($stub.Reason -eq 'Error') `
-                -healDns $AutoHealDns
+    $pool = $null
+    $pass1Jobs = [System.Collections.Generic.List[hashtable]]::new()
+    $pass2Jobs = [System.Collections.Generic.List[hashtable]]::new()
+    try {
+        $pool = [runspacefactory]::CreateRunspacePool(1, $effectiveThrottle, $iss, $Host)
+        $pool.Open()
 
-            if ($rescued -and ($rescued.Status -eq 'OK' -or $rescued.Status -eq 'Online')) {
-                if ($rescued.Status -eq 'OK') {
-                    Write-Host "  [RESCUED] $sPc penetrated successfully! Method: $($rescued.Method)" -ForegroundColor Green
-                } else {
-                    Write-Host "  [DETECTED] $sPc live via $($rescued.Method)! ($($rescued.Status_Detail))" -ForegroundColor Yellow
-                }
-                for ($k = 0; $k -lt $hw.Count; $k++) {
-                    if ($hw[$k].PCName -ieq $sPc) {
-                        $hw[$k] = $rescued
-                        break
-                    }
-                }
-                $masterDict[$sPc.ToUpper()] = $rescued
-                Write-Host ('[LIVE_PC] ' + ($rescued | ConvertTo-Json -Compress))
+        # --- Pass 1: Parallel Hardware Scan ---
+        $launchIdx = 0
+        foreach ($pc in $pcs) {
+            $launchIdx++
+            $key = $pc.ToUpper()
+            $shortKey = ($key -split '\.')[0]
+            $prevFailCount = 0
+            $prevWinLicense = '-'
+            $prevOfficeLicense = '-'
+            $prevOfficeDetail = '-'
+            $oldRecord = $null
+
+            if ($masterDict.Contains($key)) {
+                $oldRecord = $masterDict[$key]
+            } elseif ($masterDict.Contains($shortKey)) {
+                $oldRecord = $masterDict[$shortKey]
             } else {
-                Write-Host "  [OFFLINE] $sPc confirmed offline or unreachable." -ForegroundColor Gray
-                $finalOff = New-HardwareRecord @{
-                    PCName        = $sPc
-                    Status        = 'Offline'
-                    Method        = 'Offline'
-                    Status_Detail = if ($stub.Reason -eq 'Error') { "Error: $($stub.ErrorMsg) (Deep probe exhausted)" } else { 'Host unreachable (confirmed powered off or offline)' }
-                    Fail_Count    = ($stub.PrevFail + 1)
-                    Win_License   = $stub.WinLic
-                    Office_License= $stub.OffLic
-                    Office_Detail = $stub.OffDet
-                    AD_LastLogon  = if ($stub.AD) { $stub.AD.AD_LastLogon } else { '-' }
-                    AD_OU         = if ($stub.AD) { $stub.AD.AD_OU } else { '-' }
-                }
-                if ($stub.OldRecord -and ($stub.OldRecord.Status -eq 'OK' -or $stub.OldRecord.CPU)) {
-                    $finalOff.Maker       = $stub.OldRecord.Maker
-                    $finalOff.Model       = $stub.OldRecord.Model
-                    $finalOff.Serial      = $stub.OldRecord.Serial
-                    $finalOff.CPU         = $stub.OldRecord.CPU
-                    $finalOff.Cores       = $stub.OldRecord.Cores
-                    $finalOff.RAM_GB      = $stub.OldRecord.RAM_GB
-                    $finalOff.Disk_C_Free = $stub.OldRecord.Disk_C_Free
-                    $finalOff.Disks       = $stub.OldRecord.Disks
-                    $finalOff.GPU         = $stub.OldRecord.GPU
-                    $finalOff.OS          = $stub.OldRecord.OS
-                    $finalOff.OSBuild     = $stub.OldRecord.OSBuild
-                    $finalOff.IP          = $stub.OldRecord.IP
-                    $finalOff.User        = $stub.OldRecord.User
-                }
-                for ($k = 0; $k -lt $hw.Count; $k++) {
-                    if ($hw[$k].PCName -ieq $sPc) {
-                        $hw[$k] = $finalOff
+                foreach ($mVal in $masterDict.Values) {
+                    if ($mVal.IP -and ($mVal.IP -split ',\s*') -contains $pc) {
+                        $oldRecord = $mVal
                         break
                     }
                 }
-                $masterDict[$sPc.ToUpper()] = $finalOff
-                Write-Host ('[LIVE_PC] ' + ($finalOff | ConvertTo-Json -Compress))
             }
+
+            if ($oldRecord) {
+                if ($oldRecord.Fail_Count) { [int]::TryParse([string]$oldRecord.Fail_Count, [ref]$prevFailCount) | Out-Null }
+                if ($oldRecord.Win_License -and $oldRecord.Win_License -ne '-') { $prevWinLicense = $oldRecord.Win_License }
+                if ($oldRecord.Office_License -and $oldRecord.Office_License -notin @('-', 'None')) { $prevOfficeLicense = $oldRecord.Office_License }
+                if ($oldRecord.Office_Detail -and $oldRecord.Office_Detail -notin @('-', 'No Microsoft Office installation detected')) { $prevOfficeDetail = $oldRecord.Office_Detail }
+            }
+
+            if ($ThreadDelayMs -gt 0 -and $launchIdx -gt 1) {
+                Start-Sleep -Milliseconds $ThreadDelayMs
+            }
+
+            $psWorker = [powershell]::Create()
+            $psWorker.RunspacePool = $pool
+            [void]$psWorker.AddScript($pass1Script).
+                AddArgument($pc).
+                AddArgument($oldRecord).
+                AddArgument($prevFailCount).
+                AddArgument($prevWinLicense).
+                AddArgument($prevOfficeLicense).
+                AddArgument($prevOfficeDetail).
+                AddArgument($PingMethod).
+                AddArgument($PingTimeoutMs).
+                AddArgument($PingProbes).
+                AddArgument($script:ParsedProbePorts).
+                AddArgument([bool]$ScanDeadHosts).
+                AddArgument([bool]$SkipBroadcast).
+                AddArgument([bool]$SkipServers)
+
+            $pass1Jobs.Add(@{
+                PC     = $pc
+                PS     = $psWorker
+                Handle = $psWorker.BeginInvoke()
+            })
+        }
+
+        $doneCount = 0
+        while ($pass1Jobs.Count -gt 0) {
+            $anyDone = $false
+            for ($idx = $pass1Jobs.Count - 1; $idx -ge 0; $idx--) {
+                $job = $pass1Jobs[$idx]
+                if ($job.Handle.IsCompleted) {
+                    $anyDone = $true
+                    $doneCount++
+                    Write-Progress -Activity 'Hardware scan' -Status "$($job.PC) ($doneCount/$($pcs.Count))" -PercentComplete (10 + [math]::Round(55 * $doneCount / $pcs.Count))
+                    Write-Host "[STAGE:HW|$doneCount|$($pcs.Count)] Scanning $($job.PC) ($doneCount/$($pcs.Count))..."
+                    try {
+                        $out = $job.PS.EndInvoke($job.Handle)
+                        $resItem = if ($out -and $out.Count -gt 0) { $out[$out.Count - 1] } else { $null }
+                        if ($resItem -and (-not $resItem.Skipped)) {
+                            if ($resItem.Record) {
+                                Write-Host ('[LIVE_PC] ' + ($resItem.Record | ConvertTo-Json -Compress))
+                                $hwList.Add($resItem.Record)
+                            }
+                            if ($resItem.Stub) {
+                                $stubbornQueue.Add($resItem.Stub)
+                            }
+                        }
+                    } catch {
+                        Write-Warning "Pass 1 worker failed for $($job.PC): $($_.Exception.Message)"
+                    } finally {
+                        try { $job.PS.Dispose() } catch {}
+                        $pass1Jobs.RemoveAt($idx)
+                    }
+                }
+            }
+            if (-not $anyDone -and $pass1Jobs.Count -gt 0) {
+                Start-Sleep -Milliseconds 30
+            }
+        }
+        Write-Progress -Activity 'Hardware scan' -Completed
+
+        $hw = @($hwList)
+
+        # ================= Pass 2: Automatic Deep Penetration ("Heavy Mode") =================
+        if ($stubbornQueue.Count -gt 0) {
+            Write-Host ""
+            Write-Host "[STEP:2.5] Pass 2: Automatic Deep Penetration Scan ('Heavy Mode') for $($stubbornQueue.Count) stubborn hosts..." -ForegroundColor Magenta
+            Write-Host "Flushing local DNS resolver cache (ipconfig /flushdns)..." -ForegroundColor Cyan
+            try { ipconfig /flushdns | Out-Null } catch {}
+
+            # Snapshot masterDict for thread-safe read in Pass 2 workers
+            $masterDictSnapshot = @{}
+            foreach ($mk in $masterDict.Keys) {
+                $masterDictSnapshot[$mk] = $masterDict[$mk]
+            }
+
+            $sIdx = 0
+            foreach ($stub in $stubbornQueue) {
+                $sIdx++
+                $sPc = $stub.PC
+                $deepIndicator = New-HardwareRecord @{
+                    PCName        = $sPc
+                    Status        = 'Deep Scanning'
+                    Method        = '⚡ Probing'
+                    Status_Detail = 'Executing 5-stage penetration chain...'
+                    Fail_Count    = $stub.PrevFail
+                }
+                Write-Host ('[LIVE_PC] ' + ($deepIndicator | ConvertTo-Json -Compress))
+
+                $psDeep = [powershell]::Create()
+                $psDeep.RunspacePool = $pool
+                [void]$psDeep.AddScript($pass2Script).
+                    AddArgument($stub).
+                    AddArgument($masterDictSnapshot).
+                    AddArgument([bool]$AutoHealDns).
+                    AddArgument($PingMethod).
+                    AddArgument($PingTimeoutMs).
+                    AddArgument($PingProbes).
+                    AddArgument($script:ParsedProbePorts).
+                    AddArgument([bool]$ScanDeadHosts).
+                    AddArgument([bool]$SkipBroadcast).
+                    AddArgument([bool]$SkipServers)
+
+                $pass2Jobs.Add(@{
+                    PC     = $sPc
+                    Stub   = $stub
+                    PS     = $psDeep
+                    Handle = $psDeep.BeginInvoke()
+                })
+            }
+
+            $deepDone = 0
+            while ($pass2Jobs.Count -gt 0) {
+                $anyDeepDone = $false
+                for ($idx = $pass2Jobs.Count - 1; $idx -ge 0; $idx--) {
+                    $job = $pass2Jobs[$idx]
+                    if ($job.Handle.IsCompleted) {
+                        $anyDeepDone = $true
+                        $deepDone++
+                        $sPc = $job.PC
+                        $stub = $job.Stub
+                        Write-Host "[STAGE:DEEP|$deepDone|$($stubbornQueue.Count)] Deep probing stubborn host: $sPc ($deepDone/$($stubbornQueue.Count))..." -ForegroundColor Magenta
+                        $rescued = $null
+                        try {
+                            $out = $job.PS.EndInvoke($job.Handle)
+                            $resItem = if ($out -and $out.Count -gt 0) { $out[$out.Count - 1] } else { $null }
+                            if ($resItem) { $rescued = $resItem.Rescued }
+                        } catch {
+                            Write-Warning "Pass 2 worker failed for ${sPc}: $($_.Exception.Message)"
+                        } finally {
+                            try { $job.PS.Dispose() } catch {}
+                            $pass2Jobs.RemoveAt($idx)
+                        }
+
+                        if ($rescued -and ($rescued.Status -eq 'OK' -or $rescued.Status -eq 'Online')) {
+                            if ($rescued.Status -eq 'OK') {
+                                Write-Host "  [RESCUED] $sPc penetrated successfully! Method: $($rescued.Method)" -ForegroundColor Green
+                            } else {
+                                Write-Host "  [DETECTED] $sPc live via $($rescued.Method)! ($($rescued.Status_Detail))" -ForegroundColor Yellow
+                            }
+                            for ($k = 0; $k -lt $hw.Count; $k++) {
+                                if ($hw[$k].PCName -ieq $sPc) {
+                                    $hw[$k] = $rescued
+                                    break
+                                }
+                            }
+                            $masterDict[$sPc.ToUpper()] = $rescued
+                            Write-Host ('[LIVE_PC] ' + ($rescued | ConvertTo-Json -Compress))
+                        } else {
+                            Write-Host "  [OFFLINE] $sPc confirmed offline or unreachable." -ForegroundColor Gray
+                            $finalOff = New-HardwareRecord @{
+                                PCName        = $sPc
+                                Status        = 'Offline'
+                                Method        = 'Offline'
+                                Status_Detail = if ($stub.Reason -eq 'Error') { "Error: $($stub.ErrorMsg) (Deep probe exhausted)" } else { 'Host unreachable (confirmed powered off or offline)' }
+                                Fail_Count    = ($stub.PrevFail + 1)
+                                Win_License   = $stub.WinLic
+                                Office_License= $stub.OffLic
+                                Office_Detail = $stub.OffDet
+                                AD_LastLogon  = if ($stub.AD) { $stub.AD.AD_LastLogon } else { '-' }
+                                AD_OU         = if ($stub.AD) { $stub.AD.AD_OU } else { '-' }
+                            }
+                            if ($stub.OldRecord -and ($stub.OldRecord.Status -eq 'OK' -or $stub.OldRecord.CPU)) {
+                                $finalOff.Maker       = $stub.OldRecord.Maker
+                                $finalOff.Model       = $stub.OldRecord.Model
+                                $finalOff.Serial      = $stub.OldRecord.Serial
+                                $finalOff.CPU         = $stub.OldRecord.CPU
+                                $finalOff.Cores       = $stub.OldRecord.Cores
+                                $finalOff.RAM_GB      = $stub.OldRecord.RAM_GB
+                                $finalOff.Disk_C_Free = $stub.OldRecord.Disk_C_Free
+                                $finalOff.Disks       = $stub.OldRecord.Disks
+                                $finalOff.GPU         = $stub.OldRecord.GPU
+                                $finalOff.OS          = $stub.OldRecord.OS
+                                $finalOff.OSBuild     = $stub.OldRecord.OSBuild
+                                $finalOff.IP          = $stub.OldRecord.IP
+                                $finalOff.User        = $stub.OldRecord.User
+                            }
+                            for ($k = 0; $k -lt $hw.Count; $k++) {
+                                if ($hw[$k].PCName -ieq $sPc) {
+                                    $hw[$k] = $finalOff
+                                    break
+                                }
+                            }
+                            $masterDict[$sPc.ToUpper()] = $finalOff
+                            Write-Host ('[LIVE_PC] ' + ($finalOff | ConvertTo-Json -Compress))
+                        }
+                    }
+                }
+                if (-not $anyDeepDone -and $pass2Jobs.Count -gt 0) {
+                    Start-Sleep -Milliseconds 30
+                }
+            }
+        }
+    } finally {
+        foreach ($j in $pass1Jobs) {
+            if ($j.PS) { try { $j.PS.Stop(); $j.PS.Dispose() } catch {} }
+        }
+        foreach ($j in $pass2Jobs) {
+            if ($j.PS) { try { $j.PS.Stop(); $j.PS.Dispose() } catch {} }
+        }
+        if ($pool) {
+            try { $pool.Close() } catch {}
+            try { $pool.Dispose() } catch {}
         }
     }
 
@@ -1950,7 +2216,7 @@ if (-not $SkipHardware) {
 
         # Save Master CSV with standardized columns across all records
         $masterRows = @($masterDict.Values | ForEach-Object { New-HardwareRecord $_ } | Sort-Object PCName)
-        $masterRows | Export-Csv $MasterFile -NoTypeInformation -Encoding UTF8
+        Save-CsvAtomic -Path $MasterFile -Data $masterRows
         Write-Host "Master Database updated: $($masterRows.Count) total records -> $MasterFile" -ForegroundColor Cyan
     }
 
@@ -2221,7 +2487,7 @@ if ($Software) {
             @($hw | ForEach-Object { New-HardwareRecord $_ }) | Export-Csv $fHw -NoTypeInformation -Encoding UTF8
         }
         if ($MasterMode -and $MasterFile -and $masterDict -and $masterDict.Count -gt 0) {
-            @($masterDict.Values | ForEach-Object { New-HardwareRecord $_ } | Sort-Object PCName) | Export-Csv $MasterFile -NoTypeInformation -Encoding UTF8
+            Save-CsvAtomic -Path $MasterFile -Data @($masterDict.Values | ForEach-Object { New-HardwareRecord $_ } | Sort-Object PCName)
         }
     }
     # Also emit failed/offline hosts in [LIVE_SW]
@@ -2327,20 +2593,23 @@ function t(o){document.querySelectorAll('details').forEach(function(d){d.open=o;
             }
         }
 
-        $allMasterSw | Export-Csv -LiteralPath $fSoftMaster -NoTypeInformation -Encoding UTF8
+        Save-CsvAtomic -Path $fSoftMaster -Data $allMasterSw
         Write-Host "Software Master updated: $($allMasterSw.Count) total records across $($masterSwDict.Count) PCs -> $fSoftMaster" -ForegroundColor Cyan
 
         # 4. Export cumulative Software_Summary_Master.csv across entire organization
         if ($allMasterSw.Count -gt 0) {
-            $allMasterSw | Group-Object Name, Version | ForEach-Object {
-                $f = $_.Group[0]
-                [pscustomobject]@{
-                    Name      = $f.Name
-                    Version   = $f.Version
-                    Publisher = $f.Publisher
-                    PCCount   = ($_.Group | Select-Object -ExpandProperty PCName -Unique).Count
-                }
-            } | Sort-Object Name, Version | Export-Csv -LiteralPath $fSumMaster -NoTypeInformation -Encoding UTF8
+            $sumMasterData = @(
+                $allMasterSw | Group-Object Name, Version | ForEach-Object {
+                    $f = $_.Group[0]
+                    [pscustomobject]@{
+                        Name      = $f.Name
+                        Version   = $f.Version
+                        Publisher = $f.Publisher
+                        PCCount   = ($_.Group | Select-Object -ExpandProperty PCName -Unique).Count
+                    }
+                } | Sort-Object Name, Version
+            )
+            Save-CsvAtomic -Path $fSumMaster -Data $sumMasterData
         }
     }
 
