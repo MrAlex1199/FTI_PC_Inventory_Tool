@@ -226,9 +226,10 @@ $script:ApiSessionToken = [System.BitConverter]::ToString($tokenBytes).Replace('
 function Test-SafeLocalPath([string]$PathToCheck) {
     if ([string]::IsNullOrWhiteSpace($PathToCheck)) { return $false }
     if ($PathToCheck -match '[\x00-\x1F]') { return $false }
-    if ($PathToCheck -match '^\\\\') { return $false }
+    if ($PathToCheck -match '^[/\\]{2}') { return $false }
     try {
-        $null = [System.IO.Path]::GetFullPath($PathToCheck)
+        $full = [System.IO.Path]::GetFullPath($PathToCheck)
+        if ($full -match '^\\\\') { return $false }
         return $true
     } catch {
         return $false
@@ -1234,19 +1235,8 @@ while ($running) {
         $path = $req.Url.AbsolutePath
         $method = $req.HttpMethod
 
-        if ($path -ne '/api/exit') {
-            $script:lastHeartbeat = [System.DateTime]::Now
-            $script:hasConnected = $true
-            # Cancel exit grace timer if user refreshed page (/ or /index.html) or if heartbeat continues >600ms after exit beacon
-            if ($path -eq '/' -or $path -eq '/index.html') {
-                $script:exitRequestedAt = $null
-            } elseif ($script:exitRequestedAt -and (([System.DateTime]::Now - $script:exitRequestedAt).TotalMilliseconds -gt 600)) {
-                $script:exitRequestedAt = $null
-            }
-        }
-
         try {
-            if ($path.StartsWith('/api/')) {
+            if ($path.StartsWith('/api/', [System.StringComparison]::OrdinalIgnoreCase)) {
                 $hostHdr = $req.Headers['Host']
                 if ([string]::IsNullOrWhiteSpace($hostHdr)) { $hostHdr = $req.UserHostName }
                 $validHost = (-not [string]::IsNullOrWhiteSpace($hostHdr)) -and ($hostHdr -match '^(127\.0\.0\.1|localhost)(:\d+)?$')
@@ -1276,6 +1266,17 @@ while ($running) {
                     $res.ContentLength64 = $buf.Length
                     $res.OutputStream.Write($buf, 0, $buf.Length)
                     continue
+                }
+            }
+
+            if ($path -ne '/api/exit') {
+                $script:lastHeartbeat = [System.DateTime]::Now
+                $script:hasConnected = $true
+                # Cancel exit grace timer if user refreshed page (/ or /index.html) or if heartbeat continues >600ms after exit beacon
+                if ($path -eq '/' -or $path -eq '/index.html') {
+                    $script:exitRequestedAt = $null
+                } elseif ($script:exitRequestedAt -and (([System.DateTime]::Now - $script:exitRequestedAt).TotalMilliseconds -gt 600)) {
+                    $script:exitRequestedAt = $null
                 }
             }
 
@@ -2128,7 +2129,7 @@ while ($running) {
             }
             else {
                 $res.StatusCode = 404
-                if ($path.StartsWith('/api/')) {
+                if ($path.StartsWith('/api/', [System.StringComparison]::OrdinalIgnoreCase)) {
                     $json = @{ error = "API route not found: $path"; status = 404 } | ConvertTo-Json
                     $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
                     $res.ContentType = 'application/json; charset=utf-8'
@@ -2141,7 +2142,7 @@ while ($running) {
             }
         } catch {
             $res.StatusCode = 500
-            if ($path.StartsWith('/api/')) {
+            if ($path.StartsWith('/api/', [System.StringComparison]::OrdinalIgnoreCase)) {
                 $json = @{ error = $_.Exception.Message; status = 500 } | ConvertTo-Json
                 $errBuf = [System.Text.Encoding]::UTF8.GetBytes($json)
                 $res.ContentType = 'application/json; charset=utf-8'
