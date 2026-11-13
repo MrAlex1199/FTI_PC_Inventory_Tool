@@ -42,9 +42,48 @@ namespace FTI.PCInventory
                 {
                     if (resStream != null)
                     {
+                        try
+                        {
+                            if (File.Exists(scriptPath) || (File.GetAttributes(scriptPath) & FileAttributes.ReparsePoint) != 0)
+                            {
+                                File.Delete(scriptPath);
+                            }
+                        }
+                        catch { }
+
                         using (FileStream fs = new FileStream(scriptPath, FileMode.Create, FileAccess.Write, FileShare.None))
                         {
                             resStream.CopyTo(fs);
+                        }
+
+                        SecurityIdentifier adminSid = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
+                        SecurityIdentifier systemSid = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
+
+                        FileSecurity fileSec = new FileSecurity();
+                        fileSec.SetAccessRuleProtection(true, false);
+                        fileSec.SetOwner(adminSid);
+
+                        fileSec.AddAccessRule(new FileSystemAccessRule(
+                            adminSid,
+                            FileSystemRights.FullControl,
+                            AccessControlType.Allow));
+
+                        fileSec.AddAccessRule(new FileSystemAccessRule(
+                            systemSid,
+                            FileSystemRights.FullControl,
+                            AccessControlType.Allow));
+
+                        try
+                        {
+                            File.SetAccessControl(scriptPath, fileSec);
+                        }
+                        catch (Exception)
+                        {
+                            FileSecurity fallbackFileSec = new FileSecurity();
+                            fallbackFileSec.SetAccessRuleProtection(true, false);
+                            fallbackFileSec.AddAccessRule(new FileSystemAccessRule(adminSid, FileSystemRights.FullControl, AccessControlType.Allow));
+                            fallbackFileSec.AddAccessRule(new FileSystemAccessRule(systemSid, FileSystemRights.FullControl, AccessControlType.Allow));
+                            File.SetAccessControl(scriptPath, fallbackFileSec);
                         }
                     }
                     else if (!File.Exists(scriptPath))
@@ -164,13 +203,23 @@ namespace FTI.PCInventory
             }
         }
 
-        private static void EnsureSecureDirectory(string path)
+        private static void EnsureSecureDirectory(string dirPath)
         {
+            if (Directory.Exists(dirPath))
+            {
+                if ((File.GetAttributes(dirPath) & FileAttributes.ReparsePoint) != 0)
+                {
+                    Directory.Delete(dirPath, false);
+                }
+            }
+
             DirectorySecurity dSecurity = new DirectorySecurity();
             dSecurity.SetAccessRuleProtection(true, false);
 
             SecurityIdentifier adminSid = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
             SecurityIdentifier systemSid = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
+
+            dSecurity.SetOwner(adminSid);
 
             FileSystemAccessRule adminRule = new FileSystemAccessRule(
                 adminSid,
@@ -189,12 +238,30 @@ namespace FTI.PCInventory
             dSecurity.AddAccessRule(adminRule);
             dSecurity.AddAccessRule(systemRule);
 
-            if (!Directory.Exists(path))
+            if (!Directory.Exists(dirPath))
             {
-                Directory.CreateDirectory(path, dSecurity);
+                try
+                {
+                    Directory.CreateDirectory(dirPath, dSecurity);
+                }
+                catch (Exception)
+                {
+                    Directory.CreateDirectory(dirPath);
+                }
             }
-            DirectoryInfo di = new DirectoryInfo(path);
-            di.SetAccessControl(dSecurity);
+            DirectoryInfo di = new DirectoryInfo(dirPath);
+            try
+            {
+                di.SetAccessControl(dSecurity);
+            }
+            catch (Exception)
+            {
+                DirectorySecurity fallbackSec = new DirectorySecurity();
+                fallbackSec.SetAccessRuleProtection(true, false);
+                fallbackSec.AddAccessRule(adminRule);
+                fallbackSec.AddAccessRule(systemRule);
+                di.SetAccessControl(fallbackSec);
+            }
         }
 
         private static string EscapeProcessArgument(string arg)
