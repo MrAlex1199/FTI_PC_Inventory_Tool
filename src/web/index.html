@@ -118,7 +118,7 @@
 
       --text-secondary: #334155;
 
-      --text-muted: #64748b;
+      --text-muted: #475569;
 
       --accent-primary: #0284c7;
 
@@ -139,6 +139,11 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :focus-visible {
+      outline: 2px solid var(--accent-primary);
+      outline-offset: 2px;
+    }
 
     body {
 
@@ -176,8 +181,6 @@
 
     header {
 
-      height: 50px;
-
       min-height: 50px;
 
       display: flex;
@@ -186,7 +189,11 @@
 
       justify-content: space-between;
 
-      padding: 0 16px;
+      flex-wrap: wrap;
+
+      gap: 8px;
+
+      padding: 6px 16px;
 
       background: var(--bg-surface);
 
@@ -196,6 +203,16 @@
 
       box-shadow: var(--shadow-sm);
 
+    }
+
+    @media (max-width: 750px) {
+      header {
+        padding: 6px 10px;
+        gap: 6px;
+      }
+      .brand-subtitle, #topScheduleBanner {
+        font-size: 0.7rem;
+      }
     }
 
     .brand-group {
@@ -1716,7 +1733,9 @@
 
       justify-content: space-between;
 
-      gap: 12px;
+      flex-wrap: wrap;
+
+      gap: 8px 12px;
 
       flex-shrink: 0;
 
@@ -1728,6 +1747,8 @@
 
       align-items: center;
 
+      flex-wrap: wrap;
+
       gap: 8px;
 
       font-size: 0.82rem;
@@ -1735,6 +1756,8 @@
       font-weight: 700;
 
       color: var(--text-main);
+
+      min-width: 0;
 
     }
 
@@ -1744,8 +1767,31 @@
 
       align-items: center;
 
+      flex-wrap: wrap;
+
       gap: 8px;
 
+      min-width: 0;
+
+    }
+
+    @media (max-width: 1024px) {
+      .sidebar-compact:not(.collapsed) {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 60;
+        box-shadow: var(--shadow-lg);
+      }
+      .sidebar-right-compact:not(.collapsed) {
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 60;
+        box-shadow: var(--shadow-lg);
+      }
     }
 
     .search-table-input {
@@ -1923,6 +1969,12 @@
 
       border: 1px solid var(--border-subtle);
 
+      font-variant-numeric: tabular-nums;
+
+    }
+
+    .live-grid td, .log-content-body, .modal-body {
+      user-select: text;
     }
 
     .live-grid thead th {
@@ -2205,11 +2257,29 @@
       background: var(--bg-surface-elevated);
     }
 
-    .dash-donut-legend-color {
-      width: 8px;
-      height: 8px;
-      border-radius: 2px;
+    .dash-donut-legend-color,
+    .dash-donut-legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
       flex-shrink: 0;
+      display: inline-block;
+    }
+
+    .dash-donut-legend-label {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text-secondary);
+    }
+
+    .dash-donut-legend-val {
+      flex-shrink: 0;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-main);
     }
 
     /* Vertical Column Chart Layout */
@@ -3699,7 +3769,7 @@
 
     .dash-ring-bg {
       fill: none;
-      stroke: rgba(255, 255, 255, 0.08);
+      stroke: var(--border-subtle);
       stroke-width: 3.5;
     }
 
@@ -3787,6 +3857,7 @@
       color: var(--text-main);
       letter-spacing: -0.02em;
       line-height: 1.2;
+      font-variant-numeric: tabular-nums;
     }
 
     .dash-kpi-sub {
@@ -3804,23 +3875,24 @@
       border-radius: 4px;
       font-weight: 600;
       font-size: 0.65rem;
+      font-variant-numeric: tabular-nums;
     }
 
     .kpi-sub-pill.ok { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
-    .kpi-sub-pill.off { background: rgba(100, 116, 139, 0.2); color: #cbd5e1; }
+    .kpi-sub-pill.off { background: rgba(100, 116, 139, 0.16); color: var(--text-secondary); }
     .kpi-sub-pill.err { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); }
 
     /* Zone 2 & 3 Grids */
     .dash-grid-2 {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
       gap: 16px;
       margin-bottom: 16px;
     }
 
     .dash-grid-3 {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
       gap: 14px;
       margin-bottom: 24px;
     }
@@ -3830,11 +3902,12 @@
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
       border-radius: 12px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+      box-shadow: var(--shadow-md);
       backdrop-filter: blur(8px);
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      min-width: 0;
     }
 
     .dash-card-header {
@@ -3843,7 +3916,9 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(255, 255, 255, 0.02);
+      flex-wrap: wrap;
+      gap: 8px;
+      background: var(--bg-surface-elevated);
     }
 
     .dash-card-title-wrap {
@@ -3863,20 +3938,22 @@
       font-size: 0.68rem;
       padding: 2px 8px;
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.08);
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
       color: var(--text-secondary);
       font-weight: 600;
+      font-variant-numeric: tabular-nums;
     }
 
-    .dash-card-badge.red { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); }
-    .dash-card-badge.amber { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
-    .dash-card-badge.purple { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+    .dash-card-badge.red { background: rgba(244, 63, 94, 0.15); border-color: rgba(244, 63, 94, 0.25); color: var(--accent-rose); }
+    .dash-card-badge.amber { background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.25); color: var(--accent-amber); }
+    .dash-card-badge.purple { background: rgba(139, 92, 246, 0.15); border-color: rgba(139, 92, 246, 0.25); color: #8b5cf6; }
 
     /* Segmented Toggle Inside Card Header */
     .dash-seg-toggle {
       display: flex;
       gap: 2px;
-      background: rgba(0, 0, 0, 0.25);
+      background: var(--bg-base);
       padding: 2px;
       border-radius: 6px;
       border: 1px solid var(--border-subtle);
@@ -3923,11 +4000,11 @@
     }
 
     .dash-bar-row:hover {
-      background: rgba(255, 255, 255, 0.05);
+      background: var(--bg-surface-elevated);
     }
 
     .dash-bar-row:hover .dash-bar-fill {
-      filter: brightness(1.15);
+      filter: brightness(1.1);
     }
 
     .dash-bar-label-wrap {
@@ -3948,6 +4025,7 @@
 
     .dash-bar-count {
       font-family: monospace;
+      font-variant-numeric: tabular-nums;
       font-weight: 700;
       color: var(--text-main);
       font-size: 0.74rem;
@@ -3956,7 +4034,7 @@
     .dash-bar-track {
       width: 100%;
       height: 7px;
-      background: rgba(255, 255, 255, 0.07);
+      background: var(--bg-base);
       border-radius: 999px;
       overflow: hidden;
     }
@@ -3991,17 +4069,18 @@
       transition: background 0.15s, color 0.15s;
     }
     .dash-unscanned-footer:hover {
-      background: rgba(255, 255, 255, 0.05);
-      color: var(--text-secondary);
+      background: var(--bg-surface-elevated);
+      color: var(--text-main);
     }
     .dash-unscanned-badge {
-      background: rgba(148, 163, 184, 0.12);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      color: var(--text-muted);
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
       padding: 1px 6px;
       border-radius: 12px;
       font-weight: 700;
       font-size: 0.67rem;
+      font-variant-numeric: tabular-nums;
     }
 
     /* Zone 4: Actionable Watchlist */
@@ -4058,16 +4137,16 @@
       align-items: center;
       padding: 6px 8px;
       border-radius: 6px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
       font-size: 0.73rem;
       cursor: pointer;
       transition: all 0.15s;
     }
 
     .dash-watchlist-item:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(2, 132, 199, 0.4);
+      background: var(--bg-input);
+      border-color: var(--accent-primary);
       transform: translateX(2px);
     }
 
@@ -4088,10 +4167,11 @@
       padding: 2px 6px;
       border-radius: 4px;
       font-family: monospace;
+      font-variant-numeric: tabular-nums;
     }
     .dash-wl-badge.red { background: rgba(244, 63, 94, 0.18); color: var(--accent-rose); }
     .dash-wl-badge.amber { background: rgba(245, 158, 11, 0.18); color: var(--accent-amber); }
-    .dash-wl-badge.purple { background: rgba(139, 92, 246, 0.18); color: #c4b5fd; }
+    .dash-wl-badge.purple { background: rgba(139, 92, 246, 0.18); color: #8b5cf6; }
 
     .dash-wl-empty {
       text-align: center;
@@ -4677,13 +4757,6 @@
               </select>
             </div>
 
-                        <div style="display: flex; gap: 4px;" id="filterPillsHw">
-              <button class="filter-btn-pill active" data-filter="all">All</button>
-              <button class="filter-btn-pill" data-filter="OK">Success (OK)</button>
-              <button class="filter-btn-pill" data-filter="Offline">Offline</button>
-              <button class="filter-btn-pill" data-filter="Error">Failed</button>
-            </div>
-
             <div id="activeDrilldownChip" style="display: none; align-items: center; gap: 6px; background: rgba(2, 132, 199, 0.15); border: 1px solid rgba(2, 132, 199, 0.35); padding: 2px 10px; border-radius: 12px; font-size: 0.72rem; color: var(--accent-primary); font-weight: 600;">
               <span id="drilldownChipText">Filter: -</span>
               <button type="button" onclick="clearDrilldownFilter()" style="background: none; border: none; color: var(--accent-rose); cursor: pointer; font-size: 0.8rem; line-height: 1; padding: 0 2px;" title="Clear filter">✕</button>
@@ -4725,7 +4798,7 @@
 
               <tr>
 
-                <td colspan="13" style="text-align: center; color: var(--text-muted); padding: 35px;">
+                <td colspan="14" style="text-align: center; color: var(--text-muted); padding: 35px;">
 
                   No scan results available yet. (Click "Start Network Scan" on the left)
 
@@ -4870,8 +4943,8 @@
                     <span class="dash-card-title">Processor (CPU) Breakdown</span>
                   </div>
                   <div class="dash-seg-toggle">
-                    <button type="button" id="btnCpuModeModel" class="dash-seg-btn active" onclick="setCpuViewMode('model')">Exact Model</button>
-                    <button type="button" id="btnCpuModeSeries" class="dash-seg-btn" onclick="setCpuViewMode('series')">Series</button>
+                    <button type="button" id="btnCpuModeSeries" class="dash-seg-btn active" onclick="setCpuViewMode('series')">Series</button>
+                    <button type="button" id="btnCpuModeModel" class="dash-seg-btn" onclick="setCpuViewMode('model')">Exact Model</button>
                   </div>
                   <div class="dash-chart-tools" id="chartTools_cpu"></div>
                 </div>
@@ -5571,7 +5644,7 @@
     }
 
     // Analytics Dashboard State
-    let cpuViewMode = 'model'; // 'model' | 'series'
+    let cpuViewMode = 'series'; // 'series' | 'model'
     let osViewMode = 'ver';   // 'ver' | 'build'
     let netViewMode = 'ou';   // 'ou' | 'subnet'
     let activeDrilldownCategory = null;
@@ -5584,7 +5657,6 @@
       const tblHw = document.getElementById('resultsTable');
       const tblSw = document.getElementById('swResultsTable');
       const dashContainer = document.getElementById('dashboardContainer');
-      const filterPillsHw = document.getElementById('filterPillsHw');
       const btnResetColWidths = document.getElementById('btnResetColWidths');
       const btnPrintDashboard = document.getElementById('btnPrintDashboard');
       const txtSearchTable = document.getElementById('txtSearchTable');
@@ -5596,7 +5668,6 @@
         if (tblHw) tblHw.style.display = '';
         if (tblSw) tblSw.style.display = 'none';
         if (dashContainer) dashContainer.style.display = 'none';
-        if (filterPillsHw) filterPillsHw.style.display = 'flex';
         if (btnResetColWidths) btnResetColWidths.style.display = 'inline-flex';
         if (btnPrintDashboard) btnPrintDashboard.style.display = 'none';
         if (txtSearchTable) txtSearchTable.style.display = '';
@@ -5609,7 +5680,6 @@
         if (tblHw) tblHw.style.display = 'none';
         if (tblSw) tblSw.style.display = '';
         if (dashContainer) dashContainer.style.display = 'none';
-        if (filterPillsHw) filterPillsHw.style.display = 'none';
         if (btnResetColWidths) btnResetColWidths.style.display = 'inline-flex';
         if (btnPrintDashboard) btnPrintDashboard.style.display = 'none';
         if (txtSearchTable) txtSearchTable.style.display = '';
@@ -5622,7 +5692,6 @@
         if (tblHw) tblHw.style.display = 'none';
         if (tblSw) tblSw.style.display = 'none';
         if (dashContainer) dashContainer.style.display = 'block';
-        if (filterPillsHw) filterPillsHw.style.display = 'none';
         if (btnResetColWidths) btnResetColWidths.style.display = 'none';
         if (btnPrintDashboard) btnPrintDashboard.style.display = 'inline-flex';
         renderDashboard();
@@ -5990,22 +6059,12 @@
         return 'Build - (' + os + ')';
       }
 
-      // Mode: 'ver' (Version Name with Build reference)
-      if (o.includes('server')) return b > 0 ? 'Windows Server (Build ' + displayBuild + ')' : 'Windows Server';
-      if (o.includes('windows 11') || b >= 22000) {
-        if (b >= 26300) return 'Windows 11 (26H2 • Build ' + (displayBuild || '26300+') + ')';
-        if (b >= 26100) return 'Windows 11 (24H2 • Build ' + (displayBuild || '26100+') + ')';
-        if (b >= 22631) return 'Windows 11 (23H2 • Build ' + (displayBuild || '22631') + ')';
-        if (b >= 22621) return 'Windows 11 (22H2 • Build ' + (displayBuild || '22621') + ')';
-        return 'Windows 11 (Build ' + (displayBuild || '22000') + ')';
-      }
-      if (o.includes('windows 10') || (b >= 10240 && b < 22000)) {
-        if (b >= 19045) return 'Windows 10 (22H2 • Build ' + (displayBuild || '19045') + ')';
-        if (b >= 19044) return 'Windows 10 (21H2 • Build ' + (displayBuild || '19044') + ')';
-        return 'Windows 10 (Build ' + (displayBuild || '10240') + ')';
-      }
-      if (o.includes('windows 7') || o.includes('windows 8')) return 'Legacy Windows (Build ' + (displayBuild || '7/8') + ')';
-      return b > 0 ? os + ' (Build ' + displayBuild + ')' : os;
+      // Mode: 'ver' (Broad OS Family for clean executive summary; switch to 'build' for exact build details)
+      if (o.includes('server')) return 'Windows Server';
+      if (o.includes('windows 11') || b >= 22000) return 'Windows 11';
+      if (o.includes('windows 10') || (b >= 10240 && b < 22000)) return 'Windows 10';
+      if (o.includes('windows 7') || o.includes('windows 8')) return 'Legacy Windows';
+      return os.trim();
     }
 
     function classifyBrand(maker) {
@@ -6280,10 +6339,10 @@
     function getChartToolsHtml(cardKey) {
       const currentType = cardChartTypes[cardKey] || 'bar';
       const types = [
-        { key: 'bar', icon: '━', title: 'Bar Chart' },
-        { key: 'donut', icon: '◕', title: 'Donut Chart' },
-        { key: 'col', icon: '📊', title: 'Column Chart' },
-        { key: 'treemap', icon: '⊞', title: 'Treemap Grid' }
+        { key: 'bar', icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="15" y2="12"/><line x1="4" y1="17" x2="11" y2="17"/></svg>', title: 'Bar Chart' },
+        { key: 'donut', icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>', title: 'Donut Chart' },
+        { key: 'col', icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="5"/><line x1="18" y1="20" x2="18" y2="9"/></svg>', title: 'Column Chart' },
+        { key: 'treemap', icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="8" height="10" rx="1"/><rect x="13" y="3" width="8" height="6" rx="1"/><rect x="13" y="11" width="8" height="10" rx="1"/><rect x="3" y="15" width="8" height="6" rx="1"/></svg>', title: 'Treemap Grid' }
       ];
       return types.map(t => `
         <button type="button" class="dash-chart-btn ${currentType === t.key ? 'active' : ''}"
@@ -6954,6 +7013,28 @@
     btnToggleSidebar.addEventListener('click', () => setLeftSidebar(true));
 
     btnToggleSidebarRight.addEventListener('click', () => setRightSidebar(true));
+
+    // Auto-collapse sidebars on narrow viewports (<= 1024px) to protect workspace width
+    let lastViewportNarrow = window.innerWidth <= 1024;
+    if (lastViewportNarrow) {
+      setLeftSidebar(true);
+      setRightSidebar(true);
+    }
+    window.addEventListener('resize', () => {
+      const isNarrow = window.innerWidth <= 1024;
+      if (isNarrow && !lastViewportNarrow) {
+        setLeftSidebar(true);
+        setRightSidebar(true);
+      }
+      lastViewportNarrow = isNarrow;
+    });
+
+    // Global Escape key handler to close any active modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-backdrop.active').forEach(m => m.classList.remove('active'));
+      }
+    });
 
     // Maximize Table Mode
 
@@ -8652,6 +8733,8 @@
 
     document.getElementById('masterBtnDone').addEventListener('click', () => masterModalBackdrop.classList.remove('active'));
 
+    masterModalBackdrop.addEventListener('click', (e) => { if (e.target === masterModalBackdrop) masterModalBackdrop.classList.remove('active'); });
+
     async function fetchMasterStatus() {
 
       const outDir = txtOutDir ? txtOutDir.value.trim() : 'C:\\Inventory';
@@ -8803,6 +8886,8 @@
     document.getElementById('schedBtnClose').addEventListener('click', () => schedModalBackdrop.classList.remove('active'));
 
     document.getElementById('schedBtnCancel').addEventListener('click', () => schedModalBackdrop.classList.remove('active'));
+
+    schedModalBackdrop.addEventListener('click', (e) => { if (e.target === schedModalBackdrop) schedModalBackdrop.classList.remove('active'); });
 
     const selWinTaskMode = document.getElementById('selWinTaskMode');
 
