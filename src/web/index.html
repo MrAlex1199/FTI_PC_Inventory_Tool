@@ -2288,120 +2288,45 @@
       color: var(--text-main);
     }
 
-    /* Vertical Column Chart Layout */
-    .dash-col-chart {
-      display: flex;
-      align-items: flex-end;
-      gap: 8px;
-      height: 122px;
-      padding: 8px 6px 4px 6px;
-      overflow-x: auto;
-      border-bottom: 1px solid var(--border-subtle);
-    }
-
-    .dash-col-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      flex: 1;
-      min-width: 44px;
-      height: 100%;
-      justify-content: flex-end;
-      cursor: pointer;
-      transition: transform 0.15s ease;
-    }
-
-    .dash-col-item:hover {
-      transform: translateY(-2px);
-    }
-
-    .dash-col-val {
-      font-size: 0.68rem;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      color: var(--text-main);
-      margin-bottom: 3px;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-
-    .dash-col-bar-wrap {
-      flex: 1;
-      width: 100%;
-      max-width: 32px;
-      min-height: 0;
-      display: flex;
-      align-items: flex-end;
-      background: var(--bg-base);
-      border-radius: 4px 4px 0 0;
-      overflow: hidden;
-    }
-
-    .dash-col-fill,
-    .dash-col-bar {
-      width: 100%;
-      border-radius: 4px 4px 0 0;
-      transition: height 0.4s cubic-bezier(0.2, 0.9, 0.3, 1);
-      position: relative;
-    }
-
-    .dash-col-label {
-      font-size: 0.62rem;
-      color: var(--text-muted);
-      text-align: center;
-      margin-top: 4px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      width: 100%;
-      max-width: 72px;
-      flex-shrink: 0;
-    }
-
-    /* Treemap Distribution Grid Layout */
-    .dash-treemap-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
+    /* Vibrant Heatmap Grid Layout */
+    .dash-heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+      gap: 6px;
       padding: 4px 0;
       min-height: 112px;
-      align-content: stretch;
     }
 
-    .dash-treemap-tile {
+    .dash-heatmap-tile {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       padding: 6px 8px;
-      border-radius: 6px;
-      background: var(--bg-surface-elevated);
-      border: 1px solid var(--border-subtle);
+      border-radius: 7px;
       cursor: pointer;
       transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-      min-width: 75px;
-      min-height: 48px;
-      flex-grow: 1;
+      min-height: 52px;
       position: relative;
       overflow: hidden;
+      backdrop-filter: blur(4px);
     }
 
-    .dash-treemap-tile:hover {
-      transform: translateY(-1px);
-      border-color: var(--accent-primary);
-      box-shadow: 0 3px 10px rgba(0,0,0,0.14);
+    .dash-heatmap-tile:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.08);
       z-index: 2;
     }
 
-    .dash-treemap-tile-header {
+    .dash-heatmap-tile-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       min-width: 0;
     }
 
-    .dash-treemap-name {
-      font-size: 0.70rem;
+    .dash-heatmap-name {
+      font-size: 0.69rem;
       font-weight: 700;
       color: var(--text-main);
       white-space: nowrap;
@@ -2410,28 +2335,56 @@
       min-width: 0;
     }
 
-    .dash-treemap-pct {
-      font-size: 0.68rem;
+    .dash-heatmap-pct {
+      font-size: 0.64rem;
       font-weight: 700;
       font-variant-numeric: tabular-nums;
+      padding: 1px 4px;
+      border-radius: 4px;
       flex-shrink: 0;
+      line-height: 1.1;
     }
 
-    .dash-treemap-meta {
+    .dash-heatmap-body {
       display: flex;
-      justify-content: space-between;
       align-items: baseline;
-      font-size: 0.64rem;
-      color: var(--text-muted);
-      margin-top: 3px;
+      justify-content: space-between;
+      margin-top: 4px;
+      gap: 4px;
     }
 
-    .dash-treemap-count {
+    .dash-heatmap-count {
       font-weight: 800;
-      font-size: 0.78rem;
+      font-size: 0.88rem;
       font-variant-numeric: tabular-nums;
       color: var(--text-main);
-      margin-top: 2px;
+      line-height: 1;
+    }
+
+    .dash-heatmap-unit {
+      font-size: 0.62rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-left: 2px;
+    }
+
+    .dash-heatmap-track {
+      width: 100%;
+      height: 3px;
+      background: rgba(0, 0, 0, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    html.dark .dash-heatmap-track {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .dash-heatmap-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease;
     }
 
     .live-grid thead th:last-child {
@@ -4878,10 +4831,15 @@
               <div class="dash-actions-group">
                 <!-- Global Dashboard Chart Preset Switcher -->
                 <div class="dash-chart-tools" id="globalChartTools" style="margin-right: 6px;">
-                  <button type="button" class="dash-chart-btn active" id="btnChartMode_bar" onclick="setGlobalChartType('bar')" title="Bar Charts (Default)">━</button>
-                  <button type="button" class="dash-chart-btn" id="btnChartMode_donut" onclick="setGlobalChartType('donut')" title="Donut Charts">◕</button>
-                  <button type="button" class="dash-chart-btn" id="btnChartMode_col" onclick="setGlobalChartType('col')" title="Vertical Column Charts">📊</button>
-                  <button type="button" class="dash-chart-btn" id="btnChartMode_treemap" onclick="setGlobalChartType('treemap')" title="Proportional Treemap">⊞</button>
+                  <button type="button" class="dash-chart-btn active" id="btnChartMode_bar" onclick="setGlobalChartType('bar')" title="Horizontal Bar Charts (Default)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="15" y2="12"/><line x1="4" y1="17" x2="11" y2="17"/></svg>
+                  </button>
+                  <button type="button" class="dash-chart-btn" id="btnChartMode_donut" onclick="setGlobalChartType('donut')" title="Donut Charts">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                  <button type="button" class="dash-chart-btn" id="btnChartMode_heatmap" onclick="setGlobalChartType('heatmap')" title="Color Heatmap Matrix">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1.5" fill="currentColor" fill-opacity="0.8"/><rect x="14" y="3" width="7" height="7" rx="1.5" fill="currentColor" fill-opacity="0.3"/><rect x="3" y="14" width="7" height="7" rx="1.5" fill="currentColor" fill-opacity="0.5"/><rect x="14" y="14" width="7" height="7" rx="1.5" fill="currentColor" fill-opacity="0.95"/></svg>
+                  </button>
                 </div>
                 <button type="button" class="btn-compact-ghost" onclick="renderDashboard()" title="Refresh Dashboard Metrics">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -5669,7 +5627,14 @@
     let cardChartTypes = { cpu: 'bar', ram: 'bar', os: 'bar', brand: 'bar', office: 'bar', net: 'bar' };
     try {
       const savedTypes = localStorage.getItem('fti_chart_types');
-      if (savedTypes) cardChartTypes = Object.assign(cardChartTypes, JSON.parse(savedTypes));
+      if (savedTypes) {
+        const parsed = JSON.parse(savedTypes);
+        Object.keys(parsed).forEach(k => {
+          if (parsed[k] === 'col') parsed[k] = 'bar';
+          if (parsed[k] === 'treemap') parsed[k] = 'heatmap';
+        });
+        cardChartTypes = Object.assign(cardChartTypes, parsed);
+      }
     } catch (e) {}
 
     function escapeHtml(str) {
@@ -6291,54 +6256,24 @@
       el.innerHTML = chartBody + footerHtml;
     }
 
-    function renderColumnChart(containerId, mapData, drilldownType, palette) {
-      const el = document.getElementById(containerId);
-      if (!el) return;
-      const unscannedCount = mapData['__UNSCANNED__'] || 0;
-      const entries = Object.entries(mapData).filter(([k]) => k !== '__UNSCANNED__').sort((a, b) => b[1] - a[1]).slice(0, 8);
-      const total = entries.reduce((acc, curr) => acc + curr[1], 0) || 1;
-      const maxVal = entries.length > 0 ? entries[0][1] : 1;
+    const HEATMAP_COLORS = [
+      { hex: '#0284c7', rgb: '2, 132, 199' },    // Sky / Ocean Blue
+      { hex: '#10b981', rgb: '16, 185, 129' },   // Emerald Green
+      { hex: '#8b5cf6', rgb: '139, 92, 246' },   // Violet Purple
+      { hex: '#f59e0b', rgb: '245, 158, 11' },   // Amber Orange
+      { hex: '#06b6d4', rgb: '6, 182, 212' },    // Bright Cyan
+      { hex: '#f43f5e', rgb: '244, 63, 94' },    // Rose Red
+      { hex: '#6366f1', rgb: '99, 102, 241' },   // Indigo
+      { hex: '#14b8a6', rgb: '20, 184, 166' }    // Teal
+    ];
 
-      let colsContent = '';
-      if (entries.length === 0) {
-        colsContent = '<div style="color:var(--text-muted); font-size:0.75rem; text-align:center; padding:18px;">No scanned spec data available</div>';
-      } else {
-        const colsHtml = entries.map(([name, count], idx) => {
-          const pct = Math.round((count / total) * 100);
-          const heightPct = Math.max(8, Math.round((count / maxVal) * 100));
-          const color = palette[idx % palette.length];
-          return `
-            <div class="dash-col-item" data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="${escapeHtml(name)}" data-drill-label="${escapeHtml(name)}" title="${escapeHtml(name)}: ${count} (${pct}%)">
-              <span class="dash-col-val">${count}</span>
-              <div class="dash-col-bar-wrap">
-                <div class="dash-col-fill" style="height:${heightPct}%; background:${color};"></div>
-              </div>
-              <span class="dash-col-label" title="${escapeHtml(name)}">${escapeHtml(name)}</span>
-            </div>
-          `;
-        }).join('');
-        colsContent = `<div class="dash-col-chart">${colsHtml}</div>`;
-      }
-
-      let footerHtml = '';
-      if (unscannedCount > 0) {
-        footerHtml = `
-          <div class="dash-unscanned-footer" data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="__UNSCANNED__" data-drill-label="Not Scanned / Spec Missing" title="Click to view PCs requiring scan">
-            <span><span style="opacity:0.7;">⚠️</span> Not Scanned / Spec Missing</span>
-            <span class="dash-unscanned-badge">${unscannedCount} PCs</span>
-          </div>
-        `;
-      }
-
-      el.innerHTML = colsContent + footerHtml;
-    }
-
-    function renderTreemapGrid(containerId, mapData, drilldownType, palette) {
+    function renderHeatmapGrid(containerId, mapData, drilldownType, palette) {
       const el = document.getElementById(containerId);
       if (!el) return;
       const unscannedCount = mapData['__UNSCANNED__'] || 0;
       const entries = Object.entries(mapData).filter(([k]) => k !== '__UNSCANNED__').sort((a, b) => b[1] - a[1]);
       const total = entries.reduce((acc, curr) => acc + curr[1], 0) || 1;
+      const maxVal = entries.length > 0 ? entries[0][1] : 1;
 
       let gridContent = '';
       if (entries.length === 0) {
@@ -6346,20 +6281,33 @@
       } else {
         const tilesHtml = entries.map(([name, count], idx) => {
           const pct = Math.round((count / total) * 100);
-          const color = palette[idx % palette.length];
-          const weight = Math.max(1, count);
+          const colorObj = HEATMAP_COLORS[idx % HEATMAP_COLORS.length];
+          const intensity = Math.max(0.18, Math.min(1, count / maxVal));
+          const bgAlpha1 = (0.08 + intensity * 0.16).toFixed(2);
+          const bgAlpha2 = (0.16 + intensity * 0.28).toFixed(2);
+          const borderAlpha = (0.35 + intensity * 0.45).toFixed(2);
+          const shadowAlpha = (0.10 + intensity * 0.22).toFixed(2);
+
           return `
-            <div class="dash-treemap-tile" style="flex: ${weight} 1 ${Math.min(180, Math.max(85, count * 18))}px; border-left: 4px solid ${color};"
+            <div class="dash-heatmap-tile" style="
+                background: linear-gradient(135deg, rgba(${colorObj.rgb}, ${bgAlpha1}), rgba(${colorObj.rgb}, ${bgAlpha2}));
+                border: 1px solid rgba(${colorObj.rgb}, ${borderAlpha});
+                box-shadow: 0 2px 6px rgba(${colorObj.rgb}, ${shadowAlpha});"
               data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="${escapeHtml(name)}" data-drill-label="${escapeHtml(name)}" title="${escapeHtml(name)}: ${count} (${pct}%)">
-              <div class="dash-treemap-tile-header">
-                <span class="dash-treemap-name">${escapeHtml(name)}</span>
-                <span class="dash-treemap-pct" style="color:${color};">${pct}%</span>
+              <div class="dash-heatmap-tile-header">
+                <span class="dash-heatmap-name">${escapeHtml(name)}</span>
+                <span class="dash-heatmap-pct" style="background: rgba(${colorObj.rgb}, 0.22); color: ${colorObj.hex}; border: 1px solid rgba(${colorObj.rgb}, 0.45);">${pct}%</span>
               </div>
-              <div class="dash-treemap-count">${count} PCs</div>
+              <div class="dash-heatmap-body">
+                <span class="dash-heatmap-count">${count}<span class="dash-heatmap-unit">PCs</span></span>
+              </div>
+              <div class="dash-heatmap-track">
+                <div class="dash-heatmap-fill" style="width: ${pct}%; background: ${colorObj.hex};"></div>
+              </div>
             </div>
           `;
         }).join('');
-        gridContent = `<div class="dash-treemap-grid">${tilesHtml}</div>`;
+        gridContent = `<div class="dash-heatmap-grid">${tilesHtml}</div>`;
       }
 
       let footerHtml = '';
@@ -6376,12 +6324,13 @@
     }
 
     function getChartToolsHtml(cardKey) {
-      const currentType = cardChartTypes[cardKey] || 'bar';
+      let currentType = cardChartTypes[cardKey] || 'bar';
+      if (currentType === 'col') currentType = 'bar';
+      if (currentType === 'treemap') currentType = 'heatmap';
       const types = [
-        { key: 'bar', icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="15" y2="12"/><line x1="4" y1="17" x2="11" y2="17"/></svg>', title: 'Bar Chart' },
+        { key: 'bar', icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="15" y2="12"/><line x1="4" y1="17" x2="11" y2="17"/></svg>', title: 'Horizontal Bar' },
         { key: 'donut', icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>', title: 'Donut Chart' },
-        { key: 'col', icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="6" y1="20" x2="6" y2="12"/><line x1="12" y1="20" x2="12" y2="5"/><line x1="18" y1="20" x2="18" y2="9"/></svg>', title: 'Column Chart' },
-        { key: 'treemap', icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="8" height="10" rx="1"/><rect x="13" y="3" width="8" height="6" rx="1"/><rect x="13" y="11" width="8" height="10" rx="1"/><rect x="3" y="15" width="8" height="6" rx="1"/></svg>', title: 'Treemap Grid' }
+        { key: 'heatmap', icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1.5" fill="currentColor" fill-opacity="0.8"/><rect x="14" y="3" width="7" height="7" rx="1.5" fill="currentColor" fill-opacity="0.3"/><rect x="3" y="14" width="7" height="7" rx="1.5" fill="currentColor" fill-opacity="0.5"/><rect x="14" y="14" width="7" height="7" rx="1.5" fill="currentColor" fill-opacity="0.95"/></svg>', title: 'Color Heatmap' }
       ];
       return types.map(t => `
         <button type="button" class="dash-chart-btn ${currentType === t.key ? 'active' : ''}"
@@ -6397,25 +6346,30 @@
         const box = document.getElementById('chartTools_' + card);
         if (box) box.innerHTML = getChartToolsHtml(card);
       });
-      const gTypes = ['bar', 'donut', 'col', 'treemap'];
+      const gTypes = ['bar', 'donut', 'heatmap'];
       gTypes.forEach(t => {
         const btn = document.getElementById('btnChartMode_' + t);
         if (btn) {
-          const allSame = cards.every(c => (cardChartTypes[c] || 'bar') === t);
+          const allSame = cards.every(c => {
+            let ct = cardChartTypes[c] || 'bar';
+            if (ct === 'col') ct = 'bar';
+            if (ct === 'treemap') ct = 'heatmap';
+            return ct === t;
+          });
           btn.classList.toggle('active', allSame);
         }
       });
     }
 
     function renderCardChart(cardKey, containerId, mapData, drilldownType, gradientClass) {
-      const chartType = cardChartTypes[cardKey] || 'bar';
+      let chartType = cardChartTypes[cardKey] || 'bar';
+      if (chartType === 'col') chartType = 'bar';
+      if (chartType === 'treemap') chartType = 'heatmap';
       const palette = CARD_PALETTES[cardKey] || CARD_PALETTES.cpu;
       if (chartType === 'donut') {
         renderDonutChart(containerId, mapData, drilldownType, palette);
-      } else if (chartType === 'col') {
-        renderColumnChart(containerId, mapData, drilldownType, palette);
-      } else if (chartType === 'treemap') {
-        renderTreemapGrid(containerId, mapData, drilldownType, palette);
+      } else if (chartType === 'heatmap') {
+        renderHeatmapGrid(containerId, mapData, drilldownType, palette);
       } else {
         renderBarGroup(containerId, mapData, drilldownType, gradientClass);
       }
