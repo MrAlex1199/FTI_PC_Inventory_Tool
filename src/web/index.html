@@ -2172,22 +2172,24 @@
     .dash-donut-wrap {
       display: flex;
       align-items: center;
-      justify-content: space-around;
-      gap: 16px;
-      padding: 10px 4px;
-      min-height: 170px;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 4px 2px;
+      min-height: 122px;
     }
 
     .dash-donut-svg-box {
       position: relative;
-      width: 140px;
-      height: 140px;
+      width: 112px;
+      height: 112px;
       flex-shrink: 0;
     }
 
+    .dash-donut-svg-box svg,
     .dash-donut-svg {
       width: 100%;
       height: 100%;
+      display: block;
       transform: rotate(-90deg);
       border-radius: 50%;
     }
@@ -2213,17 +2215,20 @@
       pointer-events: none;
     }
 
-    .dash-donut-center-num {
+    .dash-donut-center-num,
+    .dash-donut-total {
       display: block;
-      font-size: 1.15rem;
+      font-size: 1.05rem;
       font-weight: 800;
+      font-variant-numeric: tabular-nums;
       color: var(--text-main);
       line-height: 1;
     }
 
-    .dash-donut-center-lbl {
+    .dash-donut-center-lbl,
+    .dash-donut-sub {
       display: block;
-      font-size: 0.62rem;
+      font-size: 0.58rem;
       font-weight: 600;
       color: var(--text-muted);
       text-transform: uppercase;
@@ -2234,9 +2239,10 @@
     .dash-donut-legend {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 3px;
       flex: 1;
-      max-height: 160px;
+      min-width: 0;
+      max-height: 124px;
       overflow-y: auto;
       padding-right: 4px;
     }
@@ -2246,7 +2252,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       cursor: pointer;
       padding: 2px 6px;
       border-radius: 4px;
@@ -2259,8 +2265,8 @@
 
     .dash-donut-legend-color,
     .dash-donut-legend-dot {
-      width: 10px;
-      height: 10px;
+      width: 9px;
+      height: 9px;
       border-radius: 3px;
       flex-shrink: 0;
       display: inline-block;
@@ -2286,9 +2292,9 @@
     .dash-col-chart {
       display: flex;
       align-items: flex-end;
-      gap: 12px;
-      height: 160px;
-      padding: 16px 8px 8px 8px;
+      gap: 8px;
+      height: 122px;
+      padding: 8px 6px 4px 6px;
       overflow-x: auto;
       border-bottom: 1px solid var(--border-subtle);
     }
@@ -2298,7 +2304,7 @@
       flex-direction: column;
       align-items: center;
       flex: 1;
-      min-width: 48px;
+      min-width: 44px;
       height: 100%;
       justify-content: flex-end;
       cursor: pointer;
@@ -2312,38 +2318,53 @@
     .dash-col-val {
       font-size: 0.68rem;
       font-weight: 700;
+      font-variant-numeric: tabular-nums;
       color: var(--text-main);
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       white-space: nowrap;
+      flex-shrink: 0;
     }
 
+    .dash-col-bar-wrap {
+      flex: 1;
+      width: 100%;
+      max-width: 32px;
+      min-height: 0;
+      display: flex;
+      align-items: flex-end;
+      background: var(--bg-base);
+      border-radius: 4px 4px 0 0;
+      overflow: hidden;
+    }
+
+    .dash-col-fill,
     .dash-col-bar {
       width: 100%;
-      max-width: 38px;
       border-radius: 4px 4px 0 0;
       transition: height 0.4s cubic-bezier(0.2, 0.9, 0.3, 1);
       position: relative;
     }
 
     .dash-col-label {
-      font-size: 0.64rem;
+      font-size: 0.62rem;
       color: var(--text-muted);
       text-align: center;
-      margin-top: 6px;
+      margin-top: 4px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       width: 100%;
-      max-width: 70px;
+      max-width: 72px;
+      flex-shrink: 0;
     }
 
     /* Treemap Distribution Grid Layout */
     .dash-treemap-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      padding: 8px 2px;
-      min-height: 150px;
+      gap: 5px;
+      padding: 4px 0;
+      min-height: 112px;
       align-content: stretch;
     }
 
@@ -2351,48 +2372,66 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 8px 10px;
+      padding: 6px 8px;
       border-radius: 6px;
+      background: var(--bg-surface-elevated);
       border: 1px solid var(--border-subtle);
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
       min-width: 75px;
-      min-height: 60px;
+      min-height: 48px;
       flex-grow: 1;
       position: relative;
       overflow: hidden;
     }
 
     .dash-treemap-tile:hover {
-      transform: scale(1.02);
-      filter: brightness(1.1);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      transform: translateY(-1px);
+      border-color: var(--accent-primary);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.14);
       z-index: 2;
+    }
+
+    .dash-treemap-tile-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
     }
 
     .dash-treemap-name {
       font-size: 0.70rem;
       font-weight: 700;
-      color: #fff;
+      color: var(--text-main);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+      min-width: 0;
+    }
+
+    .dash-treemap-pct {
+      font-size: 0.68rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
     }
 
     .dash-treemap-meta {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      font-size: 0.65rem;
-      color: rgba(255,255,255,0.85);
-      text-shadow: 0 1px 2px rgba(0,0,0,0.6);
-      margin-top: 4px;
+      font-size: 0.64rem;
+      color: var(--text-muted);
+      margin-top: 3px;
     }
 
     .dash-treemap-count {
       font-weight: 800;
-      font-size: 0.85rem;
+      font-size: 0.78rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-main);
+      margin-top: 2px;
     }
 
     .live-grid thead th:last-child {
@@ -3723,17 +3762,17 @@
     /* Zone 1: Executive KPI Cards (Glassmorphism & Health Rings) */
     .dash-zone-kpis {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 14px;
-      margin-bottom: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
     }
 
     .dash-kpi-card {
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
-      border-radius: 12px;
-      padding: 14px 16px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      padding: 10px 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
       backdrop-filter: blur(8px);
       cursor: pointer;
       transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -3744,20 +3783,20 @@
     .dash-kpi-card:hover {
       transform: translateY(-2px);
       border-color: rgba(2, 132, 199, 0.4);
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
     }
 
     .dash-kpi-inner {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 10px;
     }
 
     /* SVG Circular Health Ring */
     .dash-ring-wrap {
       position: relative;
-      width: 52px;
-      height: 52px;
+      width: 44px;
+      height: 44px;
       flex-shrink: 0;
     }
 
@@ -3886,22 +3925,22 @@
     .dash-grid-2 {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-      gap: 16px;
-      margin-bottom: 16px;
+      gap: 10px;
+      margin-bottom: 10px;
     }
 
     .dash-grid-3 {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-      gap: 14px;
-      margin-bottom: 24px;
+      gap: 10px;
+      margin-bottom: 14px;
     }
 
     /* Glass Cards */
     .dash-card {
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
-      border-radius: 12px;
+      border-radius: 10px;
       box-shadow: var(--shadow-md);
       backdrop-filter: blur(8px);
       overflow: hidden;
@@ -3911,13 +3950,13 @@
     }
 
     .dash-card-header {
-      padding: 12px 16px;
+      padding: 8px 12px;
       border-bottom: 1px solid var(--border-subtle);
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
       background: var(--bg-surface-elevated);
     }
 
@@ -3981,10 +4020,10 @@
     }
 
     .dash-card-body {
-      padding: 14px 16px;
+      padding: 10px 12px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 6px;
       flex: 1;
     }
 
@@ -3992,10 +4031,10 @@
     .dash-bar-row {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
       cursor: pointer;
-      padding: 4px 6px;
-      border-radius: 6px;
+      padding: 2px 4px;
+      border-radius: 5px;
       transition: background 0.15s;
     }
 
@@ -6203,7 +6242,7 @@
               onmouseout="this.style.strokeWidth='24'; this.style.opacity='1';"
               data-drill-type="${escapeHtml(drilldownType)}" data-drill-val="${escapeHtml(name)}" data-drill-label="${escapeHtml(name)}"
             >
-              <title>FTI PC Inventory Tool - v2026.11.10.1</title>
+              <title>${escapeHtml(name)}: ${count} (${Math.round(pct * 100)}%)</title>
             </circle>
           `;
         }).join('');
@@ -6223,8 +6262,8 @@
         chartBody = `
           <div class="dash-donut-wrap">
             <div class="dash-donut-svg-box">
-              <svg width="160" height="160" viewBox="0 0 160 160" style="transform: rotate(-90deg); filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));">
-                <circle r="${radius}" cx="80" cy="80" fill="transparent" stroke="var(--bg-track)" stroke-width="24" />
+              <svg width="112" height="112" viewBox="0 0 160 160" style="transform: rotate(-90deg); filter: drop-shadow(0 2px 6px rgba(0,0,0,0.12));">
+                <circle r="${radius}" cx="80" cy="80" fill="transparent" stroke="var(--border-subtle)" stroke-width="24" />
                 ${svgSlices}
               </svg>
               <div class="dash-donut-center">
