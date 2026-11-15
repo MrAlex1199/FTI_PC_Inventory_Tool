@@ -874,6 +874,17 @@ function Start-ExecutionScan([hashtable]$params) {
         }
     }
 
+    $quickListFile = $null
+    if ($params.source -eq 'quick') {
+        $rawQuick = @($params.quickTargets) | ForEach-Object { [string]$_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() }
+        if ($rawQuick.Count -eq 0) {
+            throw "Quick Targets list is empty."
+        }
+        $quickListFile = Join-Path $env:TEMP ("fti_quick_targets_" + [System.DateTime]::Now.ToString('yyyyMMddHHmmssfff') + ".txt")
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllLines($quickListFile, [string[]]$rawQuick, $utf8NoBom)
+    }
+
     if (-not (Test-Path -LiteralPath $outDir)) {
         [void](New-Item -ItemType Directory -Path $outDir -Force)
     }
@@ -951,6 +962,10 @@ function Start-ExecutionScan([hashtable]$params) {
     }
     elseif ($params.source -eq 'file' -and $params.listFile) {
         [void]$script:psInstance.AddParameter('ComputerListFile', [string]$params.listFile)
+    }
+    elseif ($params.source -eq 'quick' -and $quickListFile) {
+        [void]$script:psInstance.AddParameter('ComputerListFile', $quickListFile)
+        Write-SystemLog 'INFO' ("Quick Targets resolved: $($rawQuick.Count) hosts -> $quickListFile")
     }
 
     Write-SystemLog 'INFO' ('Execution scan started. Source=' + $params.source + ', OutDir=' + $outDir + ', MasterMode=' + $isMaster + ', SkipServers=' + $isSkipServers)

@@ -675,6 +675,147 @@
 
     .compact-radio-card input { margin-top: 2px; accent-color: var(--accent-primary); }
 
+    /* Quick Targets Inline Box & Chips */
+    .quick-targets-box {
+      padding: 8px;
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .quick-chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-height: 58px;
+      overflow-y: auto;
+    }
+
+    .quick-chips-row:empty {
+      display: none;
+    }
+
+    .quick-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 0.66rem;
+      font-weight: 600;
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+      max-width: 100%;
+    }
+
+    .quick-chip:hover {
+      border-color: var(--accent-primary);
+      color: var(--text-main);
+    }
+
+    .quick-chip.recent {
+      border-style: dashed;
+    }
+
+    .quick-chip-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 120px;
+    }
+
+    .quick-chip-del {
+      opacity: 0.65;
+      font-weight: 700;
+      padding: 0 2px;
+      border-radius: 50%;
+      line-height: 1;
+    }
+
+    .quick-chip-del:hover {
+      opacity: 1;
+      color: var(--accent-rose);
+    }
+
+    .quick-targets-textarea {
+      width: 100%;
+      min-height: 62px;
+      max-height: 140px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      padding: 6px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-input);
+      color: var(--text-main);
+      box-sizing: border-box;
+    }
+
+    .quick-targets-textarea:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+    }
+
+    .quick-targets-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .quick-count-badge {
+      font-size: 0.66rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: rgba(2, 132, 199, 0.15);
+      color: var(--accent-primary);
+    }
+
+    .quick-count-badge.warn {
+      background: rgba(245, 158, 11, 0.16);
+      color: var(--accent-amber);
+    }
+
+    .quick-actions-row {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .btn-quick-mini {
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface-elevated);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+
+    .btn-quick-mini:hover {
+      border-color: var(--accent-primary);
+      color: var(--text-main);
+    }
+
+    .quick-save-row {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
     /* Inputs & Form Elements */
 
     .field-label {
@@ -4360,6 +4501,52 @@
 
               </div>
 
+              <label class="compact-radio-card" id="lblSourceQuick">
+
+                <input type="radio" name="source" value="quick" id="rbQuick">
+
+                <span>⚡ Quick Targets (Host / IP / CIDR)</span>
+
+              </label>
+
+              <div id="boxQuickTargets" style="display: none;">
+
+                <div class="quick-targets-box">
+
+                  <div class="quick-chips-row" id="quickTargetChips"></div>
+
+                  <textarea id="txtQuickTargets" class="quick-targets-textarea" placeholder="PC-01, PC-02&#10;192.168.1.10-50&#10;192.168.10.0/24"></textarea>
+
+                  <div id="quickSaveRow" class="quick-save-row" style="display: none;">
+
+                    <input type="text" id="txtQuickPresetName" class="input-compact" placeholder="Preset name (e.g. IT Dept)..." style="flex: 1; font-size: 0.7rem; padding: 3px 6px;">
+
+                    <button type="button" class="btn-quick-mini" id="btnQuickSaveConfirm" style="border-color: var(--accent-primary); color: var(--accent-primary);">Save</button>
+
+                    <button type="button" class="btn-quick-mini" id="btnQuickSaveCancel">Cancel</button>
+
+                  </div>
+
+                  <div class="quick-targets-meta">
+
+                    <span class="quick-count-badge" id="lblQuickTargetCount">0 targets</span>
+
+                    <div class="quick-actions-row">
+
+                      <button type="button" class="btn-quick-mini" id="btnQuickFillOffline" title="Fill Offline or Unscanned PCs from Master DB / Latest Scan">Offline/Pending</button>
+
+                      <button type="button" class="btn-quick-mini" id="btnQuickSavePreset" title="Save current list as a reusable preset">+ Save</button>
+
+                      <button type="button" class="btn-quick-mini" id="btnQuickClear" title="Clear targets">Clear</button>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
             </div>
 
             <!-- Server Exclusion Box -->
@@ -6797,15 +6984,41 @@
 
     const rbFile = document.getElementById('rbFile');
 
+    const rbQuick = document.getElementById('rbQuick');
+
     const lblSourceLocal = document.getElementById('lblSourceLocal');
 
     const lblSourceAD = document.getElementById('lblSourceAD');
 
     const lblSourceFile = document.getElementById('lblSourceFile');
 
+    const lblSourceQuick = document.getElementById('lblSourceQuick');
+
     const boxAdDays = document.getElementById('boxAdDays');
 
     const boxListFile = document.getElementById('boxListFile');
+
+    const boxQuickTargets = document.getElementById('boxQuickTargets');
+
+    const txtQuickTargets = document.getElementById('txtQuickTargets');
+
+    const lblQuickTargetCount = document.getElementById('lblQuickTargetCount');
+
+    const quickTargetChips = document.getElementById('quickTargetChips');
+
+    const quickSaveRow = document.getElementById('quickSaveRow');
+
+    const txtQuickPresetName = document.getElementById('txtQuickPresetName');
+
+    const btnQuickSaveConfirm = document.getElementById('btnQuickSaveConfirm');
+
+    const btnQuickSaveCancel = document.getElementById('btnQuickSaveCancel');
+
+    const btnQuickFillOffline = document.getElementById('btnQuickFillOffline');
+
+    const btnQuickSavePreset = document.getElementById('btnQuickSavePreset');
+
+    const btnQuickClear = document.getElementById('btnQuickClear');
 
     const txtListFile = document.getElementById('txtListFile');
 
@@ -6955,9 +7168,13 @@
 
       lblSourceFile.classList.toggle('active', rbFile.checked);
 
+      if (lblSourceQuick && rbQuick) lblSourceQuick.classList.toggle('active', rbQuick.checked);
+
       boxAdDays.style.display = rbAD.checked ? 'block' : 'none';
 
       boxListFile.style.display = rbFile.checked ? 'block' : 'none';
+
+      if (boxQuickTargets && rbQuick) boxQuickTargets.style.display = rbQuick.checked ? 'block' : 'none';
 
     }
 
@@ -6966,6 +7183,274 @@
     rbAD.addEventListener('change', updateSourceUI);
 
     rbFile.addEventListener('change', updateSourceUI);
+
+    if (rbQuick) rbQuick.addEventListener('change', updateSourceUI);
+
+    // --- Quick Targets Parser & Presets Engine ---
+    const QUICK_MAX_EXPAND = 1024;
+
+    function ipToInt(ip) {
+      const parts = ip.split('.').map(Number);
+      if (parts.length !== 4 || parts.some(n => !Number.isInteger(n) || n < 0 || n > 255)) return null;
+      return (((parts[0] << 24) >>> 0) + ((parts[1] << 16) >>> 0) + ((parts[2] << 8) >>> 0) + parts[3]) >>> 0;
+    }
+
+    function intToIp(num) {
+      return [(num >>> 24) & 255, (num >>> 16) & 255, (num >>> 8) & 255, num & 255].join('.');
+    }
+
+    function parseQuickTargets(rawText) {
+      const tokens = (rawText || '').split(/[\s,;]+/).map(t => t.trim()).filter(Boolean);
+      const targets = [];
+      const seen = new Set();
+      const invalidTokens = [];
+      let capped = false;
+
+      const addTarget = (val) => {
+        const key = val.toUpperCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          targets.push(val);
+        }
+      };
+
+      for (const tok of tokens) {
+        if (tok.includes('/')) {
+          const [ipStr, prefixStr] = tok.split('/');
+          const prefix = Number(prefixStr);
+          const baseInt = ipToInt(ipStr);
+          if (baseInt === null || !Number.isInteger(prefix) || prefix < 16 || prefix > 32) {
+            invalidTokens.push(tok);
+            continue;
+          }
+          const mask = prefix === 0 ? 0 : ((0xFFFFFFFF << (32 - prefix)) >>> 0);
+          const netInt = (baseInt & mask) >>> 0;
+          const bcastInt = (netInt | (~mask >>> 0)) >>> 0;
+          const startInt = prefix <= 30 ? netInt + 1 : netInt;
+          const endInt = prefix <= 30 ? bcastInt - 1 : bcastInt;
+          let count = 0;
+          for (let cur = startInt; cur <= endInt; cur++) {
+            if (count >= QUICK_MAX_EXPAND) { capped = true; break; }
+            addTarget(intToIp(cur >>> 0));
+            count++;
+          }
+          continue;
+        }
+
+        const fullRangeMatch = tok.match(/^(\d{1,3}(?:\.\d{1,3}){3})-(\d{1,3}(?:\.\d{1,3}){3})$/);
+        if (fullRangeMatch) {
+          const sInt = ipToInt(fullRangeMatch[1]);
+          const eInt = ipToInt(fullRangeMatch[2]);
+          if (sInt === null || eInt === null || sInt > eInt) {
+            invalidTokens.push(tok);
+            continue;
+          }
+          let count = 0;
+          for (let cur = sInt; cur <= eInt; cur++) {
+            if (count >= QUICK_MAX_EXPAND) { capped = true; break; }
+            addTarget(intToIp(cur >>> 0));
+            count++;
+          }
+          continue;
+        }
+
+        const shortRangeMatch = tok.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3})\.(\d{1,3})-(\d{1,3})$/);
+        if (shortRangeMatch) {
+          const prefixIp = shortRangeMatch[1];
+          const sOct = Number(shortRangeMatch[2]);
+          const eOct = Number(shortRangeMatch[3]);
+          const baseCheck = ipToInt(`${prefixIp}.0`);
+          if (baseCheck === null || sOct < 0 || sOct > 255 || eOct < 0 || eOct > 255 || sOct > eOct) {
+            invalidTokens.push(tok);
+            continue;
+          }
+          for (let oct = sOct; oct <= eOct; oct++) {
+            addTarget(`${prefixIp}.${oct}`);
+          }
+          continue;
+        }
+
+        if (/^\d+\.\d+\.\d+\.\d+$/.test(tok)) {
+          if (ipToInt(tok) !== null) addTarget(tok);
+          else invalidTokens.push(tok);
+          continue;
+        }
+
+        if (/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,251}[a-zA-Z0-9]?$/.test(tok)) {
+          addTarget(tok);
+        } else {
+          invalidTokens.push(tok);
+        }
+      }
+
+      return { targets, invalidTokens, capped };
+    }
+
+    function updateQuickTargetsPreview() {
+      if (!txtQuickTargets || !lblQuickTargetCount) return;
+      const { targets, invalidTokens, capped } = parseQuickTargets(txtQuickTargets.value);
+      let label = `${targets.length} target${targets.length === 1 ? '' : 's'}`;
+      if (capped) label += ' (capped)';
+      if (invalidTokens.length > 0) label += ` · ${invalidTokens.length} invalid`;
+      lblQuickTargetCount.textContent = label;
+      lblQuickTargetCount.classList.toggle('warn', capped || invalidTokens.length > 0);
+    }
+
+    function loadQuickStorage(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveQuickStorage(key, arr) {
+      try {
+        localStorage.setItem(key, JSON.stringify(arr));
+      } catch (e) {}
+    }
+
+    function saveQuickRecent(rawText) {
+      const cleaned = (rawText || '').trim();
+      if (!cleaned) return;
+      const { targets } = parseQuickTargets(cleaned);
+      if (targets.length === 0) return;
+      const label = targets.length === 1 ? targets[0] : `${targets[0]} (+${targets.length - 1})`;
+      let recent = loadQuickStorage('fti_quick_recent').filter(r => r.raw !== cleaned);
+      recent.unshift({ name: label, raw: cleaned });
+      if (recent.length > 3) recent = recent.slice(0, 3);
+      saveQuickStorage('fti_quick_recent', recent);
+      renderQuickTargetChips();
+    }
+
+    function renderQuickTargetChips() {
+      if (!quickTargetChips) return;
+      const presets = loadQuickStorage('fti_quick_presets');
+      const recent = loadQuickStorage('fti_quick_recent');
+      let html = '';
+
+      presets.forEach((p, idx) => {
+        html += `
+          <span class="quick-chip" data-kind="preset" data-idx="${idx}" title="Preset: ${escapeHtml(p.raw)}">
+            <span class="quick-chip-label">★ ${escapeHtml(p.name)}</span>
+            <span class="quick-chip-del" data-del-preset="${idx}" title="Delete preset">&times;</span>
+          </span>
+        `;
+      });
+
+      recent.forEach((r, idx) => {
+        html += `
+          <span class="quick-chip recent" data-kind="recent" data-idx="${idx}" title="Recent: ${escapeHtml(r.raw)}">
+            <span class="quick-chip-label">↺ ${escapeHtml(r.name)}</span>
+          </span>
+        `;
+      });
+
+      quickTargetChips.innerHTML = html;
+    }
+
+    if (quickTargetChips) {
+      quickTargetChips.addEventListener('click', (e) => {
+        const delBtn = e.target.closest('[data-del-preset]');
+        if (delBtn) {
+          e.stopPropagation();
+          const idx = Number(delBtn.getAttribute('data-del-preset'));
+          const presets = loadQuickStorage('fti_quick_presets');
+          presets.splice(idx, 1);
+          saveQuickStorage('fti_quick_presets', presets);
+          renderQuickTargetChips();
+          return;
+        }
+        const chip = e.target.closest('.quick-chip');
+        if (!chip) return;
+        const kind = chip.getAttribute('data-kind');
+        const idx = Number(chip.getAttribute('data-idx'));
+        const list = loadQuickStorage(kind === 'preset' ? 'fti_quick_presets' : 'fti_quick_recent');
+        if (list[idx] && txtQuickTargets) {
+          txtQuickTargets.value = list[idx].raw;
+          if (rbQuick) rbQuick.checked = true;
+          updateSourceUI();
+          updateQuickTargetsPreview();
+        }
+      });
+    }
+
+    if (txtQuickTargets) {
+      txtQuickTargets.addEventListener('input', updateQuickTargetsPreview);
+    }
+
+    if (btnQuickClear) {
+      btnQuickClear.addEventListener('click', () => {
+        if (txtQuickTargets) txtQuickTargets.value = '';
+        updateQuickTargetsPreview();
+      });
+    }
+
+    if (btnQuickFillOffline) {
+      btnQuickFillOffline.addEventListener('click', () => {
+        const pool = (masterHwPCs && masterHwPCs.length > 0) ? masterHwPCs : (allScannedPCs || []);
+        const names = pool
+          .filter(p => (p.Status && p.Status.includes('Offline')) || !p.CPU || p.CPU === '-' || !p.RAM_GB)
+          .map(p => p.PCName)
+          .filter(Boolean);
+        const uniqueNames = [...new Set(names)];
+        if (uniqueNames.length === 0) {
+          showToast('No Offline or Pending PCs found in current dataset', 'info');
+          return;
+        }
+        if (txtQuickTargets) {
+          txtQuickTargets.value = uniqueNames.join(', ');
+          updateQuickTargetsPreview();
+          showToast(`Filled ${uniqueNames.length} Offline/Pending targets`, 'success');
+        }
+      });
+    }
+
+    if (btnQuickSavePreset && quickSaveRow && txtQuickPresetName) {
+      btnQuickSavePreset.addEventListener('click', () => {
+        const { targets } = parseQuickTargets(txtQuickTargets ? txtQuickTargets.value : '');
+        if (targets.length === 0) {
+          showToast('Enter at least one valid target before saving a preset', 'warning');
+          return;
+        }
+        quickSaveRow.style.display = 'flex';
+        txtQuickPresetName.value = '';
+        txtQuickPresetName.focus();
+      });
+    }
+
+    if (btnQuickSaveCancel && quickSaveRow) {
+      btnQuickSaveCancel.addEventListener('click', () => {
+        quickSaveRow.style.display = 'none';
+      });
+    }
+
+    if (btnQuickSaveConfirm && quickSaveRow && txtQuickPresetName) {
+      const commitPreset = () => {
+        const name = txtQuickPresetName.value.trim();
+        const raw = txtQuickTargets ? txtQuickTargets.value.trim() : '';
+        if (!name || !raw) {
+          showToast('Please enter a preset name', 'warning');
+          return;
+        }
+        const presets = loadQuickStorage('fti_quick_presets').filter(p => p.name.toLowerCase() !== name.toLowerCase());
+        presets.unshift({ name, raw });
+        if (presets.length > 12) presets.pop();
+        saveQuickStorage('fti_quick_presets', presets);
+        quickSaveRow.style.display = 'none';
+        renderQuickTargetChips();
+        showToast(`Saved preset "${name}"`, 'success');
+      };
+      btnQuickSaveConfirm.addEventListener('click', commitPreset);
+      txtQuickPresetName.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); commitPreset(); }
+        if (e.key === 'Escape') { quickSaveRow.style.display = 'none'; }
+      });
+    }
+
+    renderQuickTargetChips();
+    updateQuickTargetsPreview();
 
     chkSw.addEventListener('change', () => {
 
@@ -8139,6 +8624,17 @@
 
       }
 
+      let quickResolved = [];
+      if (!isRetryOffline && rbQuick && rbQuick.checked) {
+        const parsed = parseQuickTargets(txtQuickTargets ? txtQuickTargets.value : '');
+        if (parsed.targets.length === 0) {
+          showToast('Please enter at least one valid Hostname, IP, Range, or CIDR in Quick Targets', 'warning');
+          return;
+        }
+        quickResolved = parsed.targets;
+        saveQuickRecent(txtQuickTargets.value);
+      }
+
       isScanning = true;
 
       scanFinishedHandled = false;
@@ -8164,11 +8660,13 @@
 
       const payload = {
 
-        source: rbLocal.checked ? 'localhost' : (rbAD.checked ? 'ad' : 'file'),
+        source: rbLocal.checked ? 'localhost' : (rbAD.checked ? 'ad' : (rbQuick && rbQuick.checked ? 'quick' : 'file')),
 
         daysActive: parseInt(document.getElementById('numDays').value) || 0,
 
         listFile: txtListFile.value.trim(),
+
+        quickTargets: quickResolved,
 
         excludeServerFile: txtExcludeServerFile.value.trim(),
 
