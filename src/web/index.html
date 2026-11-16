@@ -8651,8 +8651,17 @@
       if (!isRetryOffline) {
 
         allScannedPCs = [];
+        allScannedSwPCs = [];
+        window._lastDashSig = '';
+
+        const lblLatestBadge = document.getElementById('lblSourceLatestCount');
+        if (lblLatestBadge) lblLatestBadge.innerText = '0';
+        const lblSwTabCount = document.getElementById('lblSwTabCount');
+        if (lblSwTabCount) lblSwTabCount.innerText = '0';
 
         renderTable();
+        if (activeGridTab === 'software') renderSwTable();
+        else if (activeGridTab === 'dashboard') renderDashboard();
 
       }
 
@@ -9067,26 +9076,33 @@
 
         }
 
-        // Real-Time Table Records
-
-        // Real-Time Table Records (Hardware Scan)
-        if (data.scannedPCs && data.scannedPCs.length > 0) {
+        // Real-Time Table & Dashboard Records (Hardware Scan)
+        if (Array.isArray(data.scannedPCs)) {
           allScannedPCs = data.scannedPCs;
-          const lblHwTabCount = document.getElementById('lblHwTabCount');
-          if (lblHwTabCount) lblHwTabCount.innerText = allScannedPCs.length;
-          if (activeGridTab === 'hardware') {
-            renderTable();
-          } else if (activeGridTab === 'dashboard') {
-            if (!isScanning) renderDashboard();
+          const lblLatestBadge = document.getElementById('lblSourceLatestCount');
+          if (lblLatestBadge) lblLatestBadge.innerText = allScannedPCs.length;
+
+          if (allScannedPCs.length > 0) {
+            const lblHwTabCount = document.getElementById('lblHwTabCount');
+            if (lblHwTabCount && activeDataSource === 'latest') lblHwTabCount.innerText = allScannedPCs.length;
+            if (activeGridTab === 'hardware' && activeDataSource === 'latest') {
+              renderTable();
+            } else if (activeGridTab === 'dashboard' && activeDataSource === 'latest') {
+              const dashSig = `${allScannedPCs.length}|${data.ok || 0}|${data.offline || 0}|${data.error || 0}|${serverIsScanning ? 1 : 0}`;
+              if (dashSig !== window._lastDashSig) {
+                window._lastDashSig = dashSig;
+                renderDashboard();
+              }
+            }
           }
         }
 
         // Real-Time Table Records (Software Scan)
-        if (data.swScannedPCs && data.swScannedPCs.length > 0) {
+        if (Array.isArray(data.swScannedPCs) && data.swScannedPCs.length > 0) {
           allScannedSwPCs = data.swScannedPCs;
           const lblSwTabCount = document.getElementById('lblSwTabCount');
-          if (lblSwTabCount) lblSwTabCount.innerText = allScannedSwPCs.length;
-          if (activeGridTab === 'software') {
+          if (lblSwTabCount && activeDataSource === 'latest') lblSwTabCount.innerText = allScannedSwPCs.length;
+          if (activeGridTab === 'software' && activeDataSource === 'latest') {
             renderSwTable();
           }
         }

@@ -369,43 +369,8 @@ function Load-InitialMasterDb() {
         if (Test-Path -LiteralPath $masterPath) {
             $csvHw = @(Import-Csv -LiteralPath $masterPath -Encoding UTF8)
             if ($csvHw -and $csvHw.Count -gt 0) {
-                foreach ($row in $csvHw) {
-                    $item = @{
-                        PCName         = [string]$row.PCName
-                        Status         = if ($row.Status) { [string]$row.Status } else { 'OK' }
-                        Method         = if ($row.Method) { [string]$row.Method } else { '-' }
-                        Status_Detail  = if ($row.Status_Detail) { [string]$row.Status_Detail } else { '' }
-                        Fail_Count     = if ($row.Fail_Count) { [string]$row.Fail_Count } else { '0' }
-                        Win_License    = if ($row.Win_License) { [string]$row.Win_License } else { '-' }
-                        Office_License = if ($row.Office_License) { [string]$row.Office_License } else { '-' }
-                        Office_Detail  = if ($row.Office_Detail) { [string]$row.Office_Detail } else { '-' }
-                        User           = if ($row.User) { [string]$row.User } else { '-' }
-                        Maker          = if ($row.Maker) { [string]$row.Maker } else { '-' }
-                        Model          = if ($row.Model) { [string]$row.Model } else { '-' }
-                        Serial         = if ($row.Serial) { [string]$row.Serial } else { '-' }
-                        CPU            = if ($row.CPU) { [string]$row.CPU } else { '-' }
-                        Cores          = if ($row.Cores) { [string]$row.Cores } else { '-' }
-                        RAM_GB         = if ($row.RAM_GB) { [string]$row.RAM_GB } else { '-' }
-                        Disk_C_Free    = if ($row.Disk_C_Free) { [string]$row.Disk_C_Free } else { '-' }
-                        Disks          = if ($row.Disks) { [string]$row.Disks } else { '-' }
-                        GPU            = if ($row.GPU) { [string]$row.GPU } else { '-' }
-                        OS             = if ($row.OS) { [string]$row.OS } else { '-' }
-                        OSBuild        = if ($row.OSBuild) { [string]$row.OSBuild } else { '-' }
-                        IP             = if ($row.IP) { [string]$row.IP } else { '-' }
-                        Last_Boot      = if ($row.Last_Boot) { [string]$row.Last_Boot } else { '-' }
-                        Uptime         = if ($row.Uptime) { [string]$row.Uptime } else { '-' }
-                        AD_LastLogon   = if ($row.AD_LastLogon) { [string]$row.AD_LastLogon } else { '-' }
-                        AD_OU          = if ($row.AD_OU) { [string]$row.AD_OU } else { '-' }
-                        Scan_Count     = if ($row.Scan_Count) { [string]$row.Scan_Count } else { '1' }
-                        First_Seen     = if ($row.First_Seen) { [string]$row.First_Seen } else { '-' }
-                    }
-                    $script:scannedPCs.Add($item)
-                }
-                $script:total = $script:scannedPCs.Count
-                $script:ok = @($script:scannedPCs | Where-Object { $_.Status -eq 'OK' }).Count
-                $script:offline = @($script:scannedPCs | Where-Object { $_.Status -match 'Offline' }).Count
-                $script:errCount = @($script:scannedPCs | Where-Object { $_.Status -match 'Error|Failed' }).Count
-                Write-SystemLog "INFO" "Preloaded $($script:scannedPCs.Count) records from Master Database ($masterPath)"
+                # Keep Latest Scan ($script:scannedPCs) empty at startup; Master DB is served via /api/master/status
+                Write-SystemLog "INFO" "Detected Master Database with $($csvHw.Count) records ($masterPath)"
             }
         }
 
@@ -416,18 +381,8 @@ function Load-InitialMasterDb() {
         if (Test-Path -LiteralPath $swMasterPath) {
             $csvSw = @(Import-Csv -LiteralPath $swMasterPath -Encoding UTF8)
             if ($csvSw -and $csvSw.Count -gt 0) {
-                $grouped = $csvSw | Group-Object PCName
-                foreach ($g in $grouped) {
-                    $swItem = @{
-                        PCName        = [string]$g.Name
-                        Status        = 'OK'
-                        Method        = '-'
-                        SoftwareCount = $g.Count
-                        KeySoftware   = (($g.Group | Select-Object -First 3 -ExpandProperty Name) -join ', ')
-                    }
-                    $script:swScannedPCs.Add($swItem)
-                }
-                Write-SystemLog "INFO" "Preloaded $($script:swScannedPCs.Count) software machines from Software Master"
+                $swMachineCount = @($csvSw | Group-Object PCName).Count
+                Write-SystemLog "INFO" "Detected Software Master with $swMachineCount machines ($swMasterPath)"
             }
         }
     } catch {
@@ -751,10 +706,10 @@ function Update-ScanProgress() {
                     $script:lastHtmlReport = $lastObj.SoftwareHtml
                 }
 
-                $csvToLoad = if ($lastObj -and $lastObj.MasterCsv -and (Test-Path -LiteralPath $lastObj.MasterCsv)) {
-                    $lastObj.MasterCsv
-                } elseif ($lastObj -and $lastObj.HardwareCsv -and (Test-Path -LiteralPath $lastObj.HardwareCsv)) {
+                $csvToLoad = if ($lastObj -and $lastObj.HardwareCsv -and (Test-Path -LiteralPath $lastObj.HardwareCsv)) {
                     $lastObj.HardwareCsv
+                } elseif ($lastObj -and $lastObj.MasterCsv -and (Test-Path -LiteralPath $lastObj.MasterCsv)) {
+                    $lastObj.MasterCsv
                 } else { $null }
 
                 if ($csvToLoad) {
@@ -807,12 +762,17 @@ function Update-ScanProgress() {
                                     User           = if ($row.User) { $row.User } else { '-' }
                                     Maker          = if ($row.Maker) { $row.Maker } else { '-' }
                                     Model          = if ($row.Model) { $row.Model } else { '-' }
+                                    Serial         = if ($row.Serial) { $row.Serial } else { '-' }
                                     CPU            = if ($row.CPU) { $row.CPU } else { '-' }
+                                    Cores          = if ($row.Cores) { $row.Cores } else { '-' }
                                     RAM_GB         = if ($row.RAM_GB) { $row.RAM_GB } else { '-' }
                                     Disk_C_Free    = if ($row.Disk_C_Free) { $row.Disk_C_Free } else { '-' }
+                                    Disks          = if ($row.Disks) { $row.Disks } else { '-' }
+                                    GPU            = if ($row.GPU) { $row.GPU } else { '-' }
                                     OS             = if ($row.OS) { $row.OS } else { '-' }
                                     OSBuild        = if ($row.OSBuild) { $row.OSBuild } else { '-' }
                                     IP             = if ($row.IP) { $row.IP } else { '-' }
+                                    MAC            = if ($row.MAC) { $row.MAC } else { '-' }
                                     Last_Boot      = if ($row.Last_Boot) { $row.Last_Boot } else { '-' }
                                     Uptime         = if ($row.Uptime) { $row.Uptime } else { '-' }
                                     AD_LastLogon   = if ($row.AD_LastLogon) { $row.AD_LastLogon } else { '-' }

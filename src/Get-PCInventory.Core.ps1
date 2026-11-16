@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   PC inventory for domain PCs: Hardware + Installed Software (both ON by default). PowerShell 5.1, read-only.
   Core engine module for FTI PC Inventory Tool.
@@ -1918,8 +1918,47 @@ if (-not $SkipHardware) {
     $pass1Jobs = [System.Collections.Generic.List[hashtable]]::new()
     $pass2Jobs = [System.Collections.Generic.List[hashtable]]::new()
     try {
-        $pool = [runspacefactory]::CreateRunspacePool(1, $effectiveThrottle, $iss, $Host)
+        $pool = [runspacefactory]::CreateRunspacePool($iss)
+        [void]$pool.SetMinRunspaces(1)
+        [void]$pool.SetMaxRunspaces($effectiveThrottle)
         $pool.Open()
+
+        $doneCount = 0
+        $harvestPass1Completed = {
+            $harvestedAny = $false
+            for ($idx = $pass1Jobs.Count - 1; $idx -ge 0; $idx--) {
+                $job = $pass1Jobs[$idx]
+                if ($job.Handle.IsCompleted) {
+                    $harvestedAny = $true
+                    $doneCount++
+                    Write-Progress -Activity 'Hardware scan' -Status "$($job.PC) ($doneCount/$($pcs.Count))" -PercentComplete (10 + [math]::Round(55 * $doneCount / $pcs.Count))
+                    Write-Host "[STAGE:HW|$doneCount|$($pcs.Count)] Scanning $($job.PC) ($doneCount/$($pcs.Count))..."
+                    try {
+                        $out = $job.PS.EndInvoke($job.Handle)
+                        foreach ($inf in $job.PS.Streams.Information) { Write-Host ([string]$inf.MessageData) }
+                        foreach ($wrn in $job.PS.Streams.Warning) { Write-Warning ([string]$wrn.Message) }
+                        foreach ($vrb in $job.PS.Streams.Verbose) { Write-Verbose ([string]$vrb.Message) }
+                        $resItem = $out | Where-Object { $_ -is [hashtable] -and $_.ContainsKey('Record') } | Select-Object -Last 1
+                        if ($resItem -and (-not $resItem.Skipped)) {
+                            $rec = $resItem.Record
+                            if ($rec -is [PSCustomObject] -and $null -ne $rec.PSObject.Properties['PCName']) {
+                                Write-Host ('[LIVE_PC] ' + ($rec | ConvertTo-Json -Compress))
+                                $hwList.Add($rec)
+                            }
+                            if ($resItem.Stub) {
+                                $stubbornQueue.Add($resItem.Stub)
+                            }
+                        }
+                    } catch {
+                        Write-Warning "Pass 1 worker failed for $($job.PC): $($_.Exception.Message)"
+                    } finally {
+                        try { $job.PS.Dispose() } catch {}
+                        $pass1Jobs.RemoveAt($idx)
+                    }
+                }
+            }
+            return $harvestedAny
+        }
 
         # --- Pass 1: Parallel Hardware Scan ---
         $launchIdx = 0
@@ -1979,42 +2018,15 @@ if (-not $SkipHardware) {
                 PS     = $psWorker
                 Handle = $psWorker.BeginInvoke()
             })
+
+            # Harvest any finished workers immediately so [LIVE_PC] streams in real-time
+            if ($pass1Jobs.Count -ge $effectiveThrottle -or ($launchIdx % 5 -eq 0)) {
+                $null = & $harvestPass1Completed
+            }
         }
 
-        $doneCount = 0
         while ($pass1Jobs.Count -gt 0) {
-            $anyDone = $false
-            for ($idx = $pass1Jobs.Count - 1; $idx -ge 0; $idx--) {
-                $job = $pass1Jobs[$idx]
-                if ($job.Handle.IsCompleted) {
-                    $anyDone = $true
-                    $doneCount++
-                    Write-Progress -Activity 'Hardware scan' -Status "$($job.PC) ($doneCount/$($pcs.Count))" -PercentComplete (10 + [math]::Round(55 * $doneCount / $pcs.Count))
-                    Write-Host "[STAGE:HW|$doneCount|$($pcs.Count)] Scanning $($job.PC) ($doneCount/$($pcs.Count))..."
-                    try {
-                        $out = $job.PS.EndInvoke($job.Handle)
-                        foreach ($inf in $job.PS.Streams.Information) { Write-Host ([string]$inf.MessageData) }
-                        foreach ($wrn in $job.PS.Streams.Warning) { Write-Warning ([string]$wrn.Message) }
-                        foreach ($vrb in $job.PS.Streams.Verbose) { Write-Verbose ([string]$vrb.Message) }
-                        $resItem = $out | Where-Object { $_ -is [hashtable] -and $_.ContainsKey('Record') } | Select-Object -Last 1
-                        if ($resItem -and (-not $resItem.Skipped)) {
-                            $rec = $resItem.Record
-                            if ($rec -is [PSCustomObject] -and $null -ne $rec.PSObject.Properties['PCName']) {
-                                Write-Host ('[LIVE_PC] ' + ($rec | ConvertTo-Json -Compress))
-                                $hwList.Add($rec)
-                            }
-                            if ($resItem.Stub) {
-                                $stubbornQueue.Add($resItem.Stub)
-                            }
-                        }
-                    } catch {
-                        Write-Warning "Pass 1 worker failed for $($job.PC): $($_.Exception.Message)"
-                    } finally {
-                        try { $job.PS.Dispose() } catch {}
-                        $pass1Jobs.RemoveAt($idx)
-                    }
-                }
-            }
+            $anyDone = & $harvestPass1Completed
             if (-not $anyDone -and $pass1Jobs.Count -gt 0) {
                 Start-Sleep -Milliseconds 100
             }
