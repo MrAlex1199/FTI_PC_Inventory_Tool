@@ -1225,9 +1225,11 @@ function Get-HardwareFromCimSession {
         if (($winLicenseStr -eq '-' -or [string]::IsNullOrWhiteSpace($winLicenseStr)) -and $prevWinLicense -ne '-') {
             $winLicenseStr = $prevWinLicense
         }
-        if (($officeLicenseStr -in @('-', 'None') -or [string]::IsNullOrWhiteSpace($officeLicenseStr)) -and $prevOfficeLicense -notin @('-', 'None')) {
-            $officeLicenseStr = $prevOfficeLicense
-            $officeDetailStr  = if ($prevOfficeDetail -and $prevOfficeDetail -ne '-') { $prevOfficeDetail } else { $prevOfficeLicense }
+        if (-not $officeLicenseStr -or [string]::IsNullOrWhiteSpace($officeLicenseStr)) {
+            $officeLicenseStr = '-'
+        }
+        if (-not $officeDetailStr -or [string]::IsNullOrWhiteSpace($officeDetailStr)) {
+            $officeDetailStr = '-'
         }
 
         $ramVal = if ($ram) { [math]::Round(($ram | Measure-Object Capacity -Sum).Sum / 1GB) } else { '-' }
@@ -1332,11 +1334,36 @@ function Get-HardwareFromRemoteRegistry {
         $userKey = $reg.OpenSubKey('SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI')
         $lastUser = if ($userKey) { [string]$userKey.GetValue('LastLoggedOnUser') } else { '-' }
 
-        # Office ClickToRun
+        # Office ClickToRun & Uninstall Check
         $c2rKey = $reg.OpenSubKey('SOFTWARE\Microsoft\Office\ClickToRun\Configuration')
         $c2rProds = if ($c2rKey) { [string]$c2rKey.GetValue('ProductReleaseIds') } else { '' }
 
-        $offParsed = if ($c2rProds) { Parse-OfficeLicenseInfo $c2rProds @() } else { @{ Badge = $prevOfficeLicense; Detail = $prevOfficeDetail } }
+        $offParsed = if ($c2rProds) {
+            Parse-OfficeLicenseInfo $c2rProds @()
+        } else {
+            $foundOff = $null
+            foreach ($uPath in @('SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall', 'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
+                $uKey = $reg.OpenSubKey($uPath)
+                if ($uKey) {
+                    foreach ($subName in $uKey.GetSubKeyNames()) {
+                        $sub = $uKey.OpenSubKey($subName)
+                        if ($sub) {
+                            $disp = [string]$sub.GetValue('DisplayName')
+                            if ($disp -match '(?i)^(Microsoft 365|Microsoft Office (Professional|Standard|Home|Business|Enterprise|LTSC|365|20\d{2}))' -and $disp -notmatch '(?i)MUI|Proof|Shared|Component|Viewer|Redistributable|Visio|Project|Connector') {
+                                $foundOff = $disp
+                                break
+                            }
+                        }
+                    }
+                }
+                if ($foundOff) { break }
+            }
+            if ($foundOff) {
+                Parse-OfficeLicenseInfo $foundOff @()
+            } else {
+                @{ Badge = '-'; Detail = '-' }
+            }
+        }
 
         return New-HardwareRecord @{
             PCName         = $reportedName
@@ -1345,8 +1372,8 @@ function Get-HardwareFromRemoteRegistry {
             Status_Detail  = 'Rescued via Remote Registry over SMB Port 445'
             Fail_Count     = 0
             Win_License    = if ($prevWinLicense -and $prevWinLicense -ne '-') { $prevWinLicense } else { 'OEM/Retail (Activated)' }
-            Office_License = if ($offParsed.Badge -and $offParsed.Badge -notin @('-', 'None')) { $offParsed.Badge } else { $prevOfficeLicense }
-            Office_Detail  = if ($offParsed.Detail -and $offParsed.Detail -ne '-') { $offParsed.Detail } else { $prevOfficeDetail }
+            Office_License = if ($offParsed.Badge -and $offParsed.Badge -notin @('-', 'None')) { $offParsed.Badge } else { '-' }
+            Office_Detail  = if ($offParsed.Detail -and $offParsed.Detail -ne '-') { $offParsed.Detail } else { '-' }
             User           = $lastUser
             Maker          = $maker
             Model          = $model
@@ -2208,9 +2235,11 @@ if (-not $SkipHardware) {
                     if ((-not $r.Win_License -or $r.Win_License -eq '-') -and ($old.Win_License -and $old.Win_License -ne '-')) {
                         $r.Win_License = $old.Win_License
                     }
-                    if ((-not $r.Office_License -or $r.Office_License -in @('-', 'None')) -and ($old.Office_License -and $old.Office_License -notin @('-', 'None'))) {
-                        $r.Office_License = $old.Office_License
-                        $r.Office_Detail  = if ($old.Office_Detail -and $old.Office_Detail -ne '-') { $old.Office_Detail } else { $old.Office_License }
+                    if (-not $r.Office_License -or [string]::IsNullOrWhiteSpace($r.Office_License)) {
+                        $r.Office_License = '-'
+                    }
+                    if (-not $r.Office_Detail -or [string]::IsNullOrWhiteSpace($r.Office_Detail)) {
+                        $r.Office_Detail = '-'
                     }
                 } else {
                     $r.Scan_Count = '1'
@@ -2624,13 +2653,28 @@ function t(o){document.querySelectorAll('details').forEach(function(d){d.open=o;
 
         foreach ($okPC in $scannedOkPCs) {
             $key = $okPC.ToUpper()
-            $matchingGroup = $newSwGroups | Where-Object { $_.Name -eq $okPC } | Select-Object -First 1
+            $shortName = ($okPC -split '\.')[0].ToUpper()
+
+            # Remove existing entries for this PC (matching either full or short name) to purge uninstalled software
+            $existingKeysToRemove = @($masterSwDict.Keys | Where-Object {
+                $_ -eq $key -or ($_ -split '\.')[0] -eq $shortName
+            })
+            foreach ($oldKey in $existingKeysToRemove) {
+                [void]$masterSwDict.Remove($oldKey)
+            }
+
+            # Find latest scanned software for this PC
+            $matchingGroup = $newSwGroups | Where-Object {
+                $_.Name -ieq $okPC -or ($_.Name -split '\.')[0] -ieq $shortName
+            } | Select-Object -First 1
+
             $swList = [System.Collections.Generic.List[object]]::new()
             if ($matchingGroup) {
                 foreach ($item in $matchingGroup.Group) {
                     $swList.Add($item)
                 }
             }
+            # Only store current software if any found; if all uninstalled, list is empty
             $masterSwDict[$key] = $swList
         }
 
@@ -2659,6 +2703,8 @@ function t(o){document.querySelectorAll('details').forEach(function(d){d.open=o;
                 } | Sort-Object Name, Version
             )
             Save-CsvAtomic -Path $fSumMaster -Data $sumMasterData
+        } else {
+            Save-CsvAtomic -Path $fSumMaster -Data @()
         }
     }
 

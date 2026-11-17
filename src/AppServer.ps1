@@ -736,18 +736,14 @@ function Update-ScanProgress() {
 
                                 $offLicVal = if ($row.Office_License -and $row.Office_License -notin @('-', 'None')) {
                                     $row.Office_License
-                                } elseif ($liveMatch -and $liveMatch.Office_License -and $liveMatch.Office_License -notin @('-', 'None')) {
+                                } elseif ($row.Status -match 'Offline|Error' -and $liveMatch -and $liveMatch.Office_License -and $liveMatch.Office_License -notin @('-', 'None')) {
                                     $liveMatch.Office_License
-                                } elseif ($row.Office_License) {
-                                    $row.Office_License
                                 } else { '-' }
 
                                 $offDetVal = if ($row.Office_Detail -and $row.Office_Detail -notin @('-', 'No Microsoft Office installation detected')) {
                                     $row.Office_Detail
-                                } elseif ($liveMatch -and $liveMatch.Office_Detail -and $liveMatch.Office_Detail -ne '-') {
+                                } elseif ($row.Status -match 'Offline|Error' -and $liveMatch -and $liveMatch.Office_Detail -and $liveMatch.Office_Detail -ne '-') {
                                     $liveMatch.Office_Detail
-                                } elseif ($row.Office_Detail) {
-                                    $row.Office_Detail
                                 } else { '-' }
 
                                 $script:scannedPCs.Add(@{
@@ -796,6 +792,9 @@ function Update-ScanProgress() {
             $script:psInstance.Dispose()
             $script:psInstance = $null
             $script:asyncResult = $null
+            # Invalidate Master DB and Software in-memory caches on scan completion
+            $script:masterCache.Clear()
+            $script:swDetailsCache.Clear()
         }
 
         # Ensure no machine stays with 'Scanning' status after scan completes
