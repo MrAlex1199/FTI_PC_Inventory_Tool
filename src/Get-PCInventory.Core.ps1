@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   PC inventory for domain PCs: Hardware + Installed Software (both ON by default). PowerShell 5.1, read-only.
   Core engine module for FTI PC Inventory Tool.
@@ -1950,16 +1950,17 @@ if (-not $SkipHardware) {
         [void]$pool.SetMaxRunspaces($effectiveThrottle)
         $pool.Open()
 
-        $doneCount = 0
-        $harvestPass1Completed = {
+        $script:pass1DoneCount = 0
+        function Harvest-Pass1Jobs {
             $harvestedAny = $false
             for ($idx = $pass1Jobs.Count - 1; $idx -ge 0; $idx--) {
                 $job = $pass1Jobs[$idx]
                 if ($job.Handle.IsCompleted) {
                     $harvestedAny = $true
-                    $doneCount++
-                    Write-Progress -Activity 'Hardware scan' -Status "$($job.PC) ($doneCount/$($pcs.Count))" -PercentComplete (10 + [math]::Round(55 * $doneCount / $pcs.Count))
-                    Write-Host "[STAGE:HW|$doneCount|$($pcs.Count)] Scanning $($job.PC) ($doneCount/$($pcs.Count))..."
+                    $script:pass1DoneCount++
+                    $doneNow = $script:pass1DoneCount
+                    Write-Progress -Activity 'Hardware scan' -Status "$($job.PC) ($doneNow/$($pcs.Count))" -PercentComplete (10 + [math]::Round(55 * $doneNow / $pcs.Count))
+                    Write-Host "[STAGE:HW|$doneNow|$($pcs.Count)] Scanned $($job.PC) ($doneNow/$($pcs.Count))..."
                     try {
                         $out = $job.PS.EndInvoke($job.Handle)
                         foreach ($inf in $job.PS.Streams.Information) { Write-Host ([string]$inf.MessageData) }
@@ -1991,6 +1992,12 @@ if (-not $SkipHardware) {
         $launchIdx = 0
         foreach ($pc in $pcs) {
             $launchIdx++
+            # Keep active queue bounded to $effectiveThrottle and harvest completed jobs in real-time
+            while ($pass1Jobs.Count -ge $effectiveThrottle) {
+                $gotOne = Harvest-Pass1Jobs
+                if (-not $gotOne) { Start-Sleep -Milliseconds 80 }
+            }
+
             $key = $pc.ToUpper()
             $shortKey = ($key -split '\.')[0]
             $prevFailCount = 0
@@ -2023,6 +2030,16 @@ if (-not $SkipHardware) {
                 Start-Sleep -Milliseconds $ThreadDelayMs
             }
 
+            # Emit immediate 'Scanning' row to UI before starting worker
+            $scanIndicator = New-HardwareRecord @{
+                PCName        = if ($oldRecord -and $oldRecord.PCName -and $oldRecord.PCName -ne '-') { $oldRecord.PCName } else { $pc }
+                Status        = 'Scanning'
+                Method        = 'Probing...'
+                Status_Detail = 'Probing host and collecting hardware specs...'
+                Fail_Count    = $prevFailCount
+            }
+            Write-Host ('[LIVE_PC] ' + ($scanIndicator | ConvertTo-Json -Compress))
+
             $psWorker = [powershell]::Create()
             $psWorker.RunspacePool = $pool
             [void]$psWorker.AddScript($pass1Script).
@@ -2046,16 +2063,16 @@ if (-not $SkipHardware) {
                 Handle = $psWorker.BeginInvoke()
             })
 
-            # Harvest any finished workers immediately so [LIVE_PC] streams in real-time
-            if ($pass1Jobs.Count -ge $effectiveThrottle -or ($launchIdx % 5 -eq 0)) {
-                $null = & $harvestPass1Completed
+            # Harvest any finished workers opportunistically
+            if ($launchIdx % 3 -eq 0) {
+                $null = Harvest-Pass1Jobs
             }
         }
 
         while ($pass1Jobs.Count -gt 0) {
-            $anyDone = & $harvestPass1Completed
+            $anyDone = Harvest-Pass1Jobs
             if (-not $anyDone -and $pass1Jobs.Count -gt 0) {
-                Start-Sleep -Milliseconds 100
+                Start-Sleep -Milliseconds 80
             }
         }
         Write-Progress -Activity 'Hardware scan' -Completed
@@ -2075,49 +2092,15 @@ if (-not $SkipHardware) {
                 $masterDictSnapshot[$mk] = $masterDict[$mk]
             }
 
-            $sIdx = 0
-            foreach ($stub in $stubbornQueue) {
-                $sIdx++
-                $sPc = $stub.PC
-                $deepIndicator = New-HardwareRecord @{
-                    PCName        = $sPc
-                    Status        = 'Deep Scanning'
-                    Method        = '⚡ Probing'
-                    Status_Detail = 'Executing 5-stage penetration chain...'
-                    Fail_Count    = $stub.PrevFail
-                }
-                Write-Host ('[LIVE_PC] ' + ($deepIndicator | ConvertTo-Json -Compress))
-
-                $psDeep = [powershell]::Create()
-                $psDeep.RunspacePool = $pool
-                [void]$psDeep.AddScript($pass2Script).
-                    AddArgument($stub).
-                    AddArgument($masterDictSnapshot).
-                    AddArgument([bool]$AutoHealDns).
-                    AddArgument($PingMethod).
-                    AddArgument($PingTimeoutMs).
-                    AddArgument($PingProbes).
-                    AddArgument($script:ParsedProbePorts).
-                    AddArgument([bool]$ScanDeadHosts).
-                    AddArgument([bool]$SkipBroadcast).
-                    AddArgument([bool]$SkipServers)
-
-                $pass2Jobs.Add(@{
-                    PC     = $sPc
-                    Stub   = $stub
-                    PS     = $psDeep
-                    Handle = $psDeep.BeginInvoke()
-                })
-            }
-
-            $deepDone = 0
-            while ($pass2Jobs.Count -gt 0) {
+            $script:pass2DoneCount = 0
+            function Harvest-Pass2Jobs {
                 $anyDeepDone = $false
                 for ($idx = $pass2Jobs.Count - 1; $idx -ge 0; $idx--) {
                     $job = $pass2Jobs[$idx]
                     if ($job.Handle.IsCompleted) {
                         $anyDeepDone = $true
-                        $deepDone++
+                        $script:pass2DoneCount++
+                        $deepDone = $script:pass2DoneCount
                         $sPc = $job.PC
                         $stub = $job.Stub
                         Write-Host "[STAGE:DEEP|$deepDone|$($stubbornQueue.Count)] Deep probing stubborn host: $sPc ($deepDone/$($stubbornQueue.Count))..." -ForegroundColor Magenta
@@ -2197,8 +2180,57 @@ if (-not $SkipHardware) {
                         }
                     }
                 }
+                return $anyDeepDone
+            }
+
+            $sIdx = 0
+            foreach ($stub in $stubbornQueue) {
+                $sIdx++
+                while ($pass2Jobs.Count -ge $effectiveThrottle) {
+                    $gotDeep = Harvest-Pass2Jobs
+                    if (-not $gotDeep) { Start-Sleep -Milliseconds 80 }
+                }
+
+                $sPc = $stub.PC
+                $deepIndicator = New-HardwareRecord @{
+                    PCName        = $sPc
+                    Status        = 'Deep Scanning'
+                    Method        = '⚡ Probing'
+                    Status_Detail = 'Executing 5-stage penetration chain...'
+                    Fail_Count    = $stub.PrevFail
+                }
+                Write-Host ('[LIVE_PC] ' + ($deepIndicator | ConvertTo-Json -Compress))
+
+                $psDeep = [powershell]::Create()
+                $psDeep.RunspacePool = $pool
+                [void]$psDeep.AddScript($pass2Script).
+                    AddArgument($stub).
+                    AddArgument($masterDictSnapshot).
+                    AddArgument([bool]$AutoHealDns).
+                    AddArgument($PingMethod).
+                    AddArgument($PingTimeoutMs).
+                    AddArgument($PingProbes).
+                    AddArgument($script:ParsedProbePorts).
+                    AddArgument([bool]$ScanDeadHosts).
+                    AddArgument([bool]$SkipBroadcast).
+                    AddArgument([bool]$SkipServers)
+
+                $pass2Jobs.Add(@{
+                    PC     = $sPc
+                    Stub   = $stub
+                    PS     = $psDeep
+                    Handle = $psDeep.BeginInvoke()
+                })
+
+                if ($sIdx % 3 -eq 0) {
+                    $null = Harvest-Pass2Jobs
+                }
+            }
+
+            while ($pass2Jobs.Count -gt 0) {
+                $anyDeepDone = Harvest-Pass2Jobs
                 if (-not $anyDeepDone -and $pass2Jobs.Count -gt 0) {
-                    Start-Sleep -Milliseconds 100
+                    Start-Sleep -Milliseconds 80
                 }
             }
         }
@@ -2307,202 +2339,348 @@ if (-not $SkipHardware) {
 
 # ================= 3) Installed software (optional) =================
 if ($Software) {
-    Write-Host '[STEP:3] Software Scan (WinRM/DCOM)...' -ForegroundColor Cyan
-    Write-Progress -Activity 'Software scan' -Status 'Starting software scan...' -PercentComplete 68
-    Write-Host '--- Software scan ---'
-
-    # --- Method A: WinRM (fast, parallel) ---
-    $remoteBlock = {
-        param([bool]$IncludeUser, [bool]$IncludeHidden)
-
-        $paths = @(
-            @{ P = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall';             Arch = '64-bit'; Scope = 'Machine' },
-            @{ P = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'; Arch = '32-bit'; Scope = 'Machine' }
-        )
-        if ($IncludeUser) {
-            New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS -ErrorAction SilentlyContinue | Out-Null
-            Get-ChildItem HKU:\ -ErrorAction SilentlyContinue |
-                Where-Object { $_.PSChildName -match '^S-1-5-21-[\d-]+$' } |
-                ForEach-Object {
-                    $paths += @{ P = "HKU:\$($_.PSChildName)\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"; Arch = 'User'; Scope = "User:$($_.PSChildName)" }
-                }
-        }
-
-        foreach ($x in $paths) {
-            if (-not (Test-Path $x.P)) { continue }
-            foreach ($key in Get-ChildItem $x.P -ErrorAction SilentlyContinue) {
-                $p = Get-ItemProperty $key.PSPath -ErrorAction SilentlyContinue
-                if (-not $p.DisplayName) { continue }
-                if (-not $IncludeHidden) {
-                    if ($p.SystemComponent -eq 1) { continue }
-                    if ($p.ParentKeyName) { continue }
-                    if ($p.ReleaseType -in 'Update', 'Security Update', 'Hotfix', 'Update Rollup', 'Service Pack') { continue }
-                }
-                [pscustomobject]@{
-                    Name            = $p.DisplayName
-                    Version         = $p.DisplayVersion
-                    Publisher       = $p.Publisher
-                    InstallDate     = $p.InstallDate
-                    InstallLocation = $p.InstallLocation
-                    SizeMB          = if ($p.EstimatedSize) { [math]::Round($p.EstimatedSize / 1024, 1) } else { $null }
-                    Arch            = $x.Arch
-                    Scope           = $x.Scope
-                    RegistryKey     = $key.PSChildName
-                }
-            }
-        }
-    }
-
-    $rows = @()
-    if ($ScanLocalhost) {
-        Write-Host 'Local scan: reading software from registry directly ...'
-        $localResult = & $remoteBlock -IncludeUser $IncludeUserInstalls.IsPresent -IncludeHidden $IncludeHidden.IsPresent
-        $rows = @($localResult | ForEach-Object {
-            $_ | Add-Member -MemberType NoteProperty -Name 'PSComputerName' -Value $env:COMPUTERNAME -PassThru
-        })
-    } else {
-        Write-Host 'Method A: WinRM ...'
-        Write-Progress -Activity 'Software scan' -Status 'Scanning via WinRM (parallel)...' -PercentComplete 75
-        $winrmErr = @()
-        $swTargets = @($(foreach ($p in $pcs) { if ($script:rescuedEndpoints -and $script:rescuedEndpoints.ContainsKey($p.ToUpper())) { $script:rescuedEndpoints[$p.ToUpper()] } else { $p } }) | Select-Object -Unique)
-        $rows = @(Invoke-Command -ComputerName $swTargets -ScriptBlock $remoteBlock `
-                -ArgumentList $IncludeUserInstalls.IsPresent, $IncludeHidden.IsPresent `
-                -ThrottleLimit $Throttle -ErrorAction SilentlyContinue -ErrorVariable winrmErr)
-    }
+    Write-Host '[STEP:3] Software Scan (Parallel WinRM/DCOM)...' -ForegroundColor Cyan
+    Write-Progress -Activity 'Software scan' -Status 'Starting parallel software scan...' -PercentComplete 68
+    Write-Host '--- Software scan (Parallel) ---'
 
     $all = New-Object System.Collections.Generic.List[object]
     $status = New-Object System.Collections.Generic.List[object]
+    $perPc = New-Object System.Collections.Generic.List[object]
+    $hwBackfilled = $false
 
-    # Map IP endpoints back to original PC names if rescued via IP
-    $reverseRescued = @{}
-    if ($script:rescuedEndpoints) {
-        foreach ($origHost in $script:rescuedEndpoints.Keys) {
-            $rescuedTarget = $script:rescuedEndpoints[$origHost]
-            $reverseRescued[$rescuedTarget.ToUpper()] = $origHost
-        }
-    }
+    $swWorkerScript = {
+        param(
+            [string]$pc,
+            [string]$target,
+            [bool]$IncludeUser,
+            [bool]$IncludeHidden,
+            [string]$PingMethod,
+            [int]$PingTimeoutMs,
+            [int]$PingProbes,
+            $ParsedProbePorts,
+            [bool]$ScanDeadHosts,
+            [bool]$SkipBroadcast
+        )
+        $script:ParsedProbePorts = $ParsedProbePorts
+        $script:lastConnInfo = $null
 
-    foreach ($g in ($rows | Group-Object PSComputerName)) {
-        $canonicalHost = $g.Name
-        if ($reverseRescued.ContainsKey($canonicalHost.ToUpper())) {
-            $canonicalHost = $reverseRescued[$canonicalHost.ToUpper()]
-        }
-        foreach ($r in $g.Group) {
-            $all.Add([pscustomobject]@{
-                    PCName = $canonicalHost; Name = $r.Name; Version = $r.Version; Publisher = $r.Publisher
-                    InstallDate = $r.InstallDate; InstallLocation = $r.InstallLocation; SizeMB = $r.SizeMB
-                    Arch = $r.Arch; Scope = $r.Scope; RegistryKey = $r.RegistryKey
-                })
-        }
-        $status.Add([pscustomobject]@{ PCName = $canonicalHost; Status = 'OK-WinRM'; Count = $g.Count })
-    }
-
-    $okSet = @($all | ForEach-Object { $_.PCName } | Select-Object -Unique)
-    if ($okSet.Count -gt 0) {
-        Write-Host "[STAGE:SW|$($okSet.Count)|$($pcs.Count)] WinRM software scan completed for $($okSet.Count) PCs..."
-    }
-    $failed = @($pcs | Where-Object { $_ -notin $okSet })
-
-    # --- Method B: DCOM fallback (StdRegProv) for PCs without WinRM ---
-    function Get-SoftwareDcom {
-        param([string]$pc, [bool]$IncludeUser, [bool]$IncludeHidden)
-
-        $sess = New-CimSession -ComputerName $pc -SessionOption (New-CimSessionOption -Protocol Dcom) -OperationTimeoutSec 15 -ErrorAction Stop
-        try {
-            function Reg([string]$m, [hashtable]$a) {
-                Invoke-CimMethod -CimSession $sess -Namespace 'root\default' -ClassName StdRegProv -MethodName $m -Arguments $a -ErrorAction Stop
-            }
-            function GetS($h, $sub, $n) { (Reg 'GetStringValue' @{ hDefKey = $h; sSubKeyName = $sub; sValueName = $n }).sValue }
-            function GetD($h, $sub, $n) { (Reg 'GetDWORDValue'  @{ hDefKey = $h; sSubKeyName = $sub; sValueName = $n }).uValue }
-
-            $HKLM = [uint32]2147483650
-            $HKU = [uint32]2147483651
-            $targets = @(
-                @{ H = $HKLM; P = 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall';             Arch = '64-bit'; Scope = 'Machine' },
-                @{ H = $HKLM; P = 'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'; Arch = '32-bit'; Scope = 'Machine' }
+        $localScanBlock = {
+            param([bool]$IncUser, [bool]$IncHidden)
+            $paths = @(
+                @{ P = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall';             Arch = '64-bit'; Scope = 'Machine' },
+                @{ P = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'; Arch = '32-bit'; Scope = 'Machine' }
             )
-            if ($IncludeUser) {
-                $sids = (Reg 'EnumKey' @{ hDefKey = $HKU; sSubKeyName = '' }).sNames | Where-Object { $_ -match '^S-1-5-21-[\d-]+$' }
-                foreach ($sid in $sids) {
-                    $targets += @{ H = $HKU; P = "$sid\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"; Arch = 'User'; Scope = "User:$sid" }
-                }
-            }
-
-            foreach ($t in $targets) {
-                $keys = (Reg 'EnumKey' @{ hDefKey = $t.H; sSubKeyName = $t.P }).sNames
-                foreach ($k in $keys) {
-                    $sub = "$($t.P)\$k"
-                    $name = GetS $t.H $sub 'DisplayName'
-                    if (-not $name) { continue }
-                    if (-not $IncludeHidden) {
-                        if ((GetD $t.H $sub 'SystemComponent') -eq 1) { continue }
-                        if (GetS $t.H $sub 'ParentKeyName') { continue }
-                        if ((GetS $t.H $sub 'ReleaseType') -in 'Update', 'Security Update', 'Hotfix', 'Update Rollup', 'Service Pack') { continue }
+            if ($IncUser) {
+                New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS -ErrorAction SilentlyContinue | Out-Null
+                Get-ChildItem HKU:\ -ErrorAction SilentlyContinue |
+                    Where-Object { $_.PSChildName -match '^S-1-5-21-[\d-]+$' } |
+                    ForEach-Object {
+                        $paths += @{ P = "HKU:\$($_.PSChildName)\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"; Arch = 'User'; Scope = "User:$($_.PSChildName)" }
                     }
-                    $size = GetD $t.H $sub 'EstimatedSize'
+            }
+            foreach ($x in $paths) {
+                if (-not (Test-Path $x.P)) { continue }
+                foreach ($key in Get-ChildItem $x.P -ErrorAction SilentlyContinue) {
+                    $p = Get-ItemProperty $key.PSPath -ErrorAction SilentlyContinue
+                    if (-not $p.DisplayName) { continue }
+                    if (-not $IncHidden) {
+                        if ($p.SystemComponent -eq 1) { continue }
+                        if ($p.ParentKeyName) { continue }
+                        if ($p.ReleaseType -in 'Update', 'Security Update', 'Hotfix', 'Update Rollup', 'Service Pack') { continue }
+                    }
                     [pscustomobject]@{
-                        PCName = $pc; Name = $name
-                        Version = GetS $t.H $sub 'DisplayVersion'
-                        Publisher = GetS $t.H $sub 'Publisher'
-                        InstallDate = GetS $t.H $sub 'InstallDate'
-                        InstallLocation = GetS $t.H $sub 'InstallLocation'
-                        SizeMB = if ($size) { [math]::Round($size / 1024, 1) } else { $null }
-                        Arch = $t.Arch; Scope = $t.Scope; RegistryKey = $k
+                        Name            = $p.DisplayName
+                        Version         = $p.DisplayVersion
+                        Publisher       = $p.Publisher
+                        InstallDate     = $p.InstallDate
+                        InstallLocation = $p.InstallLocation
+                        SizeMB          = if ($p.EstimatedSize) { [math]::Round($p.EstimatedSize / 1024, 1) } else { $null }
+                        Arch            = $x.Arch
+                        Scope           = $x.Scope
+                        RegistryKey     = $key.PSChildName
                     }
                 }
             }
         }
-        finally { Remove-CimSession $sess -ErrorAction SilentlyContinue }
+
+        function Get-SoftwareDcomLocal {
+            param([string]$hostTarget, [bool]$IncUser, [bool]$IncHidden)
+            $sess = New-CimSession -ComputerName $hostTarget -SessionOption (New-CimSessionOption -Protocol Dcom) -OperationTimeoutSec 15 -ErrorAction Stop
+            try {
+                function Reg([string]$m, [hashtable]$a) {
+                    Invoke-CimMethod -CimSession $sess -Namespace 'root\default' -ClassName StdRegProv -MethodName $m -Arguments $a -ErrorAction Stop
+                }
+                function GetS($h, $sub, $n) { (Reg 'GetStringValue' @{ hDefKey = $h; sSubKeyName = $sub; sValueName = $n }).sValue }
+                function GetD($h, $sub, $n) { (Reg 'GetDWORDValue'  @{ hDefKey = $h; sSubKeyName = $sub; sValueName = $n }).uValue }
+
+                $HKLM = [uint32]2147483650
+                $HKU  = [uint32]2147483651
+                $targets = @(
+                    @{ H = $HKLM; P = 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall';             Arch = '64-bit'; Scope = 'Machine' },
+                    @{ H = $HKLM; P = 'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'; Arch = '32-bit'; Scope = 'Machine' }
+                )
+                if ($IncUser) {
+                    $sids = (Reg 'EnumKey' @{ hDefKey = $HKU; sSubKeyName = '' }).sNames | Where-Object { $_ -match '^S-1-5-21-[\d-]+$' }
+                    foreach ($sid in $sids) {
+                        $targets += @{ H = $HKU; P = "$sid\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"; Arch = 'User'; Scope = "User:$sid" }
+                    }
+                }
+                foreach ($t in $targets) {
+                    $keys = (Reg 'EnumKey' @{ hDefKey = $t.H; sSubKeyName = $t.P }).sNames
+                    foreach ($k in $keys) {
+                        $sub = "$($t.P)\$k"
+                        $name = GetS $t.H $sub 'DisplayName'
+                        if (-not $name) { continue }
+                        if (-not $IncHidden) {
+                            if ((GetD $t.H $sub 'SystemComponent') -eq 1) { continue }
+                            if (GetS $t.H $sub 'ParentKeyName') { continue }
+                            if ((GetS $t.H $sub 'ReleaseType') -in 'Update', 'Security Update', 'Hotfix', 'Update Rollup', 'Service Pack') { continue }
+                        }
+                        $size = GetD $t.H $sub 'EstimatedSize'
+                        [pscustomobject]@{
+                            Name            = $name
+                            Version         = GetS $t.H $sub 'DisplayVersion'
+                            Publisher       = GetS $t.H $sub 'Publisher'
+                            InstallDate     = GetS $t.H $sub 'InstallDate'
+                            InstallLocation = GetS $t.H $sub 'InstallLocation'
+                            SizeMB          = if ($size) { [math]::Round($size / 1024, 1) } else { $null }
+                            Arch            = $t.Arch
+                            Scope           = $t.Scope
+                            RegistryKey     = $k
+                        }
+                    }
+                }
+            } finally {
+                Remove-CimSession $sess -ErrorAction SilentlyContinue
+            }
+        }
+
+        $isLocal = ($pc -eq $env:COMPUTERNAME -or $pc -eq 'localhost' -or $pc -eq '127.0.0.1')
+        if ($isLocal) {
+            try {
+                $localRows = @(& $localScanBlock -IncUser $IncludeUser -IncHidden $IncludeHidden)
+                return @{ PC = $pc; Status = 'OK-Local'; Rows = $localRows }
+            } catch {
+                return @{ PC = $pc; Status = "Error: $($_.Exception.Message)"; Rows = @() }
+            }
+        }
+
+        # Try WinRM first
+        try {
+            $winrmRows = @(Invoke-Command -ComputerName $target -ScriptBlock $localScanBlock `
+                -ArgumentList $IncludeUser, $IncludeHidden -ErrorAction Stop)
+            return @{ PC = $pc; Status = 'OK-WinRM'; Rows = $winrmRows }
+        } catch {}
+
+        # WinRM unavailable: check reachability before attempting DCOM fallback
+        if (-not (Test-PCConnection $target)) {
+            return @{ PC = $pc; Status = 'Offline'; Rows = @() }
+        }
+
+        try {
+            $dcomRows = @(Get-SoftwareDcomLocal -hostTarget $target -IncUser $IncludeUser -IncHidden $IncludeHidden)
+            return @{ PC = $pc; Status = 'OK-DCOM'; Rows = $dcomRows }
+        } catch {
+            return @{ PC = $pc; Status = "Error: $($_.Exception.Message)"; Rows = @() }
+        }
     }
 
-    if ($failed.Count -gt 0) {
-        Write-Host "Method B: DCOM fallback for $($failed.Count) PCs (slower, one by one) ..."
-        $i = 0
-        foreach ($pc in $failed) {
-            $i++
-            $swDoneCount = $okSet.Count + $i
-            Write-Progress -Activity 'Software: DCOM fallback' -Status "$pc ($i/$($failed.Count))" -PercentComplete (75 + [math]::Round(12 * $i / $failed.Count))
-            Write-Host "[STAGE:SW|$swDoneCount|$($pcs.Count)] Scanning software on $pc ($swDoneCount/$($pcs.Count))..."
-            if ($pc -eq $env:COMPUTERNAME -or $pc -eq 'localhost' -or $pc -eq '127.0.0.1') {
+    $swIss = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+    foreach ($fn in @('Test-PCConnection', 'Test-EndpointAlive', 'Resolve-PCTargets')) {
+        $cmd = Get-Command -Name $fn -CommandType Function -ErrorAction SilentlyContinue
+        if ($cmd) {
+            $swIss.Commands.Add((New-Object System.Management.Automation.Runspaces.SessionStateFunctionEntry($fn, $cmd.Definition)))
+        }
+    }
+
+    $swPool = $null
+    $swJobs = [System.Collections.Generic.List[hashtable]]::new()
+    $effectiveSwThrottle = [Math]::Max(1, [Math]::Min(50, $Throttle))
+    $script:swDoneCount = 0
+
+    function Harvest-SwJobs {
+        $harvestedAny = $false
+        for ($idx = $swJobs.Count - 1; $idx -ge 0; $idx--) {
+            $job = $swJobs[$idx]
+            if ($job.Handle.IsCompleted) {
+                $harvestedAny = $true
+                $script:swDoneCount++
+                $swDoneNow = $script:swDoneCount
+                $pcName = $job.PC
+                Write-Progress -Activity 'Software scan' -Status "$pcName ($swDoneNow/$($pcs.Count))" -PercentComplete (68 + [math]::Round(22 * $swDoneNow / $pcs.Count))
+                Write-Host "[STAGE:SW|$swDoneNow|$($pcs.Count)] Scanned software on $pcName ($swDoneNow/$($pcs.Count))..."
+
+                $resStatus = 'Error: No response'
+                $resRows = @()
                 try {
-                    $localRows = & $remoteBlock -IncludeUser $IncludeUserInstalls.IsPresent -IncludeHidden $IncludeHidden.IsPresent
-                    foreach ($r in $localRows) {
-                        $all.Add([pscustomobject]@{
-                            PCName = $pc; Name = $r.Name; Version = $r.Version; Publisher = $r.Publisher
-                            InstallDate = $r.InstallDate; InstallLocation = $r.InstallLocation; SizeMB = $r.SizeMB
-                            Arch = $r.Arch; Scope = $r.Scope; RegistryKey = $r.RegistryKey
-                        })
+                    $out = $job.PS.EndInvoke($job.Handle)
+                    $resItem = $out | Where-Object { $_ -is [hashtable] -and $_.ContainsKey('Status') } | Select-Object -Last 1
+                    if ($resItem) {
+                        $resStatus = [string]$resItem.Status
+                        if ($resItem.Rows) { $resRows = @($resItem.Rows) }
                     }
-                    $status.Add([pscustomobject]@{ PCName = $pc; Status = 'OK-Local'; Count = $localRows.Count })
-                    continue
-                } catch { }
-            }
-            $dcomTarget = if ($script:rescuedEndpoints -and $script:rescuedEndpoints.ContainsKey($pc.ToUpper())) { $script:rescuedEndpoints[$pc.ToUpper()] } else { $pc }
-            if (-not (Test-PCConnection $dcomTarget)) {
-                $status.Add([pscustomobject]@{ PCName = $pc; Status = 'Offline'; Count = 0 })
-                continue
-            }
-            try {
-                $res = @(Get-SoftwareDcom -pc $dcomTarget -IncludeUser $IncludeUserInstalls.IsPresent -IncludeHidden $IncludeHidden.IsPresent)
-                foreach ($r in $res) {
-                    $r.PCName = $pc
-                    $all.Add($r)
+                } catch {
+                    $resStatus = "Error: $($_.Exception.Message)"
+                } finally {
+                    try { $job.PS.Dispose() } catch {}
+                    $swJobs.RemoveAt($idx)
                 }
-                $status.Add([pscustomobject]@{ PCName = $pc; Status = 'OK-DCOM'; Count = $res.Count })
-            }
-            catch {
-                $status.Add([pscustomobject]@{ PCName = $pc; Status = "Error: $($_.Exception.Message)"; Count = 0 })
+
+                if ($resStatus -like 'OK*') {
+                    $pcRows = New-Object System.Collections.Generic.List[object]
+                    foreach ($r in $resRows) {
+                        $instDate = $r.InstallDate
+                        if ($instDate -match '^\d{8}$') {
+                            try { $instDate = [datetime]::ParseExact($instDate, 'yyyyMMdd', $null).ToString('yyyy-MM-dd') } catch {}
+                        }
+                        $obj = [pscustomobject]@{
+                            PCName          = $pcName
+                            Name            = $r.Name
+                            Version         = $r.Version
+                            Publisher       = $r.Publisher
+                            InstallDate     = $instDate
+                            InstallLocation = $r.InstallLocation
+                            SizeMB          = $r.SizeMB
+                            Arch            = $r.Arch
+                            Scope           = $r.Scope
+                            RegistryKey     = $r.RegistryKey
+                        }
+                        $all.Add($obj)
+                        if ($obj.Name -like $NameFilter) {
+                            $pcRows.Add($obj)
+                        }
+                    }
+                    $status.Add([pscustomobject]@{ PCName = $pcName; Status = $resStatus; Count = $resRows.Count })
+
+                    $keyApps = @($pcRows | Where-Object { $_.Name -match 'Office|Microsoft 365|Google Chrome|Firefox|Adobe|7-Zip|CrowdStrike|Antivirus|Defender|AnyDesk|TeamViewer' } | Select-Object -ExpandProperty Name -First 4)
+                    $topApps = if ($keyApps.Count -gt 0) { $keyApps -join ', ' } else { (($pcRows | Select-Object -First 3 | ForEach-Object { $_.Name }) -join ', ') }
+
+                    # Backfill Office_License into Hardware & Master records if WMI SoftwareLicensingProduct missed it
+                    $offSwApp = $pcRows | Where-Object { $_.Name -match '(?i)^(Microsoft 365|Microsoft Office (Professional|Standard|Home|Business|Enterprise|LTSC|365|20\d{2}))' -and $_.Name -notmatch '(?i)MUI|Proof|Shared|Component|Viewer|Redistributable|Visio|Project|Connector' } | Select-Object -First 1
+                    if ($offSwApp -and (-not $SkipHardware)) {
+                        $parsedSwOff = Parse-OfficeLicenseInfo $offSwApp.Name @()
+                        if ($parsedSwOff.Badge -notin @('-', 'None')) {
+                            $pcKeyUpper = $pcName.ToUpper()
+                            if ($hw) {
+                                foreach ($hItem in $hw) {
+                                    if ($hItem.PCName -ieq $pcName -and ($hItem.Office_License -in @('-', 'None') -or [string]::IsNullOrWhiteSpace($hItem.Office_License))) {
+                                        $hItem.Office_License = $parsedSwOff.Badge
+                                        $hItem.Office_Detail  = $parsedSwOff.Detail
+                                        Write-Host ('[LIVE_PC] ' + ($hItem | ConvertTo-Json -Compress))
+                                        $script:hwBackfilledInSw = $true
+                                    }
+                                }
+                            }
+                            if ($MasterMode -and $masterDict -and $masterDict.Contains($pcKeyUpper)) {
+                                $mEntry = $masterDict[$pcKeyUpper]
+                                if ($mEntry.Office_License -in @('-', 'None') -or [string]::IsNullOrWhiteSpace($mEntry.Office_License)) {
+                                    $mEntry.Office_License = $parsedSwOff.Badge
+                                    $mEntry.Office_Detail  = $parsedSwOff.Detail
+                                    $masterDict[$pcKeyUpper] = New-HardwareRecord $mEntry
+                                    $script:hwBackfilledInSw = $true
+                                }
+                            }
+                        }
+                    }
+
+                    $liveSwObj = [pscustomobject]@{
+                        PCName        = $pcName
+                        Status        = 'OK'
+                        Method        = $resStatus
+                        SoftwareCount = $pcRows.Count
+                        KeySoftware   = if ($topApps) { $topApps } else { '-' }
+                        SoftwareList  = (($pcRows | ForEach-Object { if ($_.Version) { "$($_.Name) ($($_.Version))" } else { $_.Name } }) -join '; ')
+                    }
+                    $perPc.Add($liveSwObj)
+                    Write-Host ('[LIVE_SW] ' + ($liveSwObj | ConvertTo-Json -Compress))
+                } else {
+                    $status.Add([pscustomobject]@{ PCName = $pcName; Status = $resStatus; Count = 0 })
+                    $swErrObj = [pscustomobject]@{
+                        PCName        = $pcName
+                        Status        = if ($resStatus -match 'Offline') { 'Offline' } else { 'Error' }
+                        Method        = '-'
+                        SoftwareCount = 0
+                        KeySoftware   = '-'
+                        SoftwareList  = $resStatus
+                    }
+                    Write-Host ('[LIVE_SW] ' + ($swErrObj | ConvertTo-Json -Compress))
+                }
             }
         }
-        Write-Progress -Activity 'Software: DCOM fallback' -Completed
+        return $harvestedAny
     }
+
+    $script:hwBackfilledInSw = $false
+    try {
+        $swPool = [runspacefactory]::CreateRunspacePool($swIss)
+        [void]$swPool.SetMinRunspaces(1)
+        [void]$swPool.SetMaxRunspaces($effectiveSwThrottle)
+        $swPool.Open()
+
+        $swLaunchIdx = 0
+        foreach ($pc in $pcs) {
+            $swLaunchIdx++
+            while ($swJobs.Count -ge $effectiveSwThrottle) {
+                $gotSw = Harvest-SwJobs
+                if (-not $gotSw) { Start-Sleep -Milliseconds 80 }
+            }
+
+            $swTarget = if ($script:rescuedEndpoints -and $script:rescuedEndpoints.ContainsKey($pc.ToUpper())) { $script:rescuedEndpoints[$pc.ToUpper()] } else { $pc }
+
+            Write-Host ('[LIVE_SW] ' + ([pscustomobject]@{
+                PCName        = $pc
+                Status        = 'Scanning'
+                Method        = 'Probing...'
+                SoftwareCount = 0
+                KeySoftware   = 'Scanning installed software...'
+                SoftwareList  = ''
+            } | ConvertTo-Json -Compress))
+
+            $psSw = [powershell]::Create()
+            $psSw.RunspacePool = $swPool
+            [void]$psSw.AddScript($swWorkerScript).
+                AddArgument($pc).
+                AddArgument($swTarget).
+                AddArgument([bool]$IncludeUserInstalls.IsPresent).
+                AddArgument([bool]$IncludeHidden.IsPresent).
+                AddArgument($PingMethod).
+                AddArgument($PingTimeoutMs).
+                AddArgument($PingProbes).
+                AddArgument($script:ParsedProbePorts).
+                AddArgument([bool]$ScanDeadHosts).
+                AddArgument([bool]$SkipBroadcast)
+
+            $swJobs.Add(@{
+                PC     = $pc
+                PS     = $psSw
+                Handle = $psSw.BeginInvoke()
+            })
+
+            if ($swLaunchIdx % 3 -eq 0) {
+                $null = Harvest-SwJobs
+            }
+        }
+
+        while ($swJobs.Count -gt 0) {
+            $anySwDone = Harvest-SwJobs
+            if (-not $anySwDone -and $swJobs.Count -gt 0) {
+                Start-Sleep -Milliseconds 80
+            }
+        }
+        Write-Progress -Activity 'Software scan' -Completed
+    } finally {
+        foreach ($j in $swJobs) {
+            if ($j.PS) { try { $j.PS.Stop(); $j.PS.Dispose() } catch {} }
+        }
+        if ($swPool) {
+            try { $swPool.Close() } catch {}
+            try { $swPool.Dispose() } catch {}
+        }
+    }
+
+    $hwBackfilled = $script:hwBackfilledInSw
 
     # --- Clean + export ---
-    foreach ($r in $all) {
-        if ($r.InstallDate -match '^\d{8}$') {
-            try { $r.InstallDate = [datetime]::ParseExact($r.InstallDate, 'yyyyMMdd', $null).ToString('yyyy-MM-dd') } catch { }
-        }
-    }
     $final = $all | Where-Object { $_.Name -like $NameFilter } | Sort-Object PCName, Name
 
     $fSoft = Join-Path $OutDir "Software_$stamp.csv"
@@ -2511,75 +2689,15 @@ if ($Software) {
 
     $final | Export-Csv $fSoft -NoTypeInformation -Encoding UTF8
 
-    # Per-PC output: one CSV per computer (folder) + one summary row per computer
     $fByPC = Join-Path $OutDir "Software_ByPC_$stamp.html"
     $fSumPC = Join-Path $OutDir "Software_PerPC_$stamp.csv"
-    $hwBackfilled = $false
-    $perPc = foreach ($g in ($final | Group-Object PCName)) {
-        $keyApps = @($g.Group | Where-Object { $_.Name -match 'Office|Microsoft 365|Google Chrome|Firefox|Adobe|7-Zip|CrowdStrike|Antivirus|Defender|AnyDesk|TeamViewer' } | Select-Object -ExpandProperty Name -First 4)
-        $topApps = if ($keyApps.Count -gt 0) { $keyApps -join ', ' } else { (($g.Group | Select-Object -First 3 | ForEach-Object { $_.Name }) -join ', ') }
-        $methodUsed = @($status | Where-Object { $_.PCName -ieq $g.Name } | Select-Object -ExpandProperty Status -First 1)
-        if (-not $methodUsed) { $methodUsed = 'OK' }
 
-        # Backfill Office_License into Hardware & Master records if WMI SoftwareLicensingProduct missed it
-        $offSwApp = $g.Group | Where-Object { $_.Name -match '(?i)^(Microsoft 365|Microsoft Office (Professional|Standard|Home|Business|Enterprise|LTSC|365|20\d{2}))' -and $_.Name -notmatch '(?i)MUI|Proof|Shared|Component|Viewer|Redistributable|Visio|Project|Connector' } | Select-Object -First 1
-        if ($offSwApp -and (-not $SkipHardware)) {
-            $parsedSwOff = Parse-OfficeLicenseInfo $offSwApp.Name @()
-            if ($parsedSwOff.Badge -notin @('-', 'None')) {
-                $pcKeyUpper = $g.Name.ToUpper()
-                if ($hw) {
-                    foreach ($hItem in $hw) {
-                        if ($hItem.PCName -ieq $g.Name -and ($hItem.Office_License -in @('-', 'None') -or [string]::IsNullOrWhiteSpace($hItem.Office_License))) {
-                            $hItem.Office_License = $parsedSwOff.Badge
-                            $hItem.Office_Detail  = $parsedSwOff.Detail
-                            Write-Host ('[LIVE_PC] ' + ($hItem | ConvertTo-Json -Compress))
-                            $hwBackfilled = $true
-                        }
-                    }
-                }
-                if ($MasterMode -and $masterDict -and $masterDict.Contains($pcKeyUpper)) {
-                    $mEntry = $masterDict[$pcKeyUpper]
-                    if ($mEntry.Office_License -in @('-', 'None') -or [string]::IsNullOrWhiteSpace($mEntry.Office_License)) {
-                        $mEntry.Office_License = $parsedSwOff.Badge
-                        $mEntry.Office_Detail  = $parsedSwOff.Detail
-                        $masterDict[$pcKeyUpper] = New-HardwareRecord $mEntry
-                        $hwBackfilled = $true
-                    }
-                }
-            }
-        }
-
-        $liveSwObj = [pscustomobject]@{
-            PCName        = $g.Name
-            Status        = 'OK'
-            Method        = $methodUsed
-            SoftwareCount = $g.Count
-            KeySoftware   = $topApps
-            SoftwareList  = (($g.Group | ForEach-Object { if ($_.Version) { "$($_.Name) $($_.Version)" } else { $_.Name } }) -join '; ')
-        }
-        Write-Host ('[LIVE_SW] ' + ($liveSwObj | ConvertTo-Json -Compress))
-        $liveSwObj
-    }
     if ($hwBackfilled -and (-not $SkipHardware)) {
         if ($fHw -and $hw) {
             @($hw | ForEach-Object { New-HardwareRecord $_ }) | Export-Csv $fHw -NoTypeInformation -Encoding UTF8
         }
         if ($MasterMode -and $MasterFile -and $masterDict -and $masterDict.Count -gt 0) {
             Save-CsvAtomic -Path $MasterFile -Data @($masterDict.Values | ForEach-Object { New-HardwareRecord $_ } | Sort-Object PCName)
-        }
-    }
-    # Also emit failed/offline hosts in [LIVE_SW]
-    foreach ($st in $status) {
-        if ($st.Status -ne 'OK-WinRM' -and $st.Status -ne 'OK-DCOM' -and $st.Status -ne 'OK-Local') {
-            $swErrObj = [pscustomobject]@{
-                PCName        = $st.PCName
-                Status        = if ($st.Status -match 'Offline') { 'Offline' } else { 'Error' }
-                Method        = '-'
-                SoftwareCount = 0
-                KeySoftware   = '-'
-                SoftwareList  = $st.Status
-            }
-            Write-Host ('[LIVE_SW] ' + ($swErrObj | ConvertTo-Json -Compress))
         }
     }
     $perPc | Export-Csv $fSumPC -NoTypeInformation -Encoding UTF8

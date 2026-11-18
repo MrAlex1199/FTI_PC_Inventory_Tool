@@ -5954,6 +5954,44 @@
       }
     }
 
+    function updateKpiVal(el, val, type) {
+      if (!el) return;
+      const num = parseInt(val) || 0;
+      el.innerText = num;
+      el.classList.toggle('has-val', num > 0);
+      if (type === 'ok') el.classList.toggle('has-ok', num > 0);
+      if (type === 'offline') el.classList.toggle('has-offline', num > 0);
+      if (type === 'error') el.classList.toggle('has-error', num > 0);
+    }
+
+    function syncTopStripKpis(serverData) {
+      const serverActive = serverData ? !!serverData.isScanning : isScanning;
+      if (activeDataSource === 'master' && !serverActive && !isScanning) {
+        const list = masterHwPCs || [];
+        const okCnt = list.filter(p => p.Status === 'OK' || p.Status === 'Online').length;
+        const offCnt = list.filter(p => p.Status && p.Status.includes('Offline')).length;
+        const errCnt = list.filter(p => p.Status && p.Status.includes('Error')).length;
+        updateKpiVal(statTotal, list.length, 'total');
+        updateKpiVal(statOk, okCnt, 'ok');
+        updateKpiVal(statOffline, offCnt, 'offline');
+        updateKpiVal(statError, errCnt, 'error');
+      } else if (serverData) {
+        updateKpiVal(statTotal, serverData.total, 'total');
+        updateKpiVal(statOk, serverData.ok, 'ok');
+        updateKpiVal(statOffline, serverData.offline, 'offline');
+        updateKpiVal(statError, serverData.error, 'error');
+      } else {
+        const list = allScannedPCs || [];
+        const okCnt = list.filter(p => p.Status === 'OK' || p.Status === 'Online').length;
+        const offCnt = list.filter(p => p.Status && p.Status.includes('Offline')).length;
+        const errCnt = list.filter(p => p.Status && p.Status.includes('Error')).length;
+        updateKpiVal(statTotal, list.length, 'total');
+        updateKpiVal(statOk, okCnt, 'ok');
+        updateKpiVal(statOffline, offCnt, 'offline');
+        updateKpiVal(statError, errCnt, 'error');
+      }
+    }
+
     // --- Data Source Switching Engine ---
     function setDataSource(source) {
       activeDataSource = source;
@@ -5970,6 +6008,8 @@
       if (source === 'master' && masterHwPCs.length === 0) {
         fetchMasterStatus();
       }
+
+      syncTopStripKpis();
 
       if (activeGridTab === 'hardware') {
         renderTable();
@@ -8122,6 +8162,11 @@
 
       const q = searchQuery.toLowerCase();
       let filtered = sourceList.filter(pc => {
+        const matchesFilter = (currentFilter === 'all') ||
+          (currentFilter === 'OK' && pc.Status === 'OK') ||
+          (currentFilter === 'Offline' && pc.Status && pc.Status.includes('Offline')) ||
+          (currentFilter === 'Error' && pc.Status && pc.Status.includes('Error'));
+        if (!matchesFilter) return false;
         if (!q) return true;
         return (pc.PCName && pc.PCName.toLowerCase().includes(q)) ||
                (pc.Method && pc.Method.toLowerCase().includes(q)) ||
@@ -8148,6 +8193,9 @@
         if (pc.Status && pc.Status.includes('Offline')) {
           badgeClass = 'offline';
           stDisplay = 'Offline';
+        } else if (pc.Status === 'Scanning') {
+          badgeClass = 'scanning';
+          stDisplay = 'Scanning';
         } else if (pc.Status && (pc.Status.startsWith('Error') || pc.Status.includes('Error'))) {
           badgeClass = 'error';
           stDisplay = 'Error ⓘ';
@@ -8249,11 +8297,9 @@
     // Filter and search listeners
 
     txtSearchTable.addEventListener('input', (e) => {
-
       searchQuery = e.target.value;
-
-      renderTable();
-
+      if (activeGridTab === 'software') renderSwTable();
+      else renderTable();
     });
 
     window.setTableFilter = function(filterVal) {
@@ -8264,7 +8310,8 @@
       document.querySelectorAll('.strip-kpi-btn').forEach(btn => {
         btn.classList.toggle('active', btn.getAttribute('data-filter') === filterVal);
       });
-      renderTable();
+      if (activeGridTab === 'software') renderSwTable();
+      else renderTable();
     };
 
     document.querySelectorAll('.filter-btn-pill').forEach(btn => {
@@ -8911,6 +8958,10 @@
 
         if (serverIsScanning) {
 
+          if (!isScanning && activeDataSource !== 'latest') {
+            setDataSource('latest');
+          }
+
           isScanning = true;
 
           scanFinishedHandled = false;
@@ -9027,22 +9078,8 @@
           if (statusIndicatorDot) statusIndicatorDot.className = 'status-indicator-dot';
         }
 
-        // Semantic KPI counters helper
-        function updateKpiVal(el, val, type) {
-          if (!el) return;
-          const num = parseInt(val) || 0;
-          el.innerText = num;
-          el.classList.toggle('has-val', num > 0);
-          if (type === 'ok') el.classList.toggle('has-ok', num > 0);
-          if (type === 'offline') el.classList.toggle('has-offline', num > 0);
-          if (type === 'error') el.classList.toggle('has-error', num > 0);
-        }
-
-        // Update KPI Counters
-        updateKpiVal(statTotal, data.total, 'total');
-        updateKpiVal(statOk, data.ok, 'ok');
-        updateKpiVal(statOffline, data.offline, 'offline');
-        updateKpiVal(statError, data.error, 'error');
+        // Update KPI Counters (respects activeDataSource when idle)
+        syncTopStripKpis(data);
 
         // Overall Telemetry Fill & Time
         const pct = Math.min(100, Math.max(0, data.percent || 0));
@@ -9200,6 +9237,7 @@
           showToast('A scan is currently already running.', 'warning');
           return;
         }
+        setDataSource('latest');
         isScanning = true;
         scanFinishedHandled = false;
         btnRunDemo.disabled = true;
@@ -9301,8 +9339,8 @@
         const lblLatestBadge = document.getElementById('lblSourceLatestCount');
         if (lblLatestBadge) lblLatestBadge.innerText = allScannedPCs.length;
 
-        // Auto-select Master Database if records exist and latest scan has not run yet
-        if (activeDataSource === 'latest' && allScannedPCs.length === 0 && masterHwPCs.length > 0) {
+        // Auto-select Master Database if records exist and latest scan has not run yet (only when not scanning)
+        if (!isScanning && activeDataSource === 'latest' && allScannedPCs.length === 0 && masterHwPCs.length > 0) {
           activeDataSource = 'master';
           const bLatest = document.getElementById('btnSourceLatest');
           const bMaster = document.getElementById('btnSourceMaster');
@@ -9311,6 +9349,7 @@
         }
 
         if (activeDataSource === 'master') {
+          syncTopStripKpis();
           if (activeGridTab === 'hardware') renderTable();
           else if (activeGridTab === 'software') renderSwTable();
           else if (activeGridTab === 'dashboard') renderDashboard();

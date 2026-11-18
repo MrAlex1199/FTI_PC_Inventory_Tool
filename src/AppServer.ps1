@@ -593,15 +593,17 @@ function Update-ScanProgress() {
                         } else {
                             $script:scannedPCs.Add($pcItem)
                         }
-                        # Recalculate real-time counters
-                        $script:ok = @($script:scannedPCs | Where-Object { $_.Status -eq 'OK' }).Count
+                        # Recalculate real-time counters from authoritative $script:scannedPCs state
+                        $script:ok = @($script:scannedPCs | Where-Object { $_.Status -eq 'OK' -or $_.Status -eq 'Online' }).Count
                         $script:offline = @($script:scannedPCs | Where-Object { $_.Status -match 'Offline' }).Count
                         $script:errCount = @($script:scannedPCs | Where-Object { $_.Status -match 'Error' }).Count
                         if ($script:scannedPCs.Count -gt $script:total) {
                             $script:total = $script:scannedPCs.Count
                         }
-                        $specInfo = if ($live.Status -eq 'OK' -and $live.CPU -and $live.CPU -ne '-') { ' [' + $live.CPU + ' | ' + $live.RAM_GB + 'GB]' } else { '' }
-                        $script:lastLogs.Add("[LIVE] " + $live.PCName + " -> " + $live.Status + $specInfo)
+                        if ($live.Status -ne 'Scanning') {
+                            $specInfo = if ($live.Status -eq 'OK' -and $live.CPU -and $live.CPU -ne '-') { ' [' + $live.CPU + ' | ' + $live.RAM_GB + 'GB]' } else { '' }
+                            $script:lastLogs.Add("[LIVE] " + $live.PCName + " -> " + $live.Status + $specInfo)
+                        }
                     }
                 } catch {
                     $script:lastLogs.Add($msg)
@@ -655,9 +657,6 @@ function Update-ScanProgress() {
         for ($i = $script:lastWarnIndex; $i -lt $streams.Warning.Count; $i++) {
             $w = $streams.Warning[$i].Message
             $script:lastLogs.Add("[WARNING] $w")
-            if ($w -match 'Offline|not reachable') {
-                $script:offline++
-            }
         }
         $script:lastWarnIndex = $streams.Warning.Count
     }
@@ -667,7 +666,6 @@ function Update-ScanProgress() {
         for ($i = $script:lastErrIndex; $i -lt $streams.Error.Count; $i++) {
             $err = $streams.Error[$i].ToString()
             $script:lastLogs.Add("[ERROR] $err")
-            $script:errCount++
         }
         $script:lastErrIndex = $streams.Error.Count
     }
@@ -1492,7 +1490,8 @@ while ($running) {
                 $targetPC = [string]$req.QueryString['pcName']
                 $swList = @()
                 if ($targetPC) {
-                    $m = $script:swScannedPCs | Where-Object { $_.PCName -ieq $targetPC } | Select-Object -First 1
+                    $targetShort = ($targetPC -split '\.')[0]
+                    $m = $script:swScannedPCs | Where-Object { $_.PCName -ieq $targetPC -or ($_.PCName -split '\.')[0] -ieq $targetShort } | Select-Object -First 1
                     if ($m -and $m.SoftwareList) {
                         $swList = @($m.SoftwareList -split ';\s*' | Where-Object { $_ })
                     } else {
@@ -1502,7 +1501,7 @@ while ($running) {
                         if (Test-Path -LiteralPath $swMasterPath) {
                             try {
                                 $matchedRows = @(Invoke-WithMasterCsvMutex -ScriptBlock {
-                                    Import-Csv -LiteralPath $swMasterPath -Encoding UTF8 | Where-Object { $_.PCName -ieq $targetPC }
+                                    Import-Csv -LiteralPath $swMasterPath -Encoding UTF8 | Where-Object { $_.PCName -ieq $targetPC -or ($_.PCName -split '\.')[0] -ieq $targetShort }
                                 })
                                 foreach ($row in $matchedRows) {
                                     $itemStr = $row.Name
