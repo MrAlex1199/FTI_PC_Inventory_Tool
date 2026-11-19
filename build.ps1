@@ -82,7 +82,7 @@ $verObj = [pscustomobject]@{
 }
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $verJsonContent = $verObj | ConvertTo-Json -Depth 4
-[System.IO.File]::WriteAllText($versionFile, $verJsonContent, $utf8NoBom)
+$requestedExeName = if ($ExeName) { $ExeName } else { 'FTI_PC_Inventory.exe' }
 Write-Host "      Build Version: $displayVersion ($nowTimestamp)" -ForegroundColor Green
 
 # Stage and inject version strings into temp copies (leaving tracked source files clean)
@@ -421,17 +421,21 @@ if (-not $SkipSign) {
         }
 
         # Sign executable
-        Set-AuthenticodeSignature -FilePath $targetExeInTemp -Certificate $cert -HashAlgorithm SHA256 | Out-Null
+        Set-AuthenticodeSignature -FilePath $targetExeInTemp -Certificate $cert -HashAlgorithm SHA256 -ErrorAction Stop | Out-Null
         $sig = Get-AuthenticodeSignature -FilePath $targetExeInTemp
+        if (-not $sig -or $sig.Status -notin @('Valid', 'UnknownError')) {
+            throw "Authenticode signature verification failed with status: $($sig.Status)"
+        }
         Write-Host "      Signature Status: $($sig.Status) (Signer: $($cert.Subject))" -ForegroundColor Green
     } catch {
-        Write-Warning "Authenticode signing skipped: $($_.Exception.Message)"
-        Write-Host "      [TIP] For signed release binaries, run PowerShell as Administrator." -ForegroundColor Cyan
-        $cert = $null
+        throw "Authenticode signing failed (pass -SkipSign to bypass intentionally): $($_.Exception.Message)"
     }
 } else {
     Write-Host "      Signing skipped (-SkipSign specified)." -ForegroundColor Gray
 }
+
+# Persist bumped version.json only after validation, compilation, and signing all succeed
+[System.IO.File]::WriteAllText($versionFile, $verJsonContent, $utf8NoBom)
 
 # 8. Package and Deploy
 Write-Host '[7/7] Packaging and Deploying...' -ForegroundColor Yellow
@@ -441,7 +445,7 @@ if (-not (Test-Path $OutputDir)) {
     New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 }
 
-$finalTargetExe = Join-Path $OutputDir 'FTI_PC_Inventory.exe'
+$finalTargetExe = Join-Path $OutputDir $requestedExeName
 Copy-Item $targetExeInTemp $finalTargetExe -Force
 Write-Host "      Successfully deployed to: $OutputDir" -ForegroundColor Cyan
 

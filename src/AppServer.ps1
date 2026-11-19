@@ -28,6 +28,8 @@ if ($Silent -or $ScheduledRun) {
     $stampStart = $startTime.ToString('yyyy-MM-dd HH:mm:ss')
     "[$stampStart] Scheduled background scan started (OutDir=$OutDir)." | Out-File $logFile -Append -Encoding UTF8
 
+    $silentExitCode = 0
+    $ps = $null
     try {
         $coreParams = @{
             OutDir     = $OutDir
@@ -41,18 +43,23 @@ if ($Silent -or $ScheduledRun) {
             [void]$ps.AddParameter($k, $coreParams[$k])
         }
         $res = $ps.Invoke()
-        if ($ps.Streams.Error.Count -gt 0) {
+        $errCountSilent = $ps.Streams.Error.Count
+        if ($errCountSilent -gt 0) {
             $errMsgs = @($ps.Streams.Error | ForEach-Object { $_.ToString() }) -join "; "
-            Write-Warning "Scan warnings/errors: $errMsgs"
+            Write-Warning "Scan warnings/errors ($errCountSilent): $errMsgs"
         }
         $duration = [math]::Round(([System.DateTime]::Now - $startTime).TotalSeconds, 1)
         $stampEnd = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-        "[$stampEnd] Scheduled scan finished in $($duration)s. Status=Success" | Out-File $logFile -Append -Encoding UTF8
+        $statusLabel = if ($errCountSilent -gt 0) { "CompletedWithErrors($errCountSilent)" } else { "Success" }
+        "[$stampEnd] Scheduled scan finished in $($duration)s. Status=$statusLabel" | Out-File $logFile -Append -Encoding UTF8
     } catch {
+        $silentExitCode = 1
         $stampErr = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
         "[$stampErr] Scheduled scan failed: $($_.Exception.Message)" | Out-File $logFile -Append -Encoding UTF8
+    } finally {
+        if ($ps) { try { $ps.Dispose() } catch {} }
     }
-    exit 0
+    exit $silentExitCode
 }
 
 Add-Type -AssemblyName System.Web
@@ -201,7 +208,6 @@ $script:autoOpenHtml    = $true
 $script:lastLogs        = [System.Collections.Generic.List[string]]::new()
 $script:scannedPCs      = [System.Collections.Generic.List[hashtable]]::new()
 $script:swScannedPCs    = [System.Collections.Generic.List[hashtable]]::new()
-$script:swDetailsCache  = @{} # PCName -> Array of software items
 $script:hwProgress      = @{ done = 0; total = 0; percent = 0; status = 'Ready' }
 $script:swProgress      = @{ done = 0; total = 0; percent = 0; status = 'Ready' }
 $script:activeScanHw    = $true
@@ -225,7 +231,7 @@ $script:ApiSessionToken = [System.BitConverter]::ToString($tokenBytes).Replace('
 
 function Test-SafeLocalPath([string]$PathToCheck) {
     if ([string]::IsNullOrWhiteSpace($PathToCheck)) { return $false }
-    if ($PathToCheck -match '[\x00-\x1F]') { return $false }
+    if ($PathToCheck -match '[\x00-\x1F"]') { return $false }
     if ($PathToCheck -match '^[/\\]{2}') { return $false }
     try {
         $full = [System.IO.Path]::GetFullPath($PathToCheck)
@@ -790,9 +796,8 @@ function Update-ScanProgress() {
             $script:psInstance.Dispose()
             $script:psInstance = $null
             $script:asyncResult = $null
-            # Invalidate Master DB and Software in-memory caches on scan completion
+            # Invalidate Master DB in-memory cache on scan completion
             $script:masterCache.Clear()
-            $script:swDetailsCache.Clear()
         }
 
         # Ensure no machine stays with 'Scanning' status after scan completes
@@ -801,7 +806,7 @@ function Update-ScanProgress() {
                 $pc.Status = 'OK'
             }
         }
-        $script:ok = @($script:scannedPCs | Where-Object { $_.Status -eq 'OK' }).Count
+        $script:ok = @($script:scannedPCs | Where-Object { $_.Status -eq 'OK' -or $_.Status -eq 'Online' }).Count
         $script:offline = @($script:scannedPCs | Where-Object { $_.Status -match 'Offline' }).Count
         $script:errCount = @($script:scannedPCs | Where-Object { $_.Status -match 'Error' }).Count
         $script:total = $script:scannedPCs.Count
@@ -822,12 +827,23 @@ function Start-ExecutionScan([hashtable]$params) {
 
     $outDir = [string]$params.outDir
     if ([string]::IsNullOrWhiteSpace($outDir)) { $outDir = 'C:\Inventory' }
+    if (-not (Test-SafeLocalPath $outDir)) {
+        throw "Invalid output directory path: $outDir"
+    }
+    $outDir = [System.IO.Path]::GetFullPath($outDir)
     $script:lastOutDir = $outDir
 
     if ($params.source -eq 'file') {
         $listFile = [string]$params.listFile
-        if ([string]::IsNullOrWhiteSpace($listFile) -or -not (Test-Path -LiteralPath $listFile)) {
-            throw "File not found: $listFile"
+        if (-not (Test-SafeLocalPath $listFile) -or -not (Test-Path -LiteralPath $listFile)) {
+            throw "Invalid or missing target list file: $listFile"
+        }
+    }
+
+    $excludeServerFile = [string]$params.excludeServerFile
+    if (-not [string]::IsNullOrWhiteSpace($excludeServerFile)) {
+        if (-not (Test-SafeLocalPath $excludeServerFile) -or -not (Test-Path -LiteralPath $excludeServerFile)) {
+            throw "Invalid or missing exclusion list file: $excludeServerFile"
         }
     }
 
@@ -923,6 +939,9 @@ function Start-ExecutionScan([hashtable]$params) {
     elseif ($params.source -eq 'quick' -and $quickListFile) {
         [void]$script:psInstance.AddParameter('ComputerListFile', $quickListFile)
         Write-SystemLog 'INFO' ("Quick Targets resolved: $($rawQuick.Count) hosts -> $quickListFile")
+    }
+    if (-not [string]::IsNullOrWhiteSpace($excludeServerFile)) {
+        [void]$script:psInstance.AddParameter('ExcludeServerFile', $excludeServerFile)
     }
 
     Write-SystemLog 'INFO' ('Execution scan started. Source=' + $params.source + ', OutDir=' + $outDir + ', MasterMode=' + $isMaster + ', SkipServers=' + $isSkipServers)
@@ -1239,9 +1258,10 @@ while ($running) {
                     if ($script:browserProc -and -not $script:browserProc.HasExited) {
                         $browserAlive = $true
                     } else {
-                        # Fallback: check if Edge/Chrome process with this temp profile still exists
-                        $runningBrowsers = Get-Process -Name 'msedge', 'chrome' -ErrorAction SilentlyContinue
-                        if ($runningBrowsers) {
+                        # Fallback: check if Edge/Chrome process bound to this app's temp profile still exists
+                        $profileMatches = @(Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" -ErrorAction SilentlyContinue |
+                            Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($tempProfile, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 })
+                        if ($profileMatches.Count -gt 0) {
                             $browserAlive = $true
                         }
                     }
@@ -1294,11 +1314,20 @@ while ($running) {
         $method = $req.HttpMethod
 
         try {
-            if ($path.StartsWith('/api/', [System.StringComparison]::OrdinalIgnoreCase)) {
-                $hostHdr = $req.Headers['Host']
-                if ([string]::IsNullOrWhiteSpace($hostHdr)) { $hostHdr = $req.UserHostName }
-                $validHost = (-not [string]::IsNullOrWhiteSpace($hostHdr)) -and ($hostHdr -match '^(127\.0\.0\.1|localhost)(:\d+)?$')
+            $hostHdr = $req.Headers['Host']
+            if ([string]::IsNullOrWhiteSpace($hostHdr)) { $hostHdr = $req.UserHostName }
+            $validHost = (-not [string]::IsNullOrWhiteSpace($hostHdr)) -and ($hostHdr -match '^(127\.0\.0\.1|localhost)(:\d+)?$')
+            if (-not $validHost) {
+                $res.StatusCode = 403
+                $errJson = '{"error":"Forbidden: Invalid Host header","status":403}'
+                $buf = [System.Text.Encoding]::UTF8.GetBytes($errJson)
+                $res.ContentType = 'application/json; charset=utf-8'
+                $res.ContentLength64 = $buf.Length
+                $res.OutputStream.Write($buf, 0, $buf.Length)
+                continue
+            }
 
+            if ($path.StartsWith('/api/', [System.StringComparison]::OrdinalIgnoreCase)) {
                 $originHdr = $req.Headers['Origin']
                 $validOrigin = $true
                 if ($method -in @('POST', 'PUT', 'DELETE')) {
@@ -1316,7 +1345,7 @@ while ($running) {
                 $tokenHdr = $req.Headers['X-FTI-Token']
                 $validToken = (-not [string]::IsNullOrWhiteSpace($tokenHdr)) -and ($tokenHdr -ceq $script:ApiSessionToken)
 
-                if (-not ($validHost -and $validOrigin -and $validToken)) {
+                if (-not ($validOrigin -and $validToken)) {
                     $res.StatusCode = 403
                     $errJson = '{"error":"Forbidden: Invalid or missing API session token","status":403}'
                     $buf = [System.Text.Encoding]::UTF8.GetBytes($errJson)
@@ -1372,6 +1401,11 @@ while ($running) {
                     $newLogs = @($script:lastLogs.GetRange($script:sentLogIndex, ($script:lastLogs.Count - $script:sentLogIndex)))
                     $script:sentLogIndex = $script:lastLogs.Count
                 }
+                if ($script:lastLogs.Count -gt 2000) {
+                    $trimCnt = $script:lastLogs.Count - 2000
+                    $script:lastLogs.RemoveRange(0, $trimCnt)
+                    $script:sentLogIndex = [Math]::Max(0, $script:sentLogIndex - $trimCnt)
+                }
 
                 $newSystemLogs = @()
                 if ($script:systemLogs.Count -gt $script:sentSystemLogIndex) {
@@ -1420,7 +1454,15 @@ while ($running) {
                     htmlReportReady       = ($null -ne $script:lastHtmlReport -and (Test-Path $script:lastHtmlReport))
                     newLogs               = $newLogs
                     scannedPCs            = $script:scannedPCs
-                    swScannedPCs          = $script:swScannedPCs
+                    swScannedPCs          = @($script:swScannedPCs | ForEach-Object {
+                        @{
+                            PCName        = $_.PCName
+                            Status        = $_.Status
+                            Method        = $_.Method
+                            SoftwareCount = $_.SoftwareCount
+                            KeySoftware   = $_.KeySoftware
+                        }
+                    })
                     hwProgress            = $script:hwProgress
                     swProgress            = $script:swProgress
                     scanStep              = $script:scanStep
@@ -1474,7 +1516,8 @@ while ($running) {
                     Start-Process -FilePath $exePath
                 } else {
                     $engineScript = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'AppServer.ps1' } else { 'src\AppServer.ps1' }
-                    Start-Process powershell.exe -ArgumentList "-NoProfile -STA -ExecutionPolicy Bypass -File `"$engineScript`""
+                    $psExe = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::System)) 'WindowsPowerShell\v1.0\powershell.exe'
+                    Start-Process -FilePath $psExe -ArgumentList "-NoProfile -STA -ExecutionPolicy Bypass -File `"$engineScript`""
                 }
                 $json = @{ status = 'restarting'; message = 'Application restarting...' } | ConvertTo-Json
                 $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
@@ -1613,6 +1656,10 @@ while ($running) {
 
                     try {
                         $safeOutDir = if ($script:lastOutDir) { [string]$script:lastOutDir } else { 'C:\Inventory' }
+                        if (-not (Test-SafeLocalPath $safeOutDir)) {
+                            throw "Invalid output directory path for scheduled task: $safeOutDir"
+                        }
+                        $safeOutDir = [System.IO.Path]::GetFullPath($safeOutDir)
                         if ($safeOutDir -match '^[a-zA-Z]:\\?$') {
                             $safeOutDir = $safeOutDir.Substring(0, 2) + '\.'
                         } else {
@@ -1704,7 +1751,7 @@ while ($running) {
                 $swExists = Test-Path -LiteralPath $swMasterPath
                 $swSumExists = Test-Path -LiteralPath $swSumPath
 
-                $hwInfo = @{ exists = $false; size = 0; lastModified = '-'; total = 0; ok = 0; offline = 0; error = 0 }
+                $hwInfo = @{ exists = $false; path = $hwMasterPath; size = 0; lastModified = '-'; total = 0; ok = 0; offline = 0; error = 0 }
                 $machines = [System.Collections.Generic.List[object]]::new()
 
                 if ($hwExists) {
@@ -1774,7 +1821,7 @@ while ($running) {
                     $script:masterCache.Remove($hwMasterPath)
                 }
 
-                $swInfo = @{ exists = $false; size = 0; lastModified = '-'; totalRecords = 0; uniqueApps = 0 }
+                $swInfo = @{ exists = $false; path = $swMasterPath; size = 0; lastModified = '-'; total = 0; totalRecords = 0; uniqueApps = 0 }
                 $swMachines = [System.Collections.Generic.List[object]]::new()
                 if ($swExists) {
                     try {
@@ -1791,6 +1838,7 @@ while ($running) {
                                 Import-Csv -LiteralPath $swMasterPath -Encoding UTF8
                             })
                             $swInfo.totalRecords = $swRows.Count
+                            $swInfo.total = $swRows.Count
 
                             # Aggregate into per-PC software summary list for the Software Scan tab
                             $swGrouped = $swRows | Group-Object PCName
@@ -1906,10 +1954,10 @@ while ($running) {
                 $resp = @{ status = 'OK'; message = '' }
 
                 if ($action -eq 'openFile') {
-                    $fileType = [string]$params.fileType # 'hw', 'sw', or 'swSum'
-                    if ([string]::IsNullOrWhiteSpace($fileType)) { $fileType = [string]$params.type }
+                    $fileType = ([string]$params.fileType).Trim().ToLowerInvariant()
+                    if ([string]::IsNullOrWhiteSpace($fileType)) { $fileType = ([string]$params.type).Trim().ToLowerInvariant() }
                     if ([string]::IsNullOrWhiteSpace($fileType)) { $fileType = 'hw' }
-                    $targetPath = if ($fileType -eq 'sw') { $swMasterPath } elseif ($fileType -eq 'swSum') { $swSumPath } else { $hwMasterPath }
+                    $targetPath = if ($fileType -in @('sw', 'software')) { $swMasterPath } elseif ($fileType -eq 'swsum') { $swSumPath } else { $hwMasterPath }
                     if (Test-Path -LiteralPath $targetPath) {
                         [System.Diagnostics.Process]::Start($targetPath) | Out-Null
                         $resp.message = "Opened $targetPath"
@@ -1920,36 +1968,38 @@ while ($running) {
                     }
                 }
                 elseif ($action -eq 'backupMaster') {
-                    $fileType = [string]$params.fileType
-                    if ([string]::IsNullOrWhiteSpace($fileType)) { $fileType = [string]$params.type }
+                    $fileType = ([string]$params.fileType).Trim().ToLowerInvariant()
+                    if ([string]::IsNullOrWhiteSpace($fileType)) { $fileType = ([string]$params.type).Trim().ToLowerInvariant() }
                     $stampBackup = Get-Date -Format 'yyyyMMdd_HHmmss'
                     $copiedCount = 0
                     $backupPath = $null
-                    if ($fileType -eq 'sw') {
-                        if (Test-Path -LiteralPath $swMasterPath) {
-                            $destSw = Join-Path $outDirParam "Software_Master_Backup_$stampBackup.csv"
-                            Copy-Item -LiteralPath $swMasterPath -Destination $destSw -Force
-                            $copiedCount++
-                            $backupPath = $destSw
-                        }
-                    } elseif ($fileType -eq 'swSum') {
-                        if (Test-Path -LiteralPath $swSumPath) {
-                            $destSwSum = Join-Path $outDirParam "Software_Summary_Backup_$stampBackup.csv"
-                            Copy-Item -LiteralPath $swSumPath -Destination $destSwSum -Force
-                            $copiedCount++
-                            $backupPath = $destSwSum
-                        }
-                    } else {
-                        if (Test-Path -LiteralPath $hwMasterPath) {
-                            $destHw = Join-Path $outDirParam "Hardware_Master_Backup_$stampBackup.csv"
-                            Copy-Item -LiteralPath $hwMasterPath -Destination $destHw -Force
-                            $copiedCount++
-                            $backupPath = $destHw
-                        }
-                        if (Test-Path -LiteralPath $swMasterPath -and -not $params.type) {
-                            $destSw = Join-Path $outDirParam "Software_Master_Backup_$stampBackup.csv"
-                            Copy-Item -LiteralPath $swMasterPath -Destination $destSw -Force
-                            $copiedCount++
+                    Invoke-WithMasterCsvMutex -ScriptBlock {
+                        if ($fileType -in @('sw', 'software')) {
+                            if (Test-Path -LiteralPath $swMasterPath) {
+                                $destSw = Join-Path $outDirParam "Software_Master_Backup_$stampBackup.csv"
+                                Copy-Item -LiteralPath $swMasterPath -Destination $destSw -Force
+                                $copiedCount++
+                                $backupPath = $destSw
+                            }
+                        } elseif ($fileType -eq 'swsum') {
+                            if (Test-Path -LiteralPath $swSumPath) {
+                                $destSwSum = Join-Path $outDirParam "Software_Summary_Backup_$stampBackup.csv"
+                                Copy-Item -LiteralPath $swSumPath -Destination $destSwSum -Force
+                                $copiedCount++
+                                $backupPath = $destSwSum
+                            }
+                        } else {
+                            if (Test-Path -LiteralPath $hwMasterPath) {
+                                $destHw = Join-Path $outDirParam "Hardware_Master_Backup_$stampBackup.csv"
+                                Copy-Item -LiteralPath $hwMasterPath -Destination $destHw -Force
+                                $copiedCount++
+                                $backupPath = $destHw
+                            }
+                            if (Test-Path -LiteralPath $swMasterPath -and -not $params.type) {
+                                $destSw = Join-Path $outDirParam "Software_Master_Backup_$stampBackup.csv"
+                                Copy-Item -LiteralPath $swMasterPath -Destination $destSw -Force
+                                $copiedCount++
+                            }
                         }
                     }
                     $resp.backupPath = $backupPath
@@ -1958,19 +2008,18 @@ while ($running) {
                 elseif ($action -eq 'deleteMachine') {
                     $targetPC = [string]$params.pcName
                     if (-not [string]::IsNullOrWhiteSpace($targetPC)) {
-                        $deletedHw = $false
+                        $targetKeyUpper = $targetPC.Trim().ToUpper()
                         Invoke-WithMasterCsvMutex -ScriptBlock {
                             if (Test-Path -LiteralPath $hwMasterPath) {
-                                $rows = Import-Csv -LiteralPath $hwMasterPath -Encoding UTF8
-                                $newRows = @($rows | Where-Object { $_.PCName.Trim().ToUpper() -ne $targetPC.Trim().ToUpper() })
+                                $rows = @(Import-Csv -LiteralPath $hwMasterPath -Encoding UTF8)
+                                $newRows = @($rows | Where-Object { (-not $_.PCName) -or ($_.PCName.Trim().ToUpper() -ne $targetKeyUpper) })
                                 if ($newRows.Count -lt $rows.Count) {
                                     Save-CsvAtomic -Path $hwMasterPath -Data $newRows
-                                    $deletedHw = $true
                                 }
                             }
                             if (Test-Path -LiteralPath $swMasterPath) {
-                                $swRows = Import-Csv -LiteralPath $swMasterPath -Encoding UTF8
-                                $newSwRows = @($swRows | Where-Object { $_.PCName.Trim().ToUpper() -ne $targetPC.Trim().ToUpper() })
+                                $swRows = @(Import-Csv -LiteralPath $swMasterPath -Encoding UTF8)
+                                $newSwRows = @($swRows | Where-Object { (-not $_.PCName) -or ($_.PCName.Trim().ToUpper() -ne $targetKeyUpper) })
                                 if ($newSwRows.Count -lt $swRows.Count) {
                                     Save-CsvAtomic -Path $swMasterPath -Data $newSwRows
                                 }
@@ -2188,7 +2237,7 @@ while ($running) {
             elseif ($path -eq '/api/open-folder' -and $method -eq 'POST') {
                 $body = Read-RequestBody $req
                 $params = $body | ConvertFrom-Json
-                $dir = if ($params.folder) { [string]$params.folder } else { 'C:\Inventory' }
+                $dir = if ($params.folder) { [string]$params.folder } elseif ($params.path) { [string]$params.path } else { 'C:\Inventory' }
 
                 if (-not (Test-SafeLocalPath $dir)) {
                     $res.StatusCode = 400
@@ -2215,23 +2264,27 @@ while ($running) {
                 }
 
                 $safeExplorerDir = if ($dir -match '^[a-zA-Z]:\\$') { $dir + '.' } else { $dir.TrimEnd('\') }
+                $explorerExe = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::Windows)) 'explorer.exe'
                 $psi = New-Object System.Diagnostics.ProcessStartInfo
-                $psi.FileName = 'explorer.exe'
+                $psi.FileName = $explorerExe
                 $psi.Arguments = "`"$safeExplorerDir`""
                 $psi.UseShellExecute = $true
                 [System.Diagnostics.Process]::Start($psi) | Out-Null
 
-                $json = @{ status = 'opened' } | ConvertTo-Json
+                $json = @{ status = 'ok' } | ConvertTo-Json
                 $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
                 $res.ContentType = 'application/json; charset=utf-8'
                 $res.ContentLength64 = $buf.Length
                 $res.OutputStream.Write($buf, 0, $buf.Length)
             }
             elseif ($path -eq '/api/open-report' -and $method -eq 'POST') {
-                if ($script:lastHtmlReport -and (Test-Path $script:lastHtmlReport)) {
+                if ($script:lastHtmlReport -and (Test-Path -LiteralPath $script:lastHtmlReport)) {
                     [System.Diagnostics.Process]::Start($script:lastHtmlReport) | Out-Null
+                    $json = @{ status = 'ok' } | ConvertTo-Json
+                } else {
+                    $res.StatusCode = 404
+                    $json = @{ status = 'error'; error = 'HTML report not generated yet' } | ConvertTo-Json
                 }
-                $json = @{ status = 'opened' } | ConvertTo-Json
                 $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
                 $res.ContentType = 'application/json; charset=utf-8'
                 $res.ContentLength64 = $buf.Length

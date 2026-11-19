@@ -6121,14 +6121,18 @@
         return;
       }
       const parts = val.split('_');
-      const dir = parts.pop();
+      const hasDir = parts.length > 1 && (parts[parts.length - 1] === 'asc' || parts[parts.length - 1] === 'desc');
+      const dir = hasDir ? parts.pop() : 'asc';
       const fieldKey = parts.join('_');
       const map = {
+        'pc': 'PCName',
         'pcname': 'PCName',
         'status': 'Status',
         'ip': 'IP',
         'ram': 'RAM_GB',
         'disk': 'Disk_C_Free',
+        'osbuild': 'OSBuild',
+        'fail': 'Fail_Count',
         'fails': 'Fail_Count',
         'lastscan': 'Last_Scan'
       };
@@ -8110,7 +8114,7 @@
           ? `<span class="office-badge ${offClass} has-tooltip" data-tooltip="${escapeHtml(offDetail)}">${escapeHtml(offLic)}</span>`
           : `<span style="color:var(--text-muted);">-</span>`;
 
-        let diskHtml = pc.Disk_C_Free || '-';
+        let diskHtml = escapeHtml(pc.Disk_C_Free || '-');
         if (pc.Disk_C_Free && pc.Disk_C_Free.includes('%')) {
           const match = pc.Disk_C_Free.match(/(\d+)%\s+free/i);
           if (match && parseInt(match[1]) <= 15) {
@@ -8204,8 +8208,8 @@
         }
 
         const statusBadge = hasTooltip
-          ? `<span class="status-badge ${badgeClass} has-tooltip" data-tooltip="${escapeHtml(tooltipText)}">${stDisplay}</span>`
-          : `<span class="status-badge ${badgeClass}">${stDisplay}</span>`;
+          ? `<span class="status-badge ${badgeClass} has-tooltip" data-tooltip="${escapeHtml(tooltipText)}">${escapeHtml(stDisplay)}</span>`
+          : `<span class="status-badge ${badgeClass}">${escapeHtml(stDisplay)}</span>`;
 
         const countBadge = `<span class="nav-badge" style="background:rgba(2,132,199,0.15); color:var(--accent-primary); font-weight:700;">${pc.SoftwareCount || 0} Apps</span>`;
 
@@ -8972,6 +8976,8 @@
 
           if (btnRetryOffline) btnRetryOffline.disabled = true;
 
+          if (btnRunDemo) btnRunDemo.disabled = true;
+
           setPollingSpeed(500);
 
         } else {
@@ -8981,6 +8987,8 @@
           btnCancelScan.disabled = true;
 
           if (btnRetryOffline) btnRetryOffline.disabled = false;
+
+          if (btnRunDemo) btnRunDemo.disabled = false;
 
           setPollingSpeed(2000);
 
@@ -9205,6 +9213,8 @@
             btnCancelScan.disabled = true;
 
             if (btnRetryOffline) btnRetryOffline.disabled = false;
+
+            if (btnRunDemo) btnRunDemo.disabled = false;
 
             updateStepperUI(5, 'Completed', true);
 
@@ -9922,11 +9932,6 @@
       updateSourceUI();
 
       updateAllChartToolsUI();
-
-      const selSort = document.getElementById('selSortBy');
-      if (selSort) {
-        selSort.addEventListener('change', (e) => onSortSelectChange(e.target.value));
-      }
 
       fetchMasterStatus();
 

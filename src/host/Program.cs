@@ -3,8 +3,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Security.AccessControl;
+using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
+using System.Threading;
 
 [assembly: AssemblyTitle("FTI PC Inventory Tool")]
 [assembly: AssemblyDescription("Function International - Enterprise PC Hardware and Software Inventory Scanner")]
@@ -35,58 +37,99 @@ namespace FTI.PCInventory
 
                 EnsureSecureDirectory(engineDir);
 
-                string scriptPath = Path.Combine(engineDir, "app_engine.ps1");
+                string scriptPath = null;
 
-                // Extract embedded PowerShell engine
+                // Extract embedded PowerShell engine with hash-versioned filename & mutex to prevent multi-instance races
                 using (Stream resStream = Assembly.GetExecutingAssembly().GetManifestResourceStream("FTI.Engine"))
                 {
                     if (resStream != null)
                     {
-                        try
+                        byte[] engineBytes;
+                        using (MemoryStream ms = new MemoryStream())
                         {
-                            if (File.Exists(scriptPath))
+                            resStream.CopyTo(ms);
+                            engineBytes = ms.ToArray();
+                        }
+
+                        string hashPrefix;
+                        using (SHA256 sha = SHA256.Create())
+                        {
+                            byte[] hash = sha.ComputeHash(engineBytes);
+                            StringBuilder hb = new StringBuilder(8);
+                            for (int i = 0; i < 4; i++) hb.Append(hash[i].ToString("x2"));
+                            hashPrefix = hb.ToString();
+                        }
+
+                        scriptPath = Path.Combine(engineDir, "app_engine_" + hashPrefix + ".ps1");
+
+                        bool mutexCreated;
+                        using (Mutex extractMutex = new Mutex(false, @"Global\FTI_PC_Inventory_ExtractMutex", out mutexCreated))
+                        {
+                            bool acquired = false;
+                            try
                             {
-                                File.Delete(scriptPath);
+                                try { acquired = extractMutex.WaitOne(15000); }
+                                catch (AbandonedMutexException) { acquired = true; }
+
+                                bool needsWrite = true;
+                                if (File.Exists(scriptPath))
+                                {
+                                    FileAttributes attrs = File.GetAttributes(scriptPath);
+                                    if ((attrs & FileAttributes.ReparsePoint) != 0)
+                                    {
+                                        File.Delete(scriptPath);
+                                    }
+                                    else
+                                    {
+                                        FileInfo fi = new FileInfo(scriptPath);
+                                        if (fi.Length == engineBytes.Length)
+                                        {
+                                            needsWrite = false;
+                                        }
+                                    }
+                                }
+
+                                if (needsWrite)
+                                {
+                                    if (File.Exists(scriptPath))
+                                    {
+                                        File.Delete(scriptPath);
+                                    }
+                                    using (FileStream fs = new FileStream(scriptPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                                    {
+                                        fs.Write(engineBytes, 0, engineBytes.Length);
+                                    }
+
+                                    SecurityIdentifier adminSid = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
+                                    SecurityIdentifier systemSid = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
+
+                                    FileSecurity fileSec = new FileSecurity();
+                                    fileSec.SetAccessRuleProtection(true, false);
+                                    fileSec.SetOwner(adminSid);
+                                    fileSec.AddAccessRule(new FileSystemAccessRule(adminSid, FileSystemRights.FullControl, AccessControlType.Allow));
+                                    fileSec.AddAccessRule(new FileSystemAccessRule(systemSid, FileSystemRights.FullControl, AccessControlType.Allow));
+
+                                    try
+                                    {
+                                        File.SetAccessControl(scriptPath, fileSec);
+                                    }
+                                    catch (Exception)
+                                    {
+                                        FileSecurity fallbackFileSec = new FileSecurity();
+                                        fallbackFileSec.SetAccessRuleProtection(true, false);
+                                        fallbackFileSec.AddAccessRule(new FileSystemAccessRule(adminSid, FileSystemRights.FullControl, AccessControlType.Allow));
+                                        fallbackFileSec.AddAccessRule(new FileSystemAccessRule(systemSid, FileSystemRights.FullControl, AccessControlType.Allow));
+                                        File.SetAccessControl(scriptPath, fallbackFileSec);
+                                    }
+                                }
+                            }
+                            finally
+                            {
+                                if (acquired) { try { extractMutex.ReleaseMutex(); } catch { } }
                             }
                         }
-                        catch { }
-
-                        using (FileStream fs = new FileStream(scriptPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                        {
-                            resStream.CopyTo(fs);
-                        }
-
-                        SecurityIdentifier adminSid = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
-                        SecurityIdentifier systemSid = new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
-
-                        FileSecurity fileSec = new FileSecurity();
-                        fileSec.SetAccessRuleProtection(true, false);
-                        fileSec.SetOwner(adminSid);
-
-                        fileSec.AddAccessRule(new FileSystemAccessRule(
-                            adminSid,
-                            FileSystemRights.FullControl,
-                            AccessControlType.Allow));
-
-                        fileSec.AddAccessRule(new FileSystemAccessRule(
-                            systemSid,
-                            FileSystemRights.FullControl,
-                            AccessControlType.Allow));
-
-                        try
-                        {
-                            File.SetAccessControl(scriptPath, fileSec);
-                        }
-                        catch (Exception)
-                        {
-                            FileSecurity fallbackFileSec = new FileSecurity();
-                            fallbackFileSec.SetAccessRuleProtection(true, false);
-                            fallbackFileSec.AddAccessRule(new FileSystemAccessRule(adminSid, FileSystemRights.FullControl, AccessControlType.Allow));
-                            fallbackFileSec.AddAccessRule(new FileSystemAccessRule(systemSid, FileSystemRights.FullControl, AccessControlType.Allow));
-                            File.SetAccessControl(scriptPath, fallbackFileSec);
-                        }
                     }
-                    else if (!File.Exists(scriptPath))
+                    else
                     {
                         // Fallback for development if run directly from source folder
                         string currentDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -132,9 +175,12 @@ namespace FTI.PCInventory
                     }
                 }
 
+                string systemDir = Environment.GetFolderPath(Environment.SpecialFolder.System);
+                string psExePath = Path.Combine(systemDir, @"WindowsPowerShell\v1.0\powershell.exe");
+
                 ProcessStartInfo psi = new ProcessStartInfo
                 {
-                    FileName = "powershell.exe",
+                    FileName = psExePath,
                     Arguments = argBuilder.ToString(),
                     UseShellExecute = false,
                     CreateNoWindow = true,
@@ -150,33 +196,9 @@ namespace FTI.PCInventory
                 {
                     if (proc != null)
                     {
-                        bool isSilent = false;
-                        if (args != null)
-                        {
-                            foreach (string a in args)
-                            {
-                                if (a.Equals("-Silent", StringComparison.OrdinalIgnoreCase) ||
-                                    a.Equals("-ScheduledRun", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    isSilent = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (isSilent)
-                        {
-                            proc.WaitForExit();
-                            RestoreLidActionFallback(localAppDir);
-                            return proc.ExitCode;
-                        }
-                        else
-                        {
-                            // In interactive mode, wait for server process so launcher stays clean
-                            proc.WaitForExit();
-                            RestoreLidActionFallback(localAppDir);
-                            return proc.ExitCode;
-                        }
+                        proc.WaitForExit();
+                        RestoreLidActionFallback(localAppDir);
+                        return proc.ExitCode;
                     }
                 }
 
@@ -355,7 +377,8 @@ namespace FTI.PCInventory
                         if (end > 0) int.TryParse(s.Substring(0, end).Trim(), out dcVal);
                     }
 
-                    ProcessStartInfo psi = new ProcessStartInfo("powercfg.exe")
+                    string powerCfgPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "powercfg.exe");
+                    ProcessStartInfo psi = new ProcessStartInfo(powerCfgPath)
                     {
                         CreateNoWindow = true,
                         UseShellExecute = false,
