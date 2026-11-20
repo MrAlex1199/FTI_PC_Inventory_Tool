@@ -1302,22 +1302,32 @@
       gap: 1.8mm;
     }
 
-    /* Workplace Impact Card (FTI Concrete Benefits) */
+    /* Workplace Impact Card — 3-Layer Executive Impact Block (FTI) */
     .impact-card {
-      background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
-      border: 1px solid #bae6fd;
-      border-left: 5px solid #0284c7;
-      border-radius: 13px;
-      padding: 4.8mm 5.8mm;
+      background: linear-gradient(155deg, #f0f9ff 0%, #ffffff 55%, #f8fafc 100%);
+      border: 1.5px solid #93c5fd;
+      border-left: 6px solid #0284c7;
+      border-radius: 14px;
+      padding: 3.6mm 5.2mm;
       display: flex;
       flex-direction: column;
-      gap: 3mm;
+      gap: 2.4mm;
       flex: 1;
-      justify-content: center;
+      justify-content: space-between;
+      box-shadow: 0 6px 18px rgba(2, 132, 199, 0.08);
+    }
+
+    .impact-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4mm;
+      padding-bottom: 1.6mm;
+      border-bottom: 1.5px solid #bae6fd;
     }
 
     .impact-header {
-      font-size: 14.5pt;
+      font-size: 14.2pt;
       font-weight: 800;
       color: #0369a1;
       display: flex;
@@ -1325,38 +1335,197 @@
       gap: 7px;
     }
 
+    .impact-prod-tag {
+      background: linear-gradient(90deg, #0284c7, #059669);
+      color: #ffffff;
+      font-family: var(--font-en);
+      font-size: 8.4pt;
+      font-weight: 800;
+      padding: 2px 10px;
+      border-radius: 9999px;
+      letter-spacing: 0.4px;
+      white-space: nowrap;
+    }
+
     .impact-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 3.2mm;
+      gap: 2.8mm;
     }
 
     .impact-item {
       background: #ffffff;
       border: 1px solid #bae6fd;
-      border-radius: 9px;
-      padding: 3.6mm 4mm;
+      border-top: 3.5px solid #0284c7;
+      border-radius: 10px;
+      padding: 2.5mm 3.4mm;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.035);
     }
+
+    .impact-item:nth-child(2) { border-top-color: #059669; }
+    .impact-item:nth-child(3) { border-top-color: #d97706; }
 
     .impact-item .imp-num {
       font-family: var(--font-en);
-      font-size: 20pt;
+      font-size: 19pt;
       font-weight: 900;
       color: #0284c7;
-      line-height: 1.05;
+      line-height: 1.02;
     }
 
+    .impact-item:nth-child(2) .imp-num { color: #059669; }
+    .impact-item:nth-child(3) .imp-num { color: #d97706; }
+
     .impact-item h5 {
-      font-size: 12pt;
+      font-size: 11.4pt;
       font-weight: 700;
       color: #0f172a;
-      margin: 1.2mm 0 1mm 0;
+      margin: 0.8mm 0 0.5mm 0;
     }
 
     .impact-item p {
-      font-size: 10.8pt;
+      font-size: 10.2pt;
       color: #334155;
-      line-height: 1.42;
+      line-height: 1.34;
+    }
+
+    /* Layer 2: 2-Column Split (Deliverables + Before vs After ROI) */
+    .impact-mid-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: 3mm;
+    }
+
+    .impact-subpanel {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 2.5mm 3.5mm;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5mm;
+    }
+
+    .impact-subpanel-title {
+      font-size: 11pt;
+      font-weight: 800;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-bottom: 1.2mm;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .deliv-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2mm;
+    }
+
+    .deliv-row {
+      display: flex;
+      align-items: baseline;
+      gap: 2.2mm;
+      font-size: 9.6pt;
+      line-height: 1.28;
+      color: #334155;
+    }
+
+    .deliv-file {
+      font-family: var(--font-mono);
+      font-size: 8.4pt;
+      font-weight: 700;
+      color: #0369a1;
+      background: #e0f2fe;
+      padding: 0.5px 5px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .deliv-file.html {
+      color: #065f46;
+      background: #d1fae5;
+    }
+
+    .roi-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1.3mm;
+    }
+
+    .roi-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 3.5px solid #059669;
+      border-radius: 7px;
+      padding: 1.3mm 2.4mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 2mm;
+    }
+
+    .roi-label {
+      font-size: 9.6pt;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.2;
+    }
+
+    .roi-sub {
+      font-size: 8.4pt;
+      color: #64748b;
+      font-weight: 500;
+      line-height: 1.2;
+    }
+
+    .roi-badge {
+      font-family: var(--font-en);
+      font-size: 9.4pt;
+      font-weight: 800;
+      color: #065f46;
+      background: #dcfce7;
+      border: 1px solid #86efac;
+      padding: 1px 7px;
+      border-radius: 9999px;
+      white-space: nowrap;
+    }
+
+    /* Layer 3: Production Deployment Status Strip */
+    .impact-prod-strip {
+      background: linear-gradient(90deg, #0b142c 0%, #0f294a 70%, #065f46 100%);
+      color: #f8fafc;
+      border-radius: 8px;
+      padding: 2mm 3.6mm;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 3.5mm;
+      font-size: 9.6pt;
+    }
+
+    .prod-live-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-en);
+      font-weight: 800;
+      font-size: 8.6pt;
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.18);
+      border: 1px solid rgba(52, 211, 153, 0.45);
+      padding: 1.5px 8px;
+      border-radius: 9999px;
+      white-space: nowrap;
+    }
+
+    .prod-right-chip {
+      font-family: var(--font-en);
+      font-size: 8.6pt;
+      font-weight: 700;
+      color: #bae6fd;
+      white-space: nowrap;
     }
 
     /* ==========================================================================
@@ -2235,12 +2404,17 @@
               </div>
             </section>
 
-            <!-- การนำไปใช้ประโยชน์อย่างเป็นรูปธรรมในบริษัท FTI -->
+            <!-- การนำไปใช้ประโยชน์อย่างเป็นรูปธรรมในบริษัท FTI (3-Layer Executive Impact Block) -->
             <section class="impact-card">
-              <div class="impact-header">
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-                การนำไปใช้ประโยชน์อย่างเป็นรูปธรรมในบริษัท Function International (FTI)
+              <div class="impact-header-row">
+                <div class="impact-header">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                  การนำไปใช้ประโยชน์อย่างเป็นรูปธรรมในบริษัท Function International (FTI)
+                </div>
+                <span class="impact-prod-tag">PRODUCTION IMPACT &amp; ROI</span>
               </div>
+
+              <!-- Layer 1: 3 Primary Impact KPIs -->
               <div class="impact-grid">
                 <div class="impact-item">
                   <div class="imp-num" data-edit-key="imp1_n">99.6%</div>
@@ -2250,13 +2424,89 @@
                 <div class="impact-item">
                   <div class="imp-num" data-edit-key="imp2_n">100%</div>
                   <h5 data-edit-key="imp2_h">คุมลิขสิทธิ์และงบจัดซื้อ</h5>
-                  <p data-edit-key="imp2_p">มีบัญชี Master Software &amp; Hardware ตรงความจริง รองรับการตรวจ Software Audit</p>
+                  <p data-edit-key="imp2_p">มีบัญชี Master Software &amp; Hardware ตรงความจริง พร้อมรองรับ Software Audit</p>
                 </div>
                 <div class="impact-item">
                   <div class="imp-num" data-edit-key="imp3_n">&lt; 15%</div>
                   <h5 data-edit-key="imp3_h">เฝ้าระวังเชิงรุก (Proactive)</h5>
                   <p data-edit-key="imp3_p">แจ้งเตือนเครื่องที่พื้นที่ดิสก์ C: เหลือน้อยกว่า 15% เพื่อวางแผนอัปเกรดล่วงหน้า</p>
                 </div>
+              </div>
+
+              <!-- Layer 2: Deliverables Matrix + Before vs After ROI -->
+              <div class="impact-mid-grid">
+                <div class="impact-subpanel">
+                  <div class="impact-subpanel-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    ชุดไฟล์รายงานที่ฝ่าย IT นำไปใช้งานจริง
+                  </div>
+                  <div class="deliv-list">
+                    <div class="deliv-row">
+                      <span class="deliv-file">Hardware_Master.csv</span>
+                      <span data-edit-key="deliv1">ฐานข้อมูลสเปกสะสม พร้อม Scan_Count &amp; Uptime</span>
+                    </div>
+                    <div class="deliv-row">
+                      <span class="deliv-file">Software_Master.csv</span>
+                      <span data-edit-key="deliv2">รายชื่อโปรแกรมทั้งองค์กร (Auto-Prune ลบของเก่า)</span>
+                    </div>
+                    <div class="deliv-row">
+                      <span class="deliv-file">Software_Summary.csv</span>
+                      <span data-edit-key="deliv3">สรุปยอดจำนวนเครื่องที่ติดตั้งแต่ละไลเซนส์</span>
+                    </div>
+                    <div class="deliv-row">
+                      <span class="deliv-file html">Software_ByPC.html</span>
+                      <span data-edit-key="deliv4">เว็บแดชบอร์ดแยกกล่องค้นหารายเครื่องเปิดดูทันที</span>
+                    </div>
+                    <div class="deliv-row">
+                      <span class="deliv-file">ScanStatus.csv</span>
+                      <span data-edit-key="deliv5">รายงานสถานะ WinRM/DCOM/Offline สำหรับตรวจเช็ก</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="impact-subpanel">
+                  <div class="impact-subpanel-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.3"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    ความคุ้มค่าเชิงธุรกิจ (Before vs After ROI)
+                  </div>
+                  <div class="roi-list">
+                    <div class="roi-item">
+                      <div>
+                        <div class="roi-label" data-edit-key="roi1_l">ชั่วโมงงานตรวจนับรายปี (4 รอบ)</div>
+                        <div class="roi-sub" data-edit-key="roi1_s">เดิม ~120 ชม./ปี &rarr; เหลือ &lt; 1 ชม./ปี</div>
+                      </div>
+                      <span class="roi-badge" data-edit-key="roi1_b">-119 ชม./ปี</span>
+                    </div>
+                    <div class="roi-item">
+                      <div>
+                        <div class="roi-label" data-edit-key="roi2_l">ค่าลิขสิทธิ์ซอฟต์แวร์ ITAM</div>
+                        <div class="roi-sub" data-edit-key="roi2_s">ประหยัดเทียบเครื่องมือเชิงพาณิชย์</div>
+                      </div>
+                      <span class="roi-badge" data-edit-key="roi2_b">ต้นทุน 0 บาท</span>
+                    </div>
+                    <div class="roi-item">
+                      <div>
+                        <div class="roi-label" data-edit-key="roi3_l">ความพร้อมตรวจลิขสิทธิ์ Audit</div>
+                        <div class="roi-sub" data-edit-key="roi3_s">ข้อมูลซอฟต์แวร์ตรงความจริงลดเสี่ยงค่าปรับ</div>
+                      </div>
+                      <span class="roi-badge" data-edit-key="roi3_b">100% Sync</span>
+                    </div>
+                    <div class="roi-item">
+                      <div>
+                        <div class="roi-label" data-edit-key="roi4_l">คัดกรองเครื่องอัปเกรดประจำปี</div>
+                        <div class="roi-sub" data-edit-key="roi4_s">กรอง RAM น้อย / รุ่นเก่า / ดิสก์เต็มทันที</div>
+                      </div>
+                      <span class="roi-badge" data-edit-key="roi4_b">1-Click Filter</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Layer 3: Production Deployment Banner -->
+              <div class="impact-prod-strip">
+                <span class="prod-live-indicator">● DEPLOYED IN PRODUCTION</span>
+                <span data-edit-key="prod_banner" style="flex:1;">ใช้งานจริงที่บริษัท ฟังก์ชั่น อินเตอร์เนชั่นแนล จำกัด (FTI) สแกนอัตโนมัติทุกวันผ่าน Task Scheduler</span>
+                <span class="prod-right-chip">200+ Domain PCs • Zero License Cost</span>
               </div>
             </section>
 
