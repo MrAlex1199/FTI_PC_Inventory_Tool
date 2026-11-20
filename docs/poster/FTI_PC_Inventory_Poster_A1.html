@@ -256,7 +256,7 @@
       position: relative;
       overflow: hidden;
       display: grid;
-      grid-template-columns: 56mm 56mm minmax(0, 1fr) 96mm;
+      grid-template-columns: 56mm 56mm minmax(0, 1fr) 100mm;
       gap: 8mm;
       align-items: center;
     }
@@ -306,8 +306,11 @@
     }
 
     .media-slot.workplace-slot {
-      width: 96mm;
-      height: 73mm;
+      width: 100mm;
+      height: 46mm;
+      background: rgba(255, 255, 255, 0.98);
+      border-color: rgba(255, 255, 255, 0.82);
+      padding: 3mm 4mm;
     }
 
     .media-slot img.uploaded-img {
@@ -317,7 +320,8 @@
       display: none;
     }
 
-    .media-slot.uni-slot img.uploaded-img {
+    .media-slot.uni-slot img.uploaded-img,
+    .media-slot.workplace-slot img.uploaded-img {
       object-fit: contain;
     }
 
@@ -340,8 +344,46 @@
       color: #cbd5e1;
     }
 
-    .media-slot.uni-slot .slot-placeholder {
+    .media-slot.uni-slot .slot-placeholder,
+    .media-slot.workplace-slot .slot-placeholder {
       color: #0f172a;
+    }
+
+    .company-mini-card {
+      margin-top: 3mm;
+      width: 100mm;
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(56, 189, 248, 0.38);
+      border-radius: 10px;
+      padding: 2.8mm 3.8mm;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8mm;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+    }
+
+    .company-mini-card .co-en {
+      font-family: var(--font-en);
+      font-size: 10.6pt;
+      font-weight: 800;
+      color: #38bdf8;
+      letter-spacing: 0.2px;
+      line-height: 1.2;
+    }
+
+    .company-mini-card .co-th {
+      font-size: 9.8pt;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.25;
+    }
+
+    .company-mini-card .co-sub {
+      font-size: 8.2pt;
+      font-weight: 500;
+      color: #cbd5e1;
+      line-height: 1.25;
     }
 
     .slot-placeholder svg {
@@ -1831,16 +1873,20 @@
           </div>
 
           <div>
-            <div class="media-slot workplace-slot" id="slot_workplacePhoto" onclick="triggerUpload('inputWorkplacePhoto')" title="คลิกเพื่ออัปโหลดรูปสถานที่ฝึกงาน">
-              <img class="uploaded-img" id="img_workplacePhoto" alt="Workplace Photo">
+            <div class="media-slot workplace-slot" id="slot_workplacePhoto" onclick="triggerUpload('inputWorkplacePhoto')" title="คลิกเพื่ออัปโหลดโลโก้/รูปบริษัท (สัดส่วน 512×225)">
+              <img class="uploaded-img" id="img_workplacePhoto" alt="Function International (FTI) Logo">
               <div class="slot-placeholder">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                <span class="slot-title">รูปสถานประกอบการ (FTI)</span>
-                <span class="slot-sub">คลิกเพื่ออัปโหลดภาพถ่าย (4:3)</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="#0284c7"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                <span class="slot-title" style="color:#0f172a;">โลโก้ / รูปบริษัท FTI</span>
+                <span class="slot-sub" style="color:#475569;">พอดีสัดส่วน 512×225 (คลิกอัปโหลด PNG)</span>
               </div>
-              <div class="upload-hover-badge">เปลี่ยนรูปสถานประกอบการ</div>
+              <div class="upload-hover-badge">เปลี่ยนโลโก้ / รูปบริษัท (512×225)</div>
             </div>
-            <div class="workplace-caption" data-edit-key="workplace_caption">Function International (FTI)<br>บริษัท ฟังก์ชั่น อินเตอร์เนชั่นแนล จำกัด</div>
+            <div class="company-mini-card">
+              <div class="co-en" data-edit-key="co_en">Function International (FTI)</div>
+              <div class="co-th" data-edit-key="workplace_caption">บริษัท ฟังก์ชั่น อินเตอร์เนชั่นแนล จำกัด</div>
+              <div class="co-sub" data-edit-key="co_sub">ทุนจดทะเบียน 225 ล้านบาท • ผลิตภัณฑ์เกี่ยวกับน้ำครบวงจร</div>
+            </div>
           </div>
         </header>
 
