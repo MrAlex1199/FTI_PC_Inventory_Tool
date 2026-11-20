@@ -1,0 +1,1724 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FTI PC Inventory Tool - Enterprise Project Poster (A1)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Prompt:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================================================
+       A1 POSTER CORE STYLES & PRINT SPECIFICATIONS
+       Dimensions: A1 Portrait = 594mm x 841mm (Aspect Ratio: 1 : 1.4158)
+       ========================================================================== */
+    :root {
+      --navy-950: #070d1e;
+      --navy-900: #0b132b;
+      --navy-800: #1c2541;
+      --navy-700: #24325a;
+      --cyber-blue: #0284c7;
+      --cyber-sky: #38bdf8;
+      --cyber-cyan: #06b6d4;
+      --cyber-teal: #14b8a6;
+      --cyber-emerald: #10b981;
+      --cyber-amber: #f59e0b;
+      --cyber-rose: #f43f5e;
+      --cyber-purple: #8b5cf6;
+      
+      --canvas-bg: #f8fafc;
+      --card-bg: #ffffff;
+      --card-border: #e2e8f0;
+      --text-heading: #0f172a;
+      --text-body: #334155;
+      --text-muted: #64748b;
+      
+      --font-th: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-en: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      background-color: #0b1120;
+      background-image: 
+        radial-gradient(#1e293b 1px, transparent 1px),
+        radial-gradient(#334155 1px, #0b1120 1px);
+      background-size: 40px 40px;
+      background-position: 0 0, 20px 20px;
+      font-family: var(--font-th);
+      color: var(--text-body);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 70px;
+      padding-bottom: 60px;
+    }
+
+    /* Screen Floating Toolbar */
+    .screen-toolbar {
+      position: fixed;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 10000;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.3);
+      color: #f8fafc;
+      font-family: var(--font-en);
+      font-size: 13px;
+    }
+
+    .toolbar-title {
+      font-weight: 700;
+      color: var(--cyber-sky);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-right: 10px;
+      border-right: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .toolbar-btn {
+      background: rgba(255, 255, 255, 0.08);
+      color: #f8fafc;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--font-th);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .toolbar-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      border-color: var(--cyber-sky);
+      transform: translateY(-1px);
+    }
+
+    .toolbar-btn.primary {
+      background: linear-gradient(135deg, #0284c7, #06b6d4);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+    }
+
+    .toolbar-btn.primary:hover {
+      box-shadow: 0 4px 14px rgba(6, 182, 212, 0.6);
+    }
+
+    .scale-selector {
+      background: rgba(0, 0, 0, 0.4);
+      color: #94a3b8;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 9999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-family: var(--font-en);
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Poster Container Wrapper for Scaled View */
+    .poster-scale-wrapper {
+      transition: transform 0.2s ease;
+      transform-origin: top center;
+      margin-top: 10px;
+    }
+
+    /* A1 Poster Sheet Container */
+    .poster-sheet {
+      width: 594mm;
+      height: 841mm;
+      min-width: 594mm;
+      min-height: 841mm;
+      max-width: 594mm;
+      max-height: 841mm;
+      background: var(--canvas-bg);
+      box-shadow: 
+        0 25px 60px -15px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(255, 255, 255, 0.08);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 16mm 18mm 14mm 18mm;
+      box-sizing: border-box;
+    }
+
+    /* Subtle Architectural Background Grid inside Poster */
+    .poster-sheet::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: 
+        linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+      background-size: 20mm 20mm;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .poster-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      gap: 10mm;
+    }
+
+    /* ==========================================================================
+       ZONE 1: HERO HEADER
+       ========================================================================== */
+    .hero-header {
+      background: linear-gradient(135deg, #070d1e 0%, #0c1836 45%, #102a54 75%, #0369a1 100%);
+      border-radius: 18px;
+      padding: 14mm 16mm;
+      color: #ffffff;
+      box-shadow: 0 10px 30px rgba(7, 13, 30, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 8mm;
+    }
+
+    .hero-header::after {
+      content: "";
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 450px;
+      height: 450px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .header-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16mm;
+    }
+
+    .brand-left {
+      display: flex;
+      align-items: center;
+      gap: 12mm;
+      flex: 1;
+    }
+
+    .emblem-wrapper {
+      width: 32mm;
+      height: 32mm;
+      min-width: 32mm;
+      background: linear-gradient(135deg, #0284c7, #06b6d4);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 24px rgba(2, 132, 199, 0.45);
+      border: 2px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .emblem-wrapper svg {
+      width: 20mm;
+      height: 20mm;
+      fill: none;
+      stroke: #ffffff;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 3mm;
+    }
+
+    .badge-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .badge-tag {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 3px 12px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      font-family: var(--font-en);
+      color: #e0f2fe;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-tag.highlight {
+      background: linear-gradient(90deg, #10b981, #06b6d4);
+      color: #070d1e;
+      border-color: transparent;
+      font-weight: 800;
+    }
+
+    .main-title {
+      font-family: var(--font-en);
+      font-size: 34pt;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      line-height: 1.05;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #ffffff 30%, #e0f2fe 70%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .thai-subtitle {
+      font-family: var(--font-th);
+      font-size: 15.5pt;
+      font-weight: 500;
+      color: #cbd5e1;
+      line-height: 1.35;
+    }
+
+    /* Author & Institution Info Card */
+    .author-card {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      padding: 5mm 7mm;
+      display: flex;
+      flex-direction: column;
+      gap: 2.5mm;
+      min-width: 175mm;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .info-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 10.5pt;
+      line-height: 1.3;
+    }
+
+    .info-label {
+      color: var(--cyber-sky);
+      font-weight: 600;
+      min-width: 32mm;
+      font-size: 10pt;
+    }
+
+    .info-val {
+      color: #f1f5f9;
+      font-weight: 500;
+      flex: 1;
+      outline: none;
+      padding: 1px 4px;
+      border-radius: 4px;
+      transition: background 0.2s ease;
+    }
+
+    .info-val[contenteditable="true"] {
+      background: rgba(56, 189, 248, 0.15);
+      border-bottom: 1px dashed var(--cyber-sky);
+      cursor: text;
+    }
+
+    /* ==========================================================================
+       ZONE 2: METRICS & KPI BAND (4 CARDS)
+       ========================================================================== */
+    .metrics-band {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6mm;
+    }
+
+    .kpi-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 5.5mm 6mm;
+      display: flex;
+      align-items: center;
+      gap: 5mm;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+      position: relative;
+      overflow: hidden;
+      border-top: 4px solid var(--cyber-blue);
+    }
+
+    .kpi-card:nth-child(2) { border-top-color: var(--cyber-emerald); }
+    .kpi-card:nth-child(3) { border-top-color: var(--cyber-cyan); }
+    .kpi-card:nth-child(4) { border-top-color: var(--cyber-purple); }
+
+    .kpi-icon-box {
+      width: 15mm;
+      height: 15mm;
+      min-width: 15mm;
+      border-radius: 12px;
+      background: #f0f9ff;
+      color: var(--cyber-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .kpi-card:nth-child(2) .kpi-icon-box { background: #ecfdf5; color: var(--cyber-emerald); }
+    .kpi-card:nth-child(3) .kpi-icon-box { background: #ecfeff; color: var(--cyber-cyan); }
+    .kpi-card:nth-child(4) .kpi-icon-box { background: #f5f3ff; color: var(--cyber-purple); }
+
+    .kpi-icon-box svg {
+      width: 8.5mm;
+      height: 8.5mm;
+      stroke-width: 2.2;
+    }
+
+    .kpi-data {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .kpi-val {
+      font-family: var(--font-en);
+      font-size: 23pt;
+      font-weight: 800;
+      color: var(--text-heading);
+      line-height: 1.1;
+      letter-spacing: -0.5px;
+    }
+
+    .kpi-label {
+      font-size: 10pt;
+      font-weight: 600;
+      color: var(--text-heading);
+      margin-top: 1.5mm;
+    }
+
+    .kpi-sub {
+      font-size: 8.5pt;
+      color: var(--text-muted);
+      line-height: 1.25;
+    }
+
+    /* ==========================================================================
+       ZONE 3: 2-COLUMN MAIN CONTENT GRID
+       ========================================================================== */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 48.5% 51.5%;
+      gap: 8mm;
+      flex: 1;
+    }
+
+    .col-left, .col-right {
+      display: flex;
+      flex-direction: column;
+      gap: 7mm;
+    }
+
+    /* Section Cards Common */
+    .section-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 6mm 7mm;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.035);
+      display: flex;
+      flex-direction: column;
+      gap: 4mm;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 3.5mm;
+      padding-bottom: 3mm;
+      border-bottom: 1.5px solid #f1f5f9;
+    }
+
+    .sec-num {
+      width: 7.5mm;
+      height: 7.5mm;
+      border-radius: 7px;
+      background: var(--navy-900);
+      color: #38bdf8;
+      font-family: var(--font-en);
+      font-weight: 800;
+      font-size: 11pt;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sec-title {
+      font-size: 13.5pt;
+      font-weight: 700;
+      color: var(--text-heading);
+      letter-spacing: -0.2px;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .sec-title span.en {
+      font-family: var(--font-en);
+      font-size: 10pt;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Section 01: Problem Statement */
+    .pain-points-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3.5mm;
+    }
+
+    .pain-box {
+      background: #fef2f2;
+      border: 1px solid #fee2e2;
+      border-radius: 10px;
+      padding: 3.5mm 4mm;
+      display: flex;
+      gap: 3mm;
+      align-items: flex-start;
+    }
+
+    .pain-box.solution {
+      background: #f0fdf4;
+      border-color: #dcfce7;
+    }
+
+    .pain-icon {
+      width: 6mm;
+      height: 6mm;
+      min-width: 6mm;
+      color: #ef4444;
+      margin-top: 1px;
+    }
+
+    .pain-box.solution .pain-icon {
+      color: #10b981;
+    }
+
+    .pain-text h4 {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #991b1b;
+      margin-bottom: 1mm;
+    }
+
+    .pain-box.solution .pain-text h4 {
+      color: #065f46;
+    }
+
+    .pain-text p {
+      font-size: 8.5pt;
+      color: #475569;
+      line-height: 1.35;
+    }
+
+    /* Section 02: Objectives */
+    .obj-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2.8mm;
+    }
+
+    .obj-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 3mm;
+      font-size: 9.2pt;
+      color: var(--text-body);
+      line-height: 1.35;
+    }
+
+    .obj-dot {
+      width: 4.5mm;
+      height: 4.5mm;
+      min-width: 4.5mm;
+      border-radius: 50%;
+      background: #0284c7;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1.5px;
+      font-size: 8px;
+    }
+
+    /* Section 03: Architecture SVG Vector Box */
+    .arch-svg-container {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 4mm;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .arch-svg-container svg {
+      width: 100%;
+      height: auto;
+      max-height: 68mm;
+    }
+
+    /* Section 04: Security Grid */
+    .sec-feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3.5mm;
+    }
+
+    .sec-feature-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 3.5mm 4mm;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5mm;
+    }
+
+    .sec-f-header {
+      display: flex;
+      align-items: center;
+      gap: 2.5mm;
+      color: var(--navy-900);
+      font-size: 9.5pt;
+      font-weight: 700;
+    }
+
+    .sec-f-header svg {
+      width: 5mm;
+      height: 5mm;
+      color: var(--cyber-blue);
+    }
+
+    .sec-feature-box p {
+      font-size: 8.5pt;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    /* Section 05: Simulated Live UI Showcase */
+    .ui-showcase-frame {
+      background: #0a0f1d;
+      border-radius: 12px;
+      border: 1px solid #1e293b;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      font-family: var(--font-en);
+      color: #f8fafc;
+    }
+
+    .ui-window-bar {
+      background: #111827;
+      border-bottom: 1px solid #1f2937;
+      padding: 2.5mm 4mm;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .window-dots {
+      display: flex;
+      gap: 5px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .dot.red { background: #ef4444; }
+    .dot.yellow { background: #f59e0b; }
+    .dot.green { background: #10b981; }
+
+    .window-title {
+      font-size: 8.5pt;
+      font-weight: 600;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .ui-app-body {
+      padding: 4mm 5mm;
+      display: flex;
+      flex-direction: column;
+      gap: 3.5mm;
+      background: #0a0f1d;
+    }
+
+    .ui-top-stats {
+      display: grid;
+      grid-template-columns: 2.2fr 1fr 1fr 1fr 1fr;
+      gap: 3mm;
+      align-items: center;
+    }
+
+    .ui-ring-box {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      padding: 2.5mm 3.5mm;
+      display: flex;
+      align-items: center;
+      gap: 3mm;
+    }
+
+    .mini-progress-svg {
+      width: 13mm;
+      height: 13mm;
+      transform: rotate(-90deg);
+    }
+
+    .ui-stat-pill {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      padding: 2.5mm 3mm;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .ui-stat-pill .num {
+      font-size: 13pt;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .ui-stat-pill .lbl {
+      font-size: 7pt;
+      color: #94a3b8;
+      margin-top: 1mm;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .ui-mock-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 7.8pt;
+    }
+
+    .ui-mock-table th {
+      background: #1e293b;
+      color: #94a3b8;
+      font-weight: 600;
+      text-align: left;
+      padding: 1.8mm 2.5mm;
+      border-bottom: 1px solid #334155;
+    }
+
+    .ui-mock-table td {
+      padding: 1.8mm 2.5mm;
+      border-bottom: 1px solid #1e293b;
+      color: #cbd5e1;
+      font-family: var(--font-mono);
+      font-size: 7.2pt;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 6.8pt;
+      font-weight: 700;
+      font-family: var(--font-en);
+    }
+
+    .status-badge.ok { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .status-badge.offline { background: rgba(244, 63, 94, 0.2); color: #fb7185; }
+    .status-badge.dcom { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
+
+    /* Section 06: Key Capabilities 6-Cards */
+    .caps-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3mm;
+    }
+
+    .cap-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 9px;
+      padding: 3mm 3.5mm;
+      display: flex;
+      flex-direction: column;
+      gap: 1mm;
+    }
+
+    .cap-head {
+      display: flex;
+      align-items: center;
+      gap: 2mm;
+      font-size: 9.2pt;
+      font-weight: 700;
+      color: var(--navy-900);
+    }
+
+    .cap-head svg {
+      width: 4.5mm;
+      height: 4.5mm;
+      color: var(--cyber-blue);
+    }
+
+    .cap-item p {
+      font-size: 8.2pt;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    /* Section 07: Comparison Table */
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8.5pt;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .compare-table th {
+      background: var(--navy-900);
+      color: #ffffff;
+      padding: 2.2mm 3mm;
+      font-weight: 600;
+      text-align: left;
+      font-size: 8.8pt;
+    }
+
+    .compare-table th:last-child {
+      background: #0369a1;
+      color: #e0f2fe;
+    }
+
+    .compare-table td {
+      padding: 2.2mm 3mm;
+      border-bottom: 1px solid #e2e8f0;
+      color: var(--text-body);
+      line-height: 1.25;
+    }
+
+    .compare-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .compare-table td.highlight {
+      background: #f0fdf4;
+      font-weight: 700;
+      color: #065f46;
+    }
+
+    /* ==========================================================================
+       ZONE 4: FOOTER (CONCLUSIONS + QR CODE GITHUB)
+       ========================================================================== */
+    .footer-band {
+      background: linear-gradient(135deg, #070d1e 0%, #0f1d40 60%, #1e293b 100%);
+      border-radius: 16px;
+      padding: 6mm 10mm;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8mm;
+      box-shadow: 0 8px 24px rgba(7, 13, 30, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .footer-summary {
+      display: flex;
+      flex-direction: column;
+      gap: 2mm;
+      flex: 1;
+    }
+
+    .footer-summary h3 {
+      font-size: 12.5pt;
+      font-weight: 700;
+      color: var(--cyber-sky);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .footer-summary p {
+      font-size: 9pt;
+      color: #cbd5e1;
+      line-height: 1.4;
+    }
+
+    .qr-badge-group {
+      display: flex;
+      align-items: center;
+      gap: 5mm;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 3mm 5mm;
+    }
+
+    .qr-frame {
+      width: 25mm;
+      height: 25mm;
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 1.5mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .qr-frame svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .qr-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5mm;
+    }
+
+    .qr-meta h4 {
+      font-family: var(--font-en);
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .qr-meta p {
+      font-size: 8pt;
+      color: #94a3b8;
+      line-height: 1.3;
+    }
+
+    .repo-link-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+      font-size: 7.8pt;
+      color: var(--cyber-sky);
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 2px 8px;
+      border-radius: 4px;
+      text-decoration: none;
+    }
+
+    /* ==========================================================================
+       PRINT MEDIA QUERIES (STRICT A1 REPRODUCTION)
+       ========================================================================== */
+    @page {
+      size: 594mm 841mm;
+      margin: 0;
+    }
+
+    @media print {
+      html, body {
+        width: 594mm !important;
+        height: 841mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .screen-toolbar {
+        display: none !important;
+      }
+
+      .poster-scale-wrapper {
+        transform: none !important;
+        margin: 0 !important;
+      }
+
+      .poster-sheet {
+        width: 594mm !important;
+        height: 841mm !important;
+        min-height: 841mm !important;
+        max-height: 841mm !important;
+        margin: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        page-break-inside: avoid !important;
+        page-break-after: avoid !important;
+      }
+
+      .info-val[contenteditable="true"] {
+        border-bottom: none !important;
+        background: transparent !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Floating Screen Toolbar (Hidden on Print) -->
+  <div class="screen-toolbar" id="screenToolbar">
+    <div class="toolbar-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      A1 Project Poster
+    </div>
+    
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#cbd5e1;">
+      ซูม:
+      <select class="scale-selector" id="scaleSelect" onchange="applyScale(this.value)">
+        <option value="fit" selected>พอดีหน้าต่าง (Fit Screen)</option>
+        <option value="0.35">35% (Compact)</option>
+        <option value="0.5">50% (Standard Preview)</option>
+        <option value="0.75">75% (Detailed)</option>
+        <option value="1.0">100% (A1 Full Size - 594x841mm)</option>
+      </select>
+    </label>
+
+    <button type="button" class="toolbar-btn" id="editToggleBtn" onclick="toggleEditMode()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      แก้ไขข้อมูลผู้จัดทำ
+    </button>
+
+    <button type="button" class="toolbar-btn primary" onclick="printPoster()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      พิมพ์ / บันทึก PDF (A1 Print)
+    </button>
+  </div>
+
+  <!-- Poster Scaling Wrapper -->
+  <div class="poster-scale-wrapper" id="scaleWrapper">
+    <!-- Physical A1 Paper Canvas -->
+    <main class="poster-sheet" id="posterSheet">
+      <div class="poster-content">
+
+        <!-- ==================================================================
+             ZONE 1: HERO HEADER & IDENTIFIERS
+             ================================================================== -->
+        <header class="hero-header">
+          <div class="header-top-row">
+            <div class="brand-left">
+              <div class="emblem-wrapper">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  <path d="M9 12l2 2 4-4"/>
+                </svg>
+              </div>
+              <div class="title-block">
+                <div class="badge-strip">
+                  <span class="badge-tag highlight">Enterprise Edition v2026.11.19.1</span>
+                  <span class="badge-tag">Active Directory Domain Integrated</span>
+                  <span class="badge-tag">Zero-Agent Architecture</span>
+                  <span class="badge-tag">SHA-256 Authenticode Signed</span>
+                </div>
+                <h1 class="main-title">FTI PC INVENTORY TOOL</h1>
+                <p class="thai-subtitle">ระบบตรวจจับ วิเคราะห์ และบริหารจัดการฮาร์ดแวร์-ซอฟต์แวร์เครื่องคอมพิวเตอร์ลูกข่ายแบบไร้เอเจนต์ระดับองค์กร</p>
+              </div>
+            </div>
+
+            <!-- Editable Metadata Box -->
+            <div class="author-card">
+              <div class="info-row">
+                <span class="info-label">ผู้พัฒนาโครงงาน :</span>
+                <span class="info-val" id="metaAuthor" contenteditable="false">นายชนาธิป มะลิพรม (นักศึกษาสหกิจศึกษา DevOps & Enterprise IT)</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">อาจารย์ / พี่เลี้ยง :</span>
+                <span class="info-val" id="metaAdvisor" contenteditable="false">คุณนรินทร์ สมบูรณ์ (Senior System & Network Administrator)</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">หน่วยงาน / สังกัด :</span>
+                <span class="info-val" id="metaOrg" contenteditable="false">สำนักงานเทคโนโลยีสารสนเทศและการสื่อสาร สภาอุตสาหกรรมแห่งประเทศไทย (FTI)</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">เทคโนโลยีหลัก :</span>
+                <span class="info-val" id="metaTech" contenteditable="false">.NET Framework 4.8 C# Host • PowerShell 5.1 Runspaces • WinRM / DCOM • Edge WebView2</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <!-- ==================================================================
+             ZONE 2: KEY METRICS BAND (4 CARDS)
+             ================================================================== -->
+        <section class="metrics-band">
+          <div class="kpi-card">
+            <div class="kpi-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="kpi-data">
+              <div class="kpi-val">&lt; 5 นาที</div>
+              <div class="kpi-label">สแกนขนาน 200+ เครื่อง</div>
+              <div class="kpi-sub">PowerShell Multi-Runspace 30 Threads</div>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div class="kpi-data">
+              <div class="kpi-val">6 ขั้นตอน</div>
+              <div class="kpi-label">เจาะลึก Dual-Protocol Fallback</div>
+              <div class="kpi-sub">WinRM (5985) &rarr; DCOM WMI (135) &rarr; Registry</div>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            </div>
+            <div class="kpi-data">
+              <div class="kpi-val">500 ms</div>
+              <div class="kpi-label">Telemetry สดแบบ Real-Time</div>
+              <div class="kpi-sub">Dynamic Progress Ring &amp; Live Grid Update</div>
+            </div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div class="kpi-data">
+              <div class="kpi-val">760 KB</div>
+              <div class="kpi-label">ไฟล์เดียว ไร้เอเจนต์ ปลอดภัย 100%</div>
+              <div class="kpi-sub">Native C# Binary พร้อม Authenticode SHA256</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================================================================
+             ZONE 3: 2-COLUMN MAIN CONTENT GRID
+             ================================================================== -->
+        <div class="main-grid">
+          
+          <!-- LEFT COLUMN: Problem, Objectives, Architecture, Security -->
+          <div class="col-left">
+            
+            <!-- 01: Background & Problem Statement -->
+            <section class="section-card">
+              <div class="card-header">
+                <div class="sec-num">01</div>
+                <div class="sec-title">ความเป็นมาและความสำคัญของปัญหา <span class="en">Problem Statement</span></div>
+              </div>
+              <div class="pain-points-grid">
+                <div class="pain-box">
+                  <svg class="pain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  <div class="pain-text">
+                    <h4>ภาระงานตรวจนับด้วยแรงคน</h4>
+                    <p>การเดินสำรวจสเปก PC กว่า 200 เครื่องในองค์กรใช้เวลา 3-5 วันทำการ เสี่ยงต่อข้อผิดพลาดและการทำงานซ้ำซ้อน</p>
+                  </div>
+                </div>
+
+                <div class="pain-box">
+                  <svg class="pain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  <div class="pain-text">
+                    <h4>ข้อมูลฮาร์ดแวร์กระจัดกระจาย</h4>
+                    <p>ไฟล์ Excel เก่า ขาดการอัปเดตแบบเรียลไทม์ ไม่ทราบประวัติการเปลี่ยนแรม ซีพียู หรือฮาร์ดดิสก์ของเครื่องลูกข่าย</p>
+                  </div>
+                </div>
+
+                <div class="pain-box">
+                  <svg class="pain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  <div class="pain-text">
+                    <h4>เครื่องปิด (Offline) ทำข้อมูลแหว่ง</h4>
+                    <p>สคริปต์ทั่วไปเมื่อเครื่องออฟไลน์จะบันทึกค่าว่าง ทับสเปกเดิมสูญหาย หรือติดปัญหา Ghost DNS ข้อมูลผิดพลาด</p>
+                  </div>
+                </div>
+
+                <div class="pain-box solution">
+                  <svg class="pain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  <div class="pain-text">
+                    <h4>นวัตกรรม FTI PC Inventory</h4>
+                    <p>สแกนคู่ขนานแบบไร้เอเจนต์ ผสาน Master Database สะสมประวัติ ปลอดภัยด้วยลายเซ็นดิจิทัลระดับองค์กร</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 02: Objectives & Scope -->
+            <section class="section-card">
+              <div class="card-header">
+                <div class="sec-num">02</div>
+                <div class="sec-title">วัตถุประสงค์และขอบเขตทางเทคนิค <span class="en">Objectives & Scope</span></div>
+              </div>
+              <div class="obj-list">
+                <div class="obj-item">
+                  <div class="obj-dot">&check;</div>
+                  <div><strong>สแกนข้อมูลอัตโนมัติแบบไร้เอเจนต์ (Agentless Architecture) :</strong> ดึงข้อมูลฮาร์ดแวร์ ซอฟต์แวร์ และสถานะ Active Directory ของเครื่องลูกข่ายในโดเมนกว่า 200 เครื่อง โดยไม่ต้องติดตั้งโปรแกรมดักฟังใดๆ บนเครื่องปลายทาง</div>
+                </div>
+                <div class="obj-item">
+                  <div class="obj-dot">&check;</div>
+                  <div><strong>ระบบฐานข้อมูลหลักสะสมประวัติ (Master Database Cumulative Upsert) :</strong> อัปเดตข้อมูลเครื่องเดิมโดยไม่ลบทิ้ง คงประวัติเครื่องออฟไลน์ไว้ (Offline - Was OK) พร้อมบันทึกรอบนับ <code>Scan_Count</code> และเวลา <code>First_Seen</code>, <code>Last_Scan</code></div>
+                </div>
+                <div class="obj-item">
+                  <div class="obj-dot">&check;</div>
+                  <div><strong>ระบบตั้งเวลาอัตโนมัติแบบไฮบริด (Hybrid Automated Scheduling) :</strong> รองรับทั้งการนับถอยหลังภายในแอป (In-App Countdown) และการผสาน Windows Task Scheduler รันเบื้องหลังแบบไร้หน้าต่าง (<code>-Silent</code>) ทุกวัน</div>
+                </div>
+                <div class="obj-item">
+                  <div class="obj-dot">&check;</div>
+                  <div><strong>วิศวกรรมความปลอดภัยมาตรฐานองค์กร (Enterprise Security & Trust) :</strong> คอมไพล์ด้วย .NET Framework Native C# ลงนามใบรับรองดิจิทัล Authenticode SHA-256 ป้องกันการแจ้งเตือนจาก Antivirus และ Windows SmartScreen 100%</div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 03: Architecture Diagram (Vector SVG) -->
+            <section class="section-card">
+              <div class="card-header">
+                <div class="sec-num">03</div>
+                <div class="sec-title">สถาปัตยกรรมระบบและการทำงานแบบคู่ขนาน <span class="en">System Architecture</span></div>
+              </div>
+              <div class="arch-svg-container">
+                <svg viewBox="0 0 620 230">
+                  <defs>
+                    <linearGradient id="gradHost" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#0284c7"/>
+                      <stop offset="100%" stop-color="#0369a1"/>
+                    </linearGradient>
+                    <linearGradient id="gradPool" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#1e293b"/>
+                      <stop offset="100%" stop-color="#0f172a"/>
+                    </linearGradient>
+                    <linearGradient id="gradProto" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#0f766e"/>
+                      <stop offset="100%" stop-color="#115e59"/>
+                    </linearGradient>
+                    <linearGradient id="gradStore" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#4f46e5"/>
+                      <stop offset="100%" stop-color="#3730a3"/>
+                    </linearGradient>
+                    <filter id="boxShadow" x="-5%" y="-5%" width="110%" height="115%">
+                      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.12"/>
+                    </filter>
+                  </defs>
+
+                  <!-- 1. Native Launcher Host -->
+                  <rect x="10" y="20" width="130" height="85" rx="8" fill="url(#gradHost)" filter="url(#boxShadow)"/>
+                  <text x="75" y="44" fill="#ffffff" font-family="Inter" font-weight="700" font-size="11" text-anchor="middle">Native C# Host</text>
+                  <text x="75" y="60" fill="#e0f2fe" font-family="Inter" font-weight="500" font-size="8.5" text-anchor="middle">FTI_PC_Inventory.exe</text>
+                  <text x="75" y="74" fill="#bae6fd" font-family="Prompt" font-size="8" text-anchor="middle">.NET 4.8 / SHA256</text>
+                  <text x="75" y="88" fill="#38bdf8" font-family="Prompt" font-size="7.5" text-anchor="middle">&bull; requireAdministrator</text>
+
+                  <!-- Connection Line to UI & Engine -->
+                  <path d="M 75 105 L 75 140" stroke="#0284c7" stroke-width="2" stroke-dasharray="3,3"/>
+                  <path d="M 140 62 L 175 62" stroke="#0284c7" stroke-width="2" marker-end="url(#arrow)"/>
+
+                  <!-- Embedded Edge WebView2 UI -->
+                  <rect x="10" y="140" width="130" height="75" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#boxShadow)"/>
+                  <text x="75" y="162" fill="#0f172a" font-family="Inter" font-weight="700" font-size="10" text-anchor="middle">Embedded UI Client</text>
+                  <text x="75" y="177" fill="#64748b" font-family="Prompt" font-size="8" text-anchor="middle">Microsoft Edge WebView2</text>
+                  <text x="75" y="192" fill="#0284c7" font-family="Prompt" font-size="7.5" text-anchor="middle">Real-time HTTP / SSE IPC</text>
+                  <text x="75" y="204" fill="#10b981" font-family="Prompt" font-size="7" text-anchor="middle">Latency &lt; 500ms</text>
+
+                  <!-- 2. Concurrent Runspace Pool Engine -->
+                  <rect x="175" y="20" width="145" height="195" rx="8" fill="url(#gradPool)" filter="url(#boxShadow)"/>
+                  <text x="247" y="44" fill="#38bdf8" font-family="Inter" font-weight="700" font-size="11" text-anchor="middle">RunspacePool Engine</text>
+                  <text x="247" y="58" fill="#94a3b8" font-family="Prompt" font-size="8" text-anchor="middle">30 Parallel Scan Workers</text>
+
+                  <!-- Worker nodes inside pool -->
+                  <rect x="190" y="70" width="115" height="22" rx="4" fill="#334155"/>
+                  <text x="247" y="85" fill="#f8fafc" font-family="Prompt" font-size="7.5" text-anchor="middle">1. Ping &amp; Ghost DNS Resolver</text>
+
+                  <rect x="190" y="98" width="115" height="22" rx="4" fill="#334155"/>
+                  <text x="247" y="113" fill="#f8fafc" font-family="Prompt" font-size="7.5" text-anchor="middle">2. Protocol Negotiation</text>
+
+                  <rect x="190" y="126" width="115" height="22" rx="4" fill="#334155"/>
+                  <text x="247" y="141" fill="#f8fafc" font-family="Prompt" font-size="7.5" text-anchor="middle">3. WMI Hardware Extraction</text>
+
+                  <rect x="190" y="154" width="115" height="22" rx="4" fill="#334155"/>
+                  <text x="247" y="169" fill="#f8fafc" font-family="Prompt" font-size="7.5" text-anchor="middle">4. Registry Software Scan</text>
+
+                  <rect x="190" y="182" width="115" height="22" rx="4" fill="#334155"/>
+                  <text x="247" y="197" fill="#38bdf8" font-family="Prompt" font-size="7.5" text-anchor="middle">5. AD OU &amp; Uptime Telemetry</text>
+
+                  <!-- Connection Line Pool to Target -->
+                  <path d="M 320 62 L 355 62" stroke="#38bdf8" stroke-width="2"/>
+                  <path d="M 320 150 L 355 150" stroke="#38bdf8" stroke-width="2"/>
+
+                  <!-- 3. Target Endpoints & Dual Protocols -->
+                  <rect x="355" y="20" width="125" height="85" rx="8" fill="url(#gradProto)" filter="url(#boxShadow)"/>
+                  <text x="417" y="44" fill="#ffffff" font-family="Inter" font-weight="700" font-size="10.5" text-anchor="middle">Dual-Protocol Pipeline</text>
+                  <text x="417" y="59" fill="#99f6e4" font-family="Prompt" font-size="8" text-anchor="middle">&bull; Primary: WinRM (5985)</text>
+                  <text x="417" y="73" fill="#ccfbf1" font-family="Prompt" font-size="8" text-anchor="middle">&bull; Fallback: DCOM WMI (135)</text>
+                  <text x="417" y="87" fill="#5eead4" font-family="Prompt" font-size="7.5" text-anchor="middle">&bull; Registry Hive Sub-Tree</text>
+
+                  <!-- Domain Clients (200+ PCs) -->
+                  <rect x="355" y="125" width="125" height="90" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#boxShadow)"/>
+                  <text x="417" y="147" fill="#0f172a" font-family="Inter" font-weight="700" font-size="10" text-anchor="middle">Domain PCs (200+)</text>
+                  <text x="417" y="163" fill="#64748b" font-family="Prompt" font-size="8" text-anchor="middle">Windows 10 / 11 Enterprise</text>
+                  <text x="417" y="178" fill="#10b981" font-family="Prompt" font-size="7.5" text-anchor="middle">&bull; Zero-Agent Footprint</text>
+                  <text x="417" y="191" fill="#0284c7" font-family="Prompt" font-size="7.5" text-anchor="middle">&bull; No Service Installation</text>
+                  <text x="417" y="203" fill="#f59e0b" font-family="Prompt" font-size="7.5" text-anchor="middle">&bull; Silent Background Query</text>
+
+                  <!-- Connection Line to Storage -->
+                  <path d="M 480 62 L 515 62" stroke="#4f46e5" stroke-width="2"/>
+                  <path d="M 480 160 L 515 160" stroke="#4f46e5" stroke-width="2"/>
+
+                  <!-- 4. Master Database & Enterprise Output -->
+                  <rect x="515" y="20" width="95" height="195" rx="8" fill="url(#gradStore)" filter="url(#boxShadow)"/>
+                  <text x="562" y="44" fill="#ffffff" font-family="Inter" font-weight="700" font-size="10.5" text-anchor="middle">Master DB</text>
+                  <text x="562" y="58" fill="#c7d2fe" font-family="Prompt" font-size="7.5" text-anchor="middle">C:\Inventory</text>
+
+                  <rect x="523" y="70" width="79" height="32" rx="4" fill="#312e81"/>
+                  <text x="562" y="84" fill="#e0e7ff" font-family="Prompt" font-weight="600" font-size="7" text-anchor="middle">Hardware_Master</text>
+                  <text x="562" y="96" fill="#a5b4fc" font-family="Prompt" font-size="6.5" text-anchor="middle">Cumulative Upsert</text>
+
+                  <rect x="523" y="108" width="79" height="32" rx="4" fill="#312e81"/>
+                  <text x="562" y="122" fill="#e0e7ff" font-family="Prompt" font-weight="600" font-size="7" text-anchor="middle">Software_Master</text>
+                  <text x="562" y="134" fill="#a5b4fc" font-family="Prompt" font-size="6.5" text-anchor="middle">App Matrix &amp; Count</text>
+
+                  <rect x="523" y="146" width="79" height="32" rx="4" fill="#312e81"/>
+                  <text x="562" y="160" fill="#e0e7ff" font-family="Prompt" font-weight="600" font-size="7" text-anchor="middle">HTML Dashboard</text>
+                  <text x="562" y="172" fill="#a5b4fc" font-family="Prompt" font-size="6.5" text-anchor="middle">Executive Reports</text>
+
+                  <rect x="523" y="184" width="79" height="22" rx="4" fill="#4338ca"/>
+                  <text x="562" y="198" fill="#38bdf8" font-family="Prompt" font-weight="600" font-size="7" text-anchor="middle">9 CSV Analytics</text>
+                </svg>
+              </div>
+            </section>
+
+            <!-- 04: Security & Quality Assurance -->
+            <section class="section-card">
+              <div class="card-header">
+                <div class="sec-num">04</div>
+                <div class="sec-title">ความมั่นคงปลอดภัยและมาตรฐานทางวิศวกรรม <span class="en">Security & QA</span></div>
+              </div>
+              <div class="sec-feature-grid">
+                <div class="sec-feature-box">
+                  <div class="sec-f-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    Authenticode SHA-256
+                  </div>
+                  <p>ลงนามดิจิทัลรับรองความถูกต้องของไบนารี ป้องกันการดัดแปลงและขจัดปัญหา Antivirus False-Positive 100%</p>
+                </div>
+
+                <div class="sec-feature-box">
+                  <div class="sec-f-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    UAC Elevation Manifest
+                  </div>
+                  <p>ฝัง Application Manifest กำหนด <code>requireAdministrator</code> รองรับการเข้าถึง WMI/WinRM สิทธิ์โดเมน</p>
+                </div>
+
+                <div class="sec-feature-box">
+                  <div class="sec-f-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg>
+                    Type Coercion &amp; Sanitization
+                  </div>
+                  <p>ป้องกัน Command Injection และ Script Injection ด้วยการแปลงชนิดข้อมูลอย่างเข้มงวดและ Escape Regex ปลอดภัย</p>
+                </div>
+
+                <div class="sec-feature-box">
+                  <div class="sec-f-header">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                    Fail-Fast Build Pipeline
+                  </div>
+                  <p>ตรวจสอบความถูกต้องของสคริปต์และหน้าเว็บก่อนคอมไพล์ พร้อมระบบแจ้งเตือนข้อผิดพลาดบนหน้าจอทันที</p>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          <!-- RIGHT COLUMN: Dashboard UI Showcase, Capabilities, Comparison -->
+          <div class="col-right">
+
+            <!-- 05: Executive Dashboard & Live UI Showcase -->
+            <section class="section-card">
+              <div class="card-header">
+                <div class="sec-num">05</div>
+                <div class="sec-title">หน้าต่างการทำงานและแดชบอร์ดผู้บริหาร <span class="en">Executive Dashboard</span></div>
+              </div>
+              
+              <!-- Dark-Mode Simulated UI Frame -->
+              <div class="ui-showcase-frame">
+                <div class="ui-window-bar">
+                  <div class="window-dots">
+                    <div class="dot red"></div>
+                    <div class="dot yellow"></div>
+                    <div class="dot green"></div>
+                  </div>
+                  <div class="window-title">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    FTI PC Inventory Tool Enterprise &bull; Live Telemetry Session
+                  </div>
+                  <div style="font-size:7pt;color:#10b981;font-weight:700;">● SCANNING (30 THREADS)</div>
+                </div>
+
+                <div class="ui-app-body">
+                  <!-- UI Top KPI Row -->
+                  <div class="ui-top-stats">
+                    <div class="ui-ring-box">
+                      <svg class="mini-progress-svg" viewBox="0 0 36 36">
+                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#1e293b" stroke-width="4.2"/>
+                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#0284c7" stroke-dasharray="84, 100" stroke-width="4.2" stroke-linecap="round"/>
+                      </svg>
+                      <div>
+                        <div style="font-size:11pt;font-weight:800;color:#f8fafc;">84% เสร็จสิ้น</div>
+                        <div style="font-size:7.2pt;color:#94a3b8;">168 / 200 เครื่อง (03:12 น.)</div>
+                      </div>
+                    </div>
+
+                    <div class="ui-stat-pill">
+                      <div class="num" style="color:#f8fafc;">200</div>
+                      <div class="lbl">ทั้งหมด (Total)</div>
+                    </div>
+                    <div class="ui-stat-pill">
+                      <div class="num" style="color:#10b981;">168</div>
+                      <div class="lbl">ออนไลน์ (OK)</div>
+                    </div>
+                    <div class="ui-stat-pill">
+                      <div class="num" style="color:#f43f5e;">24</div>
+                      <div class="lbl">ออฟไลน์ (Offline)</div>
+                    </div>
+                    <div class="ui-stat-pill">
+                      <div class="num" style="color:#f59e0b;">8</div>
+                      <div class="lbl">เตือนสเปก/ดิสก์</div>
+                    </div>
+                  </div>
+
+                  <!-- UI Live Data Table Mockup -->
+                  <table class="ui-mock-table">
+                    <thead>
+                      <tr>
+                        <th>สถานะ</th>
+                        <th>ชื่อเครื่องคอมพิวเตอร์</th>
+                        <th>IP Address</th>
+                        <th>รุ่น / ผู้ผลิต (Model)</th>
+                        <th>RAM</th>
+                        <th>ดิสก์ C: คงเหลือ</th>
+                        <th>เวลา Uptime</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><span class="status-badge ok">OK-WinRM</span></td>
+                        <td>FTI-NB-ADMIN01</td>
+                        <td>192.168.10.45</td>
+                        <td>Dell Latitude 5440</td>
+                        <td>16.0 GB</td>
+                        <td><span style="color:#34d399;">184.2 GB (72%)</span></td>
+                        <td>12 วัน 4 ชม.</td>
+                      </tr>
+                      <tr>
+                        <td><span class="status-badge ok">OK-WinRM</span></td>
+                        <td>FTI-PC-FINANCE03</td>
+                        <td>192.168.10.82</td>
+                        <td>HP ProDesk 400 G7</td>
+                        <td>16.0 GB</td>
+                        <td><span style="color:#fb7185;font-weight:700;">14.1 GB (6%) ⚠️</span></td>
+                        <td>4 วัน 18 ชม.</td>
+                      </tr>
+                      <tr>
+                        <td><span class="status-badge dcom">OK-DCOM</span></td>
+                        <td>FTI-PC-HR02</td>
+                        <td>192.168.10.114</td>
+                        <td>Lenovo ThinkCentre M70</td>
+                        <td>8.0 GB</td>
+                        <td><span style="color:#34d399;">92.5 GB (45%)</span></td>
+                        <td>1 วัน 2 ชม.</td>
+                      </tr>
+                      <tr>
+                        <td><span class="status-badge offline">Offline (Was OK)</span></td>
+                        <td>FTI-NB-EXEC05</td>
+                        <td>192.168.10.198</td>
+                        <td>Lenovo ThinkPad X1 Carbon</td>
+                        <td>32.0 GB</td>
+                        <td><span style="color:#94a3b8;">210.0 GB (Master)</span></td>
+                        <td>ปิดเครื่อง (3 วันก่อน)</td>
+                      </tr>
+                      <tr>
+                        <td><span class="status-badge ok">OK-WinRM</span></td>
+                        <td>FTI-PC-LEGAL01</td>
+                        <td>192.168.10.133</td>
+                        <td>Dell OptiPlex 7090</td>
+                        <td>16.0 GB</td>
+                        <td><span style="color:#34d399;">120.4 GB (52%)</span></td>
+                        <td>8 วัน 11 ชม.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <!-- 06: Key Enterprise Capabilities (6 Cards) -->
+            <section class="section-card">
+              <div class="card-header">
+                <div class="sec-num">06</div>
+                <div class="sec-title">ฟังก์ชันการทำงานเด่นระดับองค์กร <span class="en">Enterprise Capabilities</span></div>
+              </div>
+              <div class="caps-grid">
+                <div class="cap-item">
+                  <div class="cap-head">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                    Master DB Cumulative Upsert
+                  </div>
+                  <p>ผสานข้อมูลอัตโนมัติ ไม่ลบข้อมูลเครื่องเดิม คงสเปกเครื่องออฟไลน์ไว้ พร้อมนับจำนวนครั้งที่เคยสแกนสำเร็จ</p>
+                </div>
+
+                <div class="cap-item">
+                  <div class="cap-head">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                    สแกนซ้ำเฉพาะเครื่องออฟไลน์
+                  </div>
+                  <p>ปุ่ม "Retry Offline Only" สแกนซ้ำเฉพาะเครื่องที่เคยไม่ตอบสนอง ประหยัดเวลาแอดมินมากกว่า 85%</p>
+                </div>
+
+                <div class="cap-item">
+                  <div class="cap-head">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    ตั้งเวลาสแกนอัตโนมัติไฮบริด
+                  </div>
+                  <p>รองรับการนับถอยหลังในแอป และฝัง Task Scheduler ของ Windows รันเบื้องหลังแบบไร้หน้าต่าง (Silent Mode)</p>
+                </div>
+
+                <div class="cap-item">
+                  <div class="cap-head">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                    ตรวจจับฮาร์ดแวร์ &amp; AD เชิงลึก
+                  </div>
+                  <p>แสดงเวลา Uptime, โครงสร้างแผนก OU ลำดับชั้น, เวลาล็อกออนล่าสุดในโดเมน, และแถบเตือนพื้นที่ดิสก์ใกล้เต็ม</p>
+                </div>
+
+                <div class="cap-item">
+                  <div class="cap-head">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    ออกรายงานหลากหลายรูปแบบ
+                  </div>
+                  <p>ส่งออกไฟล์สรุป 9 CSV วิเคราะห์สถิติ และสร้าง Executive HTML Dashboard แยกกล่องค้นหารายเครื่องได้ทันที</p>
+                </div>
+
+                <div class="cap-item">
+                  <div class="cap-head">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                    Cyber Slate Responsive Design
+                  </div>
+                  <p>อินเทอร์เฟซกระจกเงาแก้วทันสมัย ปรับตัวตามขนาดหน้าจอ (400px - 1920px) ไร้ปัญหาข้อความชนกัน</p>
+                </div>
+              </div>
+            </section>
+
+            <!-- 07: Comparison Table -->
+            <section class="section-card">
+              <div class="card-header">
+                <div class="sec-num">07</div>
+                <div class="sec-title">การประเมินผลและเปรียบเทียบประสิทธิภาพ <span class="en">Evaluation</span></div>
+              </div>
+              <table class="compare-table">
+                <thead>
+                  <tr>
+                    <th>มิติการประเมิน (Metrics)</th>
+                    <th>วิธีดั้งเดิม (Manual Audit)</th>
+                    <th>สคริปต์ WMI ทั่วไป</th>
+                    <th>FTI PC Inventory Tool</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>เวลาในการสแกน 200 เครื่อง</strong></td>
+                    <td>3 - 5 วันทำการ</td>
+                    <td>45 - 90 นาที</td>
+                    <td class="highlight">&lt; 5 นาที (เร็วขึ้น 15x)</td>
+                  </tr>
+                  <tr>
+                    <td><strong>การติดตั้งโปรแกรมลูกข่าย</strong></td>
+                    <td>ต้องเดินไปทุกเครื่อง</td>
+                    <td>ไม่ระบุ</td>
+                    <td class="highlight">Zero-Agent (760 KB Standalone)</td>
+                  </tr>
+                  <tr>
+                    <td><strong>การจัดการเครื่องปิด (Offline)</strong></td>
+                    <td>ข้อมูลสูญหาย/ลืมตรวจ</td>
+                    <td>รายงาน Error / ข้อมูลแหว่ง</td>
+                    <td class="highlight">คงสเปก Master DB + Smart Retry</td>
+                  </tr>
+                  <tr>
+                    <td><strong>ความปลอดภัย &amp; Antivirus</strong></td>
+                    <td>ไม่มีผลกระทบ</td>
+                    <td>เสี่ยงติด Windows Defender</td>
+                    <td class="highlight">Authenticode SHA-256 ผ่านฉลุย 100%</td>
+                  </tr>
+                  <tr>
+                    <td><strong>ส่วนติดต่อผู้ใช้ (UX/UI)</strong></td>
+                    <td>ไฟล์ Excel ตารางเปล่า</td>
+                    <td>หน้าจอดำ (PowerShell CLI)</td>
+                    <td class="highlight">Modern Cyber Glassmorphism</td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+
+          </div>
+        </div>
+
+        <!-- ==================================================================
+             ZONE 4: FOOTER (CONCLUSIONS + QR CODE REPOSITORY)
+             ================================================================== -->
+        <footer class="footer-band">
+          <div class="footer-summary">
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              บทสรุปและแนวทางการพัฒนาต่อยอด (Conclusions &amp; Future Work)
+            </h3>
+            <p>
+              FTI PC Inventory Tool ช่วยยกระดับการบริหารสินทรัพย์สารสนเทศของสภาอุตสาหกรรมแห่งประเทศไทย ให้มีความแม่นยำ ปลอดภัย และรวดเร็วขึ้นกว่า 15 เท่า 
+              สามารถลดเวลาการจัดทำงบประมาณและตรวจสอบลิขสิทธิ์ซอฟต์แวร์ได้อย่างสมบูรณ์แบบ ทั้งนี้ในอนาคตมีแผนเชื่อมโยงฐานข้อมูลส่วนกลางผ่าน Cloud API, ตรวจจับช่องโหว่ความปลอดภัย CVE ของซอฟต์แวร์อัตโนมัติ, และแจ้งเตือนผ่าน LINE Notify / Teams Bot
+            </p>
+          </div>
+
+          <!-- QR Code Badge -->
+          <div class="qr-badge-group">
+            <div class="qr-frame">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35" shape-rendering="crispEdges">
+                <path fill="#ffffff" d="M0 0h35v35H0z"/>
+                <path stroke="#070d1e" d="M1 1.5h7m1 0h4m1 0h3m2 0h2m3 0h1m2 0h7M1 2.5h1m5 0h1m2 0h2m1 0h3m1 0h1m1 0h4m4 0h1m5 0h1M1 3.5h1m1 0h3m1 0h1m2 0h1m1 0h1m2 0h6m1 0h4m1 0h1m1 0h3m1 0h1M1 4.5h1m1 0h3m1 0h1m1 0h1m7 0h2m5 0h2m1 0h1m1 0h3m1 0h1M1 5.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m3 0h1m2 0h1m2 0h2m2 0h1m1 0h3m1 0h1M1 6.5h1m5 0h1m1 0h1m1 0h2m3 0h1m2 0h1m1 0h2m4 0h1m5 0h1M1 7.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 8.5h4m2 0h1m2 0h6m1 0h1M1 9.5h1m3 0h1m1 0h4m3 0h1m1 0h3m3 0h1m1 0h1m1 0h5m2 0h1M4 10.5h3m4 0h1m1 0h1m1 0h2m1 0h2m2 0h1m1 0h1m1 0h1m3 0h2m1 0h1M1 11.5h4m2 0h1m1 0h1m1 0h6m2 0h1m1 0h4m1 0h2m2 0h1m1 0h1M1 12.5h1m4 0h1m1 0h1m2 0h1m2 0h1m1 0h2m3 0h2m1 0h1m2 0h1m4 0h1M4 13.5h2m1 0h1m3 0h2m1 0h1m1 0h2m3 0h1m1 0h3m1 0h1m1 0h2m1 0h1M1 14.5h1m3 0h1m4 0h4m1 0h1m2 0h7m3 0h1m1 0h1M2 15.5h2m2 0h4m2 0h1m1 0h3m1 0h2m4 0h1m1 0h2m1 0h1m1 0h2M1 16.5h1m2 0h1m3 0h1m5 0h1m1 0h3m2 0h8M2 17.5h1m1 0h6m3 0h1m3 0h2m2 0h3m1 0h1m1 0h1m1 0h4M3 18.5h2m6 0h1m1 0h1m1 0h2m2 0h2m1 0h1m1 0h1m1 0h1m3 0h4M2 19.5h1m2 0h1m1 0h2m1 0h4m2 0h1m1 0h1m2 0h1m2 0h1m1 0h1m1 0h1m1 0h1m1 0h1M1 20.5h1m3 0h2m2 0h1m2 0h1m1 0h1m1 0h7m1 0h2m1 0h2M3 21.5h1m1 0h1m1 0h2m1 0h2m2 0h1m4 0h1m1 0h1m1 0h1m3 0h1m2 0h1m2 0h1M1 22.5h1m2 0h1m12 0h1m5 0h2m1 0h1m1 0h1m2 0h2M3 23.5h2m1 0h2m1 0h1m1 0h2m1 0h2m1 0h3m1 0h1m1 0h2m1 0h1m3 0h1m1 0h1M4 24.5h3m1 0h6m1 0h1m2 0h5m2 0h3m4 0h2M1 25.5h4m1 0h2m2 0h1m1 0h2m1 0h4m2 0h9m1 0h3M9 26.5h1m1 0h1m2 0h1m1 0h1m1 0h1m2 0h1m2 0h2m3 0h1m1 0h1m1 0h1M1 27.5h7m1 0h2m2 0h4m2 0h1m1 0h2m2 0h1m1 0h1m1 0h2m1 0h1M1 28.5h1m5 0h1m2 0h2m1 0h1m1 0h3m3 0h3m1 0h1m3 0h1m3 0h1M1 29.5h1m1 0h3m1 0h1m1 0h2m4 0h1m1 0h1m3 0h3m1 0h6m2 0h1M1 30.5h1m1 0h3m1 0h1m3 0h1m1 0h2m3 0h2m2 0h1m1 0h2m1 0h3m1 0h1M1 31.5h1m1 0h3m1 0h1m2 0h4m1 0h2m1 0h1m2 0h1m2 0h2m1 0h3m1 0h1M1 32.5h1m5 0h1m4 0h1m3 0h3m1 0h3m1 0h3M1 33.5h7m1 0h2m2 0h3m1 0h3m1 0h5m1 0h1m2 0h2m1 0h1"/>
+              </svg>
+            </div>
+            <div class="qr-meta">
+              <h4>ซอร์สโค้ดและเอกสารโครงงาน</h4>
+              <p>สแกน QR เพื่อเข้าสู่ GitHub Repository</p>
+              <a href="https://github.com/MrAlex1199/FTI_PC_Inventory_Tool" target="_blank" class="repo-link-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                MrAlex1199/FTI_PC_Inventory_Tool
+              </a>
+            </div>
+          </div>
+        </footer>
+
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Scale and Viewport Logic for Responsive Preview
+    function applyScale(val) {
+      const wrapper = document.getElementById('scaleWrapper');
+      const sheet = document.getElementById('posterSheet');
+      if (val === 'fit') {
+        const availableWidth = window.innerWidth - 60;
+        const availableHeight = window.innerHeight - 110;
+        // 594mm in pixels at 96 DPI: 594 * (96 / 25.4) = ~2245px
+        // 841mm in pixels at 96 DPI: 841 * (96 / 25.4) = ~3178px
+        const posterPixelW = sheet.offsetWidth || 2245;
+        const posterPixelH = sheet.offsetHeight || 3178;
+        const scaleW = availableWidth / posterPixelW;
+        const scaleH = availableHeight / posterPixelH;
+        const scale = Math.min(scaleW, scaleH, 1.0);
+        wrapper.style.transform = `scale(${scale})`;
+      } else {
+        wrapper.style.transform = `scale(${parseFloat(val)})`;
+      }
+    }
+
+    // Auto-fit on initial page load and window resize
+    window.addEventListener('resize', () => {
+      const select = document.getElementById('scaleSelect');
+      if (select && select.value === 'fit') {
+        applyScale('fit');
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      // Load saved author information from localStorage if exists
+      const savedAuthor = localStorage.getItem('fti_poster_author');
+      const savedAdvisor = localStorage.getItem('fti_poster_advisor');
+      const savedOrg = localStorage.getItem('fti_poster_org');
+      const savedTech = localStorage.getItem('fti_poster_tech');
+
+      if (savedAuthor) document.getElementById('metaAuthor').textContent = savedAuthor;
+      if (savedAdvisor) document.getElementById('metaAdvisor').textContent = savedAdvisor;
+      if (savedOrg) document.getElementById('metaOrg').textContent = savedOrg;
+      if (savedTech) document.getElementById('metaTech').textContent = savedTech;
+
+      applyScale('fit');
+    });
+
+    // Toggle Content Editable for Easy Customization
+    let isEditMode = false;
+    function toggleEditMode() {
+      isEditMode = !isEditMode;
+      const fields = ['metaAuthor', 'metaAdvisor', 'metaOrg', 'metaTech'];
+      const btn = document.getElementById('editToggleBtn');
+
+      fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.contentEditable = isEditMode ? 'true' : 'false';
+        }
+      });
+
+      if (isEditMode) {
+        btn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          บันทึกข้อมูล (Save Info)
+        `;
+        btn.style.borderColor = '#38bdf8';
+        btn.style.color = '#38bdf8';
+      } else {
+        // Save to localStorage
+        localStorage.setItem('fti_poster_author', document.getElementById('metaAuthor').textContent.trim());
+        localStorage.setItem('fti_poster_advisor', document.getElementById('metaAdvisor').textContent.trim());
+        localStorage.setItem('fti_poster_org', document.getElementById('metaOrg').textContent.trim());
+        localStorage.setItem('fti_poster_tech', document.getElementById('metaTech').textContent.trim());
+
+        btn.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          แก้ไขข้อมูลผู้จัดทำ
+        `;
+        btn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+        btn.style.color = '#f8fafc';
+      }
+    }
+
+    // Print Poster
+    function printPoster() {
+      // Ensure edit mode is disabled before printing
+      if (isEditMode) {
+        toggleEditMode();
+      }
+      window.print();
+    }
+  </script>
+</body>
+</html>
